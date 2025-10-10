@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: emailfilter_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-emailfilter}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-emailfilter123}
+      POSTGRES_DB: ${POSTGRES_DB:-emailfilter}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emailfilter"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - emailfilter_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: emailfilter_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - emailfilter_network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: emailfilter_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://emailfilter:emailfilter123@postgres:5432/emailfilter
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/3
+      - CELERY_RESULT_BACKEND=redis://redis:6379/3
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+    networks:
+      - emailfilter_network
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 5 &&
+        echo 'Running migrations...' &&
+        alembic upgrade head &&
+        echo 'Starting FastAPI server...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: emailfilter_celery_worker
+    depends_on:
+      - backend
+      - redis
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://emailfilter:emailfilter123@postgres:5432/emailfilter
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/3
+      - CELERY_RESULT_BACKEND=redis://redis:6379/3
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+    networks:
+      - emailfilter_network
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+
+  # Celery Beat (Scheduled Tasks)
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: emailfilter_celery_beat
+    depends_on:
+      - backend
+      - redis
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://emailfilter:emailfilter123@postgres:5432/emailfilter
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/3
+      - CELERY_RESULT_BACKEND=redis://redis:6379/3
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+    networks:
+      - emailfilter_network
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+
+  # Flower (Celery Monitoring)
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: emailfilter_flower
+    depends_on:
+      - celery_worker
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/3
+      - CELERY_RESULT_BACKEND=redis://redis:6379/3
+    ports:
+      - "5555:5555"
+    networks:
+      - emailfilter_network
+    command: celery -A app.tasks.celery_app flower --port=5555
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  emailfilter_network:
+    driver: bridge
