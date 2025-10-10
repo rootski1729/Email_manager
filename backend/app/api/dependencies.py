@@ -47,9 +47,18 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Try to get user from cache first
-    redis_client = await redis_manager.get_cache_client()
-    cache_key = f"user:{user_id}"
+    # Try to get user from cache first (with error handling)
+    try:
+        redis_client = await redis_manager.get_cache_client()
+        cache_key = f"user:{user_id}"
+        
+        # Try to get from cache
+        cached_user_id = await redis_client.get(cache_key)
+        if cached_user_id:
+            print(f"✅ User {user_id} found in cache")
+    except Exception as e:
+        print(f"⚠️  Redis error (continuing without cache): {str(e)}")
+        redis_client = None
     
     # Get user from database
     stmt = select(User).where(User.id == int(user_id))
@@ -68,8 +77,12 @@ async def get_current_user(
             detail="User account is inactive"
         )
     
-    # Cache user data for 5 minutes
-    await redis_client.setex(cache_key, 300, str(user.id))
+    # Cache user data for 5 minutes (only if Redis is available)
+    if redis_client:
+        try:
+            await redis_client.setex(cache_key, 300, str(user.id))
+        except Exception as e:
+            print(f"⚠️  Failed to cache user data: {str(e)}")
     
     return user
 

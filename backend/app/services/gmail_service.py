@@ -308,6 +308,216 @@ class GoogleOAuthService:
             print(f"❌ Failed to fetch email body: {error}")
             return None
 
+    @staticmethod
+    async def get_valid_access_token(
+        db: AsyncSession,
+        connected_email: ConnectedEmail
+    ) -> str:
+        """Get valid access token, refresh if expired"""
+        # Check if token is expired or about to expire (5 min buffer)
+        if connected_email.token_expires_at:
+            buffer = timedelta(minutes=5)
+            if datetime.utcnow() + buffer >= connected_email.token_expires_at:
+                logger.info(f"🔄 Access token expired, refreshing for {connected_email.email_address}")
+                return await GoogleOAuthService.refresh_access_token(db, connected_email)
+        
+        # Token is still valid
+        return token_encryption.decrypt(connected_email.access_token_encrypted)
+    
+    @staticmethod
+    async def list_emails_from_inbox(
+        db: AsyncSession,
+        connected_email: ConnectedEmail,
+        max_results: int = 20,
+        page_token: Optional[str] = None,
+        query: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Fetch emails from Gmail inbox with pagination
+        
+        Args:
+            db: Database session
+            connected_email: Connected email account
+            max_results: Number of emails to fetch (max 500)
+            page_token: Token for pagination
+            query: Gmail search query (e.g., 'is:unread', 'from:example.com')
+        
+        Returns:
+            Dict with messages and nextPageToken
+        """
+        try:
+            # Get valid access token (auto-refresh if needed)
+            access_token = await GoogleOAuthService.get_valid_access_token(db, connected_email)
+            
+            credentials = Credentials(token=access_token)
+            service = build('gmail', 'v1', credentials=credentials)
+            
+            # Build request parameters
+            params = {
+                'userId': 'me',
+                'maxResults': min(max_results, 500),  # Gmail API limit
+            }
+            
+            if page_token:
+                params['pageToken'] = page_token
+            
+            if query:
+                params['q'] = query
+            
+            # Fetch message list
+            logger.info(f"📥 Fetching emails from {connected_email.email_address}")
+            response = service.users().messages().list(**params).execute()
+            
+            messages = response.get('messages', [])
+            next_page_token = response.get('nextPageToken')
+            
+            # Fetch metadata for each message
+            email_list = []
+            for msg in messages:
+                msg_detail = service.users().messages().get(
+                    userId='me',
+                    id=msg['id'],
+                    format='metadata',
+                    metadataHeaders=['From', 'Subject', 'Date', 'To']
+                ).execute()
+                
+                headers = {h['name']: h['value'] for h in msg_detail['payload']['headers']}
+                
+                email_list.append({
+                    'id': msg_detail['id'],
+                    'threadId': msg_detail['threadId'],
+                    'snippet': msg_detail.get('snippet', ''),
+                    'from': headers.get('From', ''),
+                    'to': headers.get('To', ''),
+                    'subject': headers.get('Subject', ''),
+                    'date': headers.get('Date', ''),
+                    'internalDate': msg_detail.get('internalDate', ''),
+                    'labelIds': msg_detail.get('labelIds', []),
+                })
+            
+            logger.info(f"✅ Fetched {len(email_list)} emails")
+            
+            return {
+                'emails': email_list,
+                'nextPageToken': next_page_token,
+                'resultSizeEstimate': response.get('resultSizeEstimate', 0)
+            }
+        
+        except HttpError as error:
+            logger.error(f"❌ Failed to fetch emails: {error}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Failed to fetch emails from Gmail: {str(error)}"
+            )
+        except Exception as e:
+            logger.error(f"❌ Unexpected error fetching emails: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to fetch emails: {str(e)}"
+            )
+    
+    @staticmethod
+    async def get_email_by_id(
+        db: AsyncSession,
+        connected_email: ConnectedEmail,
+        message_id: str,
+        format: str = 'full'
+    ) -> Dict[str, Any]:
+        """
+        Get specific email by Gmail message ID
+        
+        Args:
+            db: Database session
+            connected_email: Connected email account
+            message_id: Gmail message ID
+            format: 'minimal', 'full', 'raw', 'metadata'
+        
+        Returns:
+            Email details
+        """
+        try:
+            # Get valid access token (auto-refresh if needed)
+            access_token = await GoogleOAuthService.get_valid_access_token(db, connected_email)
+            
+            credentials = Credentials(token=access_token)
+            service = build('gmail', 'v1', credentials=credentials)
+            
+            logger.info(f"📧 Fetching email {message_id} from {connected_email.email_address}")
+            
+            message = service.users().messages().get(
+                userId='me',
+                id=message_id,
+                format=format
+            ).execute()
+            
+            # Parse headers
+            headers = {}
+            if 'payload' in message and 'headers' in message['payload']:
+                headers = {h['name']: h['value'] for h in message['payload']['headers']}
+            
+            # Extract body
+            body = ''
+            if format == 'full':
+                payload = message.get('payload', {})
+                
+                if 'parts' in payload:
+                    # Multipart message
+                    for part in payload['parts']:
+                        if part.get('mimeType') == 'text/plain':
+                            data = part.get('body', {}).get('data', '')
+                            if data:
+                                body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+                                break
+                        elif part.get('mimeType') == 'text/html' and not body:
+                            data = part.get('body', {}).get('data', '')
+                            if data:
+                                body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+                else:
+                    # Simple message
+                    data = payload.get('body', {}).get('data', '')
+                    if data:
+                        body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+            
+            result = {
+                'id': message['id'],
+                'threadId': message['threadId'],
+                'labelIds': message.get('labelIds', []),
+                'snippet': message.get('snippet', ''),
+                'internalDate': message.get('internalDate', ''),
+                'from': headers.get('From', ''),
+                'to': headers.get('To', ''),
+                'cc': headers.get('Cc', ''),
+                'bcc': headers.get('Bcc', ''),
+                'subject': headers.get('Subject', ''),
+                'date': headers.get('Date', ''),
+                'body': body if format == 'full' else message.get('snippet', ''),
+                'raw': message.get('raw') if format == 'raw' else None,
+            }
+            
+            logger.info(f"✅ Fetched email: {headers.get('Subject', 'No subject')}")
+            
+            return result
+        
+        except HttpError as error:
+            logger.error(f"❌ Failed to fetch email {message_id}: {error}")
+            if error.resp.status == 404:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Email not found: {message_id}"
+                )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Failed to fetch email from Gmail: {str(error)}"
+            )
+        except Exception as e:
+            logger.error(f"❌ Unexpected error fetching email: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to fetch email: {str(e)}"
+            )
 
-# Needed for token refresh
+
+# Needed for token refresh and HTTP exceptions
 from google.auth.transport.requests import Request
+from fastapi import HTTPException, status
+

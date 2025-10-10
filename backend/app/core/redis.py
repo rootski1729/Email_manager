@@ -3,7 +3,10 @@ Redis connection manager
 """
 import redis.asyncio as aioredis
 from typing import Optional
+import logging
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class RedisManager:
@@ -16,23 +19,43 @@ class RedisManager:
     async def get_cache_client(self) -> aioredis.Redis:
         """Get Redis client for caching"""
         if self._cache_client is None:
-            self._cache_client = await aioredis.from_url(
-                settings.REDIS_URL,
-                db=settings.REDIS_CACHE_DB,
-                encoding="utf-8",
-                decode_responses=True
-            )
+            try:
+                self._cache_client = await aioredis.from_url(
+                    settings.REDIS_URL,
+                    db=settings.REDIS_CACHE_DB,
+                    encoding="utf-8",
+                    decode_responses=True,
+                    socket_connect_timeout=5,  # 5 second timeout
+                    socket_timeout=5
+                )
+                # Test connection
+                await self._cache_client.ping()
+                logger.info("✅ Redis cache client connected successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to connect to Redis: {str(e)}")
+                logger.warning("⚠️  Application will continue without Redis caching")
+                raise
         return self._cache_client
     
     async def get_session_client(self) -> aioredis.Redis:
         """Get Redis client for session management"""
         if self._session_client is None:
-            self._session_client = await aioredis.from_url(
-                settings.REDIS_URL,
-                db=settings.REDIS_SESSION_DB,
-                encoding="utf-8",
-                decode_responses=True
-            )
+            try:
+                self._session_client = await aioredis.from_url(
+                    settings.REDIS_URL,
+                    db=settings.REDIS_SESSION_DB,
+                    encoding="utf-8",
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
+                )
+                # Test connection
+                await self._session_client.ping()
+                logger.info("✅ Redis session client connected successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to connect to Redis: {str(e)}")
+                logger.warning("⚠️  Application will continue without Redis sessions")
+                raise
         return self._session_client
     
     async def close(self):
@@ -44,3 +67,15 @@ class RedisManager:
 
 
 redis_manager = RedisManager()
+
+
+async def get_redis() -> Optional[aioredis.Redis]:
+    """
+    FastAPI dependency for Redis client
+    Returns None if Redis is unavailable (application continues without caching)
+    """
+    try:
+        return await redis_manager.get_cache_client()
+    except Exception as e:
+        logger.warning(f"⚠️  Redis unavailable, returning None: {e}")
+        return None
