@@ -38,8 +38,8 @@ app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="Smart Email Management System - Filter and manage multiple Gmail accounts",
-    docs_url="/docs" if settings.IS_DOCS else None,
-    redoc_url="/redoc" if settings.IS_DOCS else None,
+    docs_url="/api/v1/docs" if settings.IS_DOCS else None,
+    redoc_url="/api/v1/redoc" if settings.IS_DOCS else None,
     lifespan=lifespan
 )
 
