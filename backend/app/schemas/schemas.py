@@ -4,7 +4,7 @@ Pydantic schemas for request/response validation
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, EmailStr, Field, validator
-from app.models.models import PlanType, FilterType, ActionType
+from app.models import PlanType, FilterType, ActionType, EmailDigestFrequency
 
 
 # ===== Auth Schemas =====
@@ -226,7 +226,7 @@ class NotificationPreferenceUpdate(BaseModel):
     """Update notification preferences"""
     whatsapp_enabled: Optional[bool] = None
     email_digest_enabled: Optional[bool] = None
-    email_digest_frequency: Optional[str] = Field(None, pattern="^(daily|weekly)$")
+    email_digest_frequency: EmailDigestFrequency
     in_app_notifications: Optional[bool] = None
 
 
@@ -236,7 +236,7 @@ class NotificationPreferenceResponse(BaseModel):
     user_id: int
     whatsapp_enabled: bool
     email_digest_enabled: bool
-    email_digest_frequency: str
+    email_digest_frequency: EmailDigestFrequency
     in_app_notifications: bool
     updated_at: datetime
     

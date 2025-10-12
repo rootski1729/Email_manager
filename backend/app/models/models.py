@@ -1,7 +1,4 @@
-"""
-SQLAlchemy models for the application
-"""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy import (
     String, Integer, Boolean, DateTime, Text, JSON, 
@@ -9,10 +6,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
-from .enums import PlanType, FilterType, ActionType
+from .enums import PlanType, FilterType, ActionType, EmailDigestFrequency
 
 class User(Base):
-    """User account"""
     __tablename__ = "users"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -22,8 +18,8 @@ class User(Base):
     hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
     # Relationships
     user_plan: Mapped["UserPlan"] = relationship("UserPlan", back_populates="user", uselist=False)
@@ -36,30 +32,28 @@ class User(Base):
 
 
 class Plan(Base):
-    """Subscription plans"""
     __tablename__ = "plans"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(SQLEnum(PlanType), unique=True, nullable=False)
+    name: Mapped[PlanType] = mapped_column(SQLEnum(PlanType), unique=True, nullable=False)
     max_emails: Mapped[int] = mapped_column(Integer, nullable=False)
     max_filters: Mapped[int] = mapped_column(Integer, nullable=False)
     price_monthly: Mapped[int] = mapped_column(Integer, default=0)  # in cents
     features: Mapped[dict] = mapped_column(JSON, default={})
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
     
     # Relationships
     user_plans: Mapped[list["UserPlan"]] = relationship("UserPlan", back_populates="plan")
 
 
 class UserPlan(Base):
-    """User's current subscription plan"""
     __tablename__ = "user_plans"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("plans.id"), nullable=False)
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     auto_renew: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -74,7 +68,6 @@ class UserPlan(Base):
 
 
 class ConnectedEmail(Base):
-    """Gmail accounts connected by users"""
     __tablename__ = "connected_emails"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -87,7 +80,7 @@ class ConnectedEmail(Base):
     pubsub_subscription: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
     
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="connected_emails")
@@ -101,21 +94,20 @@ class ConnectedEmail(Base):
 
 
 class EmailFilter(Base):
-    """User-defined email filters"""
     __tablename__ = "email_filters"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    filter_type: Mapped[str] = mapped_column(SQLEnum(FilterType), nullable=False)
+    filter_type: Mapped[FilterType] = mapped_column(SQLEnum(FilterType), nullable=False)
     conditions: Mapped[dict] = mapped_column(JSON, nullable=False)  # {sender, subject, body, etc.}
-    action_type: Mapped[str] = mapped_column(SQLEnum(ActionType), default=ActionType.NOTIFY)
+    action_type: Mapped[ActionType] = mapped_column(SQLEnum(ActionType), default=ActionType.NOTIFY)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     match_count: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="filters")
     filtered_emails: Mapped[list["FilteredEmail"]] = relationship("FilteredEmail", back_populates="matched_filter")
@@ -126,7 +118,6 @@ class EmailFilter(Base):
 
 
 class FilteredEmail(Base):
-    """Emails that matched user filters"""
     __tablename__ = "filtered_emails"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -143,7 +134,7 @@ class FilteredEmail(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     notified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
     
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="filtered_emails")
@@ -157,18 +148,17 @@ class FilteredEmail(Base):
 
 
 class NotificationPreference(Base):
-    """User notification preferences"""
     __tablename__ = "notification_preferences"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     whatsapp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     email_digest_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    email_digest_frequency: Mapped[str] = mapped_column(String(20), default="daily")  # daily, weekly
+    email_digest_frequency: Mapped[EmailDigestFrequency] = mapped_column(SQLEnum(EmailDigestFrequency), default=EmailDigestFrequency.WEEKLY)
     in_app_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="notification_preference")
 

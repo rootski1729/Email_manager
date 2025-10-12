@@ -21,3 +21,8 @@ class ActionType(str, enum.Enum):
     NOTIFY = "notify"
     WHATSAPP = "whatsapp"
     ARCHIVE = "archive"
+    
+class EmailDigestFrequency(str, enum.Enum):
+    """Email digest frequency options"""
+    DAILY = "daily"
+    WEEKLY = "weekly"

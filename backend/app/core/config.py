@@ -1,6 +1,3 @@
-"""
-Application configuration using Pydantic Settings
-"""
 from typing import List
 from pydantic_settings import BaseSettings
 from pydantic import PostgresDsn, RedisDsn, validator
@@ -21,7 +18,7 @@ class Settings(BaseSettings):
     
     # Redis
     REDIS_URL: str
-    REDIS_SESSION_DB: int = 1
+    REDIS_SESSION_DB: int = 1  #for user session
     REDIS_CACHE_DB: int = 2
     REDIS_CELERY_DB: int = 3
     
