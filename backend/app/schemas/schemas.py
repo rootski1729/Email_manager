@@ -9,13 +9,13 @@ from app.models import PlanType, FilterType, ActionType, EmailDigestFrequency
 
 # ===== Auth Schemas =====
 class OTPRequest(BaseModel):
-    """Request OTP for login/signup"""
-    email: EmailStr
+    """Request OTP for login/signup via WhatsApp"""
+    phone_number: str = Field(..., description="Phone number in E.164 format (e.g., +1234567890)")
 
 
 class OTPVerify(BaseModel):
-    """Verify OTP and get tokens"""
-    email: EmailStr
+    """Verify WhatsApp OTP and get tokens"""
+    phone_number: str = Field(..., description="Phone number in E.164 format (e.g., +1234567890)")
     code: str = Field(..., min_length=6, max_length=6)
 
 
@@ -34,7 +34,7 @@ class TokenRefresh(BaseModel):
 # ===== User Schemas =====
 class UserBase(BaseModel):
     """Base user schema"""
-    email: EmailStr
+    email: Optional[str] = None  # Now optional for WhatsApp-only users
     phone_number: Optional[str] = Field(None, description="Phone number in E.164 format (e.g., +1234567890)")
 
 
@@ -44,7 +44,8 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    """Update user"""
+    """Update user profile"""
+    email: Optional[str] = Field(None, description="Email address (optional)")
     phone_number: Optional[str] = Field(None, description="Phone number in E.164 format (e.g., +1234567890)")
 
 
@@ -132,16 +133,35 @@ class ConnectedEmailResponse(ConnectedEmailBase):
 
 # ===== Email Filter Schemas =====
 class FilterConditions(BaseModel):
-    """Filter conditions"""
-    sender: Optional[str] = None
-    subject_contains: Optional[str] = None
-    body_contains: Optional[str] = None
-    sender_domain: Optional[str] = None
+    """Filter conditions - supports both single values and lists (max 3 items per field)"""
+    sender: Optional[List[str]] = None
+    subject_contains: Optional[List[str]] = None
+    body_contains: Optional[List[str]] = None
+    sender_domain: Optional[List[str]] = None
     
-    @validator('*', pre=True)
-    def strip_strings(cls, v):
+    @validator('sender', 'subject_contains', 'body_contains', 'sender_domain', pre=True)
+    def normalize_and_validate(cls, v):
+        """Normalize single strings to lists and validate length"""
+        if v is None:
+            return None
+        
+        # Convert single string to list for consistency
         if isinstance(v, str):
-            return v.strip()
+            v = [v.strip()] if v.strip() else None
+        
+        # Validate list
+        if isinstance(v, list):
+            # Remove empty strings and strip whitespace
+            v = [item.strip() for item in v if item and item.strip()]
+            
+            if not v:  # All items were empty
+                return None
+            
+            if len(v) > 3:
+                raise ValueError("Maximum 3 conditions allowed per field")
+            
+            return v
+        
         return v
 
 
@@ -150,7 +170,7 @@ class EmailFilterCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     filter_type: FilterType
     conditions: FilterConditions
-    action_type: ActionType = ActionType.NOTIFY
+    action_type: ActionType = ActionType.WHATSAPP
     priority: int = Field(default=0, ge=0, le=100)
 
 
@@ -252,8 +272,8 @@ class GoogleAuthURL(BaseModel):
 
 class GoogleAuthCallback(BaseModel):
     """Google OAuth callback data"""
-    code: str
-    state: Optional[str] = None
+    success: bool = True
+    message: str
 
 
 # ===== Dashboard Stats =====

@@ -38,7 +38,12 @@ class Settings(BaseSettings):
     GOOGLE_PROJECT_ID: str
     GOOGLE_PUBSUB_TOPIC: str
     
-    # Twilio (for WhatsApp notifications)
+    # WAHA (WhatsApp HTTP API) - replaces Twilio
+    WAHA_API_URL: str = "http://localhost:3000/api"
+    WAHA_API_KEY: str = ""
+    WAHA_SESSION_NAME: str = "default"
+    
+    # Legacy Twilio (deprecated - kept for backward compatibility)
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_WHATSAPP_FROM: str = "whatsapp:+14155238886"  # Twilio sandbox number
@@ -77,6 +82,11 @@ class Settings(BaseSettings):
     ENABLE_WHATSAPP_NOTIFICATIONS: bool = False
     ENABLE_EMAIL_DIGESTS: bool = True
     ENABLE_SIGNUP: bool = True
+    
+    # WhatsApp OTP Authentication
+    WHATSAPP_OTP_ENABLED: bool = True  # Set to False to disable WhatsApp OTP
+    WHATSAPP_OTP_EXPIRY_MINUTES: int = 2  # OTP expires in 2 minutes
+    WHATSAPP_OTP_LENGTH: int = 6  # 6-digit OTP
     
     class Config:
         env_file = ".env"

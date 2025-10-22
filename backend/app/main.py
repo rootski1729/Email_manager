@@ -84,7 +84,6 @@ app.include_router(api_router, prefix="/api/v1")
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    """Handle unexpected exceptions"""
     print(f"❌ Unhandled exception: {str(exc)}")
     
     if settings.DEBUG:

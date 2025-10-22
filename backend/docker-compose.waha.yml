@@ -1,0 +1,54 @@
+# Add this to your docker-compose.yml
+
+services:
+  # ... your existing services (postgres, redis, backend, etc.) ...
+
+  # WAHA - WhatsApp HTTP API Service
+  waha:
+    image: devlikeapro/waha
+    container_name: waha
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # API port
+    environment:
+      # API Security
+      - WAHA_API_KEY=${WAHA_API_KEY:-changeme123}
+      
+      # Webhook Configuration (optional)
+      - WHATSAPP_HOOK_URL=http://backend:8000/api/v1/webhooks/waha
+      - WHATSAPP_HOOK_EVENTS=message,message.any,session.status
+      
+      # Logging
+      - WAHA_LOG_LEVEL=info
+      - WAHA_LOG_FORMAT=PRETTY
+      
+      # Session Configuration
+      - WAHA_PRINT_QR=True  # Print QR to console
+      - WHATSAPP_RESTART_ALL_SESSIONS=True  # Auto-restart sessions
+      
+      # Optional: Disable dashboard auth for development
+      # - WAHA_DASHBOARD_NO_PASSWORD=True
+    volumes:
+      # Persist WhatsApp sessions (important!)
+      - ./waha_sessions:/app/.sessions:rw
+      
+      # Optional: Persist media files
+      - ./waha_files:/tmp/whatsapp-files:rw
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  app-network:
+    driver: bridge
+
+# After adding this:
+# 1. Update your .env file with WAHA_API_KEY=your-secret-key
+# 2. Run: docker-compose up -d waha
+# 3. Open http://localhost:3000/dashboard to scan QR code
+# 4. Or check logs: docker-compose logs -f waha

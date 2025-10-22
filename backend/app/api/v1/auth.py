@@ -1,6 +1,3 @@
-"""
-Authentication API endpoints
-"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -18,16 +15,26 @@ async def request_otp(
     request: OTPRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Request OTP for login/signup"""
+    """
+    Request WhatsApp OTP for login/signup
+    
+    - Validates phone number format (E.164: +1234567890)
+    - Generates 6-digit OTP
+    - Sends OTP via WhatsApp
+    - Rate limited to 3 requests per 15 minutes per phone number
+    - OTP expires in 2 minutes
+    - Works for both new signups and existing user logins
+    """
     try:
-        await AuthService.create_otp(db, request.email)
+        await AuthService.create_otp(db, request.phone_number)
         return MessageResponse(
-            message=f"OTP sent to {request.email}. Valid for 10 minutes.",
+            message=f"OTP sent to {request.phone_number} via WhatsApp. Valid for 2 minutes.",
             success=True
         )
     except ValueError as e:
+        # Invalid phone or rate limited
         raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS if "Too many" in str(e) else status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
 
@@ -37,8 +44,17 @@ async def verify_otp(
     request: OTPVerify,
     db: AsyncSession = Depends(get_db)
 ):
-    """Verify OTP and get access tokens"""
-    user = await AuthService.verify_otp(db, request.email, request.code)
+    """
+    Verify WhatsApp OTP and get access tokens
+    
+    - Validates OTP code (6 digits)
+    - Creates new user account on first login (signup)
+    - Auto-verifies phone number
+    - Assigns FREE plan to new users
+    - Enables WhatsApp notifications by default
+    - Returns JWT access and refresh tokens
+    """
+    user = await AuthService.verify_otp(db, request.phone_number, request.code)
     
     if not user:
         raise HTTPException(
@@ -47,7 +63,7 @@ async def verify_otp(
         )
     
     # Create tokens
-    tokens = AuthService.create_user_tokens(user.id, user.email)
+    tokens = AuthService.create_user_tokens(user.id, user.phone_number)
     
     # Store session in Redis
     await AuthService.store_user_session(user.id, tokens['access_token'])
@@ -70,15 +86,15 @@ async def refresh_token(
         )
     
     user_id = payload.get("sub")
-    email = payload.get("email")
+    phone_number = payload.get("phone")
     
-    if not user_id or not email:
+    if not user_id or not phone_number:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload"
         )
     
     # Create new tokens
-    tokens = AuthService.create_user_tokens(int(user_id), email)
+    tokens = AuthService.create_user_tokens(int(user_id), phone_number)
     
     return TokenResponse(**tokens)

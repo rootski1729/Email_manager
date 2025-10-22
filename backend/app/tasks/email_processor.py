@@ -43,7 +43,10 @@ async def _process_email_async(connected_email_id: int, gmail_message_id: str):
             
             print(f"📧 Processing email {gmail_message_id} for {connected_email.email_address}")
             
-            # Fetch email metadata from Gmail
+            # Fetch email metadata from Gmail (with token validation)
+            # First ensure we have a valid token
+            valid_token = await GoogleOAuthService.get_valid_access_token(db, connected_email)
+            
             email_data = await GoogleOAuthService.fetch_email_metadata(
                 connected_email,
                 gmail_message_id

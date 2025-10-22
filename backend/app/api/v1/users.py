@@ -1,14 +1,12 @@
-"""
-Users API endpoints
-"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models import User, UserPlan, Plan, ConnectedEmail, EmailFilter, FilteredEmail
 from app.schemas import UserResponse, UserWithPlan, UserUpdate, MessageResponse
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -19,11 +17,13 @@ async def get_current_user_info(
     db: AsyncSession = Depends(get_db)
 ):
     """Get current user information with plan details"""
-    # Get plan info
-    stmt = select(UserPlan).where(
+    # Get plan info with eager loading
+    stmt = select(UserPlan).options(
+        selectinload(UserPlan.plan)
+    ).where(
         UserPlan.user_id == current_user.id,
         UserPlan.is_active == True
-    ).join(UserPlan.plan)
+    )
     result = await db.execute(stmt)
     user_plan = result.scalar_one_or_none()
     
@@ -71,9 +71,30 @@ async def update_current_user(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update current user information"""
+    """Update current user information (email, phone, etc.)"""
     update_data = user_data.dict(exclude_unset=True)
     
+    # Validate email uniqueness if updating email
+    if "email" in update_data and update_data["email"]:
+        # Check if email is already taken by another user
+        stmt = select(User).where(
+            User.email == update_data["email"],
+            User.id != current_user.id
+        )
+        result = await db.execute(stmt)
+        existing_user = result.scalar_one_or_none()
+        
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered by another user"
+            )
+        
+        # Mark email as unverified if changed
+        if update_data["email"] != current_user.email:
+            current_user.is_verified = False
+    
+    # Update user fields
     for field, value in update_data.items():
         setattr(current_user, field, value)
     
@@ -120,7 +141,7 @@ async def get_user_stats(
     unread_emails = result.scalar()
     
     # Emails today
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     stmt = select(func.count()).select_from(FilteredEmail).where(
         FilteredEmail.user_id == current_user.id,
         FilteredEmail.received_at >= today_start

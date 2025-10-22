@@ -2,7 +2,6 @@
 Google OAuth API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
@@ -26,7 +25,7 @@ async def get_google_auth_url(
     return GoogleAuthURL(auth_url=auth_url)
 
 
-@router.get("/callback")
+@router.get("/callback", response_model=GoogleAuthCallback)
 async def google_oauth_callback(
     code: str = Query(...),
     state: str = Query(None),
@@ -105,166 +104,18 @@ async def google_oauth_callback(
             refresh_token=token_data['refresh_token'],
             expires_in=3600  # Default 1 hour
         )
+
+        return GoogleAuthCallback(
+            message=f"Successfully connected {email_address}",
+        ) 
         
-        # Return success HTML page (better UX than JSON)
-        success_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Gmail Connected</title>
-            <style>
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                }}
-                .container {{
-                    background: white;
-                    padding: 40px;
-                    border-radius: 12px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                    text-align: center;
-                    max-width: 400px;
-                }}
-                .success-icon {{
-                    font-size: 64px;
-                    margin-bottom: 20px;
-                }}
-                h1 {{
-                    color: #2d3748;
-                    margin-bottom: 10px;
-                    font-size: 24px;
-                }}
-                p {{
-                    color: #718096;
-                    margin-bottom: 20px;
-                }}
-                .email {{
-                    background: #f7fafc;
-                    padding: 12px;
-                    border-radius: 6px;
-                    color: #4a5568;
-                    font-weight: 500;
-                    margin-bottom: 20px;
-                }}
-                .close-btn {{
-                    background: #667eea;
-                    color: white;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-size: 16px;
-                    font-weight: 500;
-                    transition: background 0.3s;
-                }}
-                .close-btn:hover {{
-                    background: #5a67d8;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="success-icon">✅</div>
-                <h1>Gmail Connected!</h1>
-                <p>Your Gmail account has been successfully connected.</p>
-                <div class="email">{email_address}</div>
-                <button class="close-btn" onclick="window.close()">Close Window</button>
-            </div>
-            <script>
-                // Auto-close after 3 seconds
-                setTimeout(() => {{
-                    window.close();
-                }}, 3000);
-            </script>
-        </body>
-        </html>
-        """
-        
-        return HTMLResponse(content=success_html)
-    
     except HTTPException:
         raise
     except Exception as e:
-        # Return error HTML page
-        error_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Connection Failed</title>
-            <style>
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                }}
-                .container {{
-                    background: white;
-                    padding: 40px;
-                    border-radius: 12px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                    text-align: center;
-                    max-width: 400px;
-                }}
-                .error-icon {{
-                    font-size: 64px;
-                    margin-bottom: 20px;
-                }}
-                h1 {{
-                    color: #2d3748;
-                    margin-bottom: 10px;
-                    font-size: 24px;
-                }}
-                p {{
-                    color: #718096;
-                    margin-bottom: 20px;
-                }}
-                .error {{
-                    background: #fff5f5;
-                    border-left: 4px solid #f56565;
-                    padding: 12px;
-                    border-radius: 6px;
-                    color: #c53030;
-                    margin-bottom: 20px;
-                    text-align: left;
-                }}
-                .close-btn {{
-                    background: #f56565;
-                    color: white;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-size: 16px;
-                    font-weight: 500;
-                    transition: background 0.3s;
-                }}
-                .close-btn:hover {{
-                    background: #e53e3e;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="error-icon">❌</div>
-                <h1>Connection Failed</h1>
-                <p>We couldn't connect your Gmail account.</p>
-                <div class="error">{str(e)}</div>
-                <button class="close-btn" onclick="window.close()">Close Window</button>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return HTMLResponse(content=error_html, status_code=400)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to connect Gmail account: {str(e)}"
+        )
 
 
 @router.get("/connected-emails", response_model=list[ConnectedEmailResponse])

@@ -62,47 +62,55 @@ class FilterService:
         subject = email_data.get('subject', '').lower()
         body = email_data.get('body', '').lower()
         
+        # Helper function to check if any value in list matches (OR logic)
+        def matches_any(value_list, target_text):
+            """Check if any value in the list is contained in the target text"""
+            if not value_list:
+                return False
+            # Ensure value_list is always a list
+            if not isinstance(value_list, list):
+                value_list = [value_list]
+            return any(val.lower() in target_text for val in value_list if val)
+        
         # Check based on filter type
         if filter_obj.filter_type == FilterType.SENDER:
             if 'sender' in conditions:
-                filter_sender = conditions['sender'].lower()
-                if filter_sender in sender:
+                if matches_any(conditions['sender'], sender):
                     return True
             
             if 'sender_domain' in conditions:
-                domain = conditions['sender_domain'].lower()
-                if domain in sender:
+                if matches_any(conditions['sender_domain'], sender):
                     return True
         
         elif filter_obj.filter_type == FilterType.SUBJECT:
             if 'subject_contains' in conditions:
-                keyword = conditions['subject_contains'].lower()
-                if keyword in subject:
+                if matches_any(conditions['subject_contains'], subject):
                     return True
         
         elif filter_obj.filter_type == FilterType.BODY:
             if 'body_contains' in conditions:
-                keyword = conditions['body_contains'].lower()
-                if keyword in body:
+                if matches_any(conditions['body_contains'], body):
                     return True
         
         elif filter_obj.filter_type == FilterType.CUSTOM:
-            # Combined filters - all conditions must match
+            # Combined filters - all specified conditions must match (AND logic)
+            # But within each condition, any value can match (OR logic)
             matched = True
             
             if 'sender' in conditions:
-                filter_sender = conditions['sender'].lower()
-                if filter_sender not in sender:
+                if not matches_any(conditions['sender'], sender):
                     matched = False
             
             if 'subject_contains' in conditions and matched:
-                keyword = conditions['subject_contains'].lower()
-                if keyword not in subject:
+                if not matches_any(conditions['subject_contains'], subject):
                     matched = False
             
             if 'body_contains' in conditions and matched:
-                keyword = conditions['body_contains'].lower()
-                if keyword not in body:
+                if not matches_any(conditions['body_contains'], body):
+                    matched = False
+            
+            if 'sender_domain' in conditions and matched:
+                if not matches_any(conditions['sender_domain'], sender):
                     matched = False
             
             return matched

@@ -4,6 +4,31 @@
 
 Filter and manage multiple Gmail accounts with AI-powered rules, real-time notifications, and intelligent inbox organization.
 
+---
+
+## 🚨 **NEW: WhatsApp OTP Authentication**
+
+We've switched from email/password to **WhatsApp OTP** for signup/login to prevent abuse and ensure verified users only.
+
+### 📚 Documentation
+- **Quick Start**: See `QUICK_START.md` for API examples
+- **Migration Guide**: See `WHATSAPP_AUTH_MIGRATION.md` for complete guide
+- **Deployment**: See `DEPLOYMENT_CHECKLIST.md` for step-by-step
+- **Tests**: Run `python run_whatsapp_tests.py` to test
+
+### 🔐 New Auth Flow
+```
+1. User enters phone → 2. WhatsApp OTP sent → 3. User verifies OTP → 4. JWT tokens issued
+```
+
+### 📡 API Changes
+- ✅ **NEW**: `POST /api/v1/auth/request-otp` - Send OTP via WhatsApp
+- ✅ **NEW**: `POST /api/v1/auth/verify-otp` - Verify OTP & login/signup
+- ❌ **REMOVED**: `POST /api/v1/auth/signup` - Use new OTP flow
+- ❌ **REMOVED**: `POST /api/v1/auth/login` - Use new OTP flow
+
+---
+
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://docker.com)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-%23316192.svg?style=flat&logo=postgresql&logoColor=white)](https://postgresql.org)

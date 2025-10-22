@@ -1,12 +1,9 @@
 """
-Authentication service - OTP generation and verification
+Authentication service - WhatsApp OTP for login/signup
 """
 import random
 import string
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
@@ -14,13 +11,14 @@ from app.models import User, Plan, UserPlan, NotificationPreference, PlanType
 from app.core.redis import redis_manager
 from app.core.security import create_access_token, create_refresh_token
 from app.core.config import settings
+from app.services.whatsapp_service import whatsapp_service
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class AuthService:
-    """Handle authentication logic"""
+    """Handle WhatsApp OTP authentication"""
     
     @staticmethod
     def generate_otp() -> str:
@@ -28,105 +26,29 @@ class AuthService:
         return ''.join(random.choices(string.digits, k=6))
     
     @staticmethod
-    async def send_otp_email(email: str, otp: str):
+    async def create_otp(db: AsyncSession, phone_number: str) -> str:
         """
-        Send OTP via email using SMTP
+        Create and send WhatsApp OTP (stored in Redis with 2-minute expiry)
         
         Args:
-            email: Recipient email address
-            otp: 6-digit OTP code
-        """
-        try:
-            # Create message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = f'Your EmailFilter Pro Verification Code: {otp}'
-            msg['From'] = settings.EMAILS_FROM_EMAIL
-            msg['To'] = email
-            
-            # Create HTML email body
-            html_body = f"""
-            <html>
-            <head></head>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px;">
-                    <h2 style="color: #4A90E2; text-align: center;">EmailFilter Pro</h2>
-                    <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <h3 style="color: #333; margin-top: 0;">Your Verification Code</h3>
-                        <p>Hello,</p>
-                        <p>Your one-time password (OTP) for EmailFilter Pro is:</p>
-                        <div style="background-color: #f0f7ff; border-left: 4px solid #4A90E2; padding: 15px; margin: 20px 0;">
-                            <h1 style="color: #4A90E2; margin: 0; font-size: 32px; letter-spacing: 8px; text-align: center;">
-                                {otp}
-                            </h1>
-                        </div>
-                        <p style="color: #666; font-size: 14px;">
-                            <strong>⏰ This code will expire in 2 minutes.</strong>
-                        </p>
-                        <p style="color: #666; font-size: 14px;">
-                            If you didn't request this code, please ignore this email.
-                        </p>
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                        <p style="color: #999; font-size: 12px; text-align: center;">
-                            This is an automated message from EmailFilter Pro. Please do not reply to this email.
-                        </p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            """
-            
-            # Create plain text version (fallback)
-            text_body = f"""
-            EmailFilter Pro - Verification Code
-            
-            Your one-time password (OTP) is: {otp}
-            
-            This code will expire in 2 minutes.
-            
-            If you didn't request this code, please ignore this email.
-            
-            ---
-            This is an automated message from EmailFilter Pro.
-            """
-            
-            # Attach both versions
-            part1 = MIMEText(text_body, 'plain')
-            part2 = MIMEText(html_body, 'html')
-            msg.attach(part1)
-            msg.attach(part2)
-            
-            # Send email via SMTP
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-                server.starttls()  # Enable TLS
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-                server.send_message(msg)
-            
-            logger.info(f"✅ OTP email sent successfully to {email}")
-            print(f"📧 OTP sent to {email}: {otp}")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to send OTP email to {email}: {str(e)}")
-            # Fallback: print to console for development
-            print(f"📧 [EMAIL FAILED - Console Fallback] OTP for {email}: {otp}")
-            print(f"   Error: {str(e)}")
-            # Don't raise exception - allow authentication to continue with console OTP
-    
-    @staticmethod
-    async def create_otp(db: AsyncSession, email: str) -> str:
-        """
-        Create and send OTP (stored only in Redis with 2-minute expiry)
-        
-        Args:
-            db: Database session (not used for OTP, only for user operations)
-            email: User's email address
+            db: Database session
+            phone_number: User's phone number (E.164 format)
             
         Returns:
             6-digit OTP code
+            
+        Raises:
+            ValueError: If phone number invalid or rate limited
         """
+        # Validate phone number format
+        is_valid, formatted_number = whatsapp_service.validate_phone_number(phone_number)
+        if not is_valid:
+            raise ValueError("Invalid phone number format. Use E.164 format (e.g., +1234567890)")
+        
         redis_client = await redis_manager.get_cache_client()
         
         # Check rate limiting - max 3 OTPs per 15 minutes
-        rate_limit_key = f"otp_rate_limit:{email}"
+        rate_limit_key = f"auth_otp_rate_limit:{formatted_number}"
         count = await redis_client.get(rate_limit_key)
         
         if count and int(count) >= 3:
@@ -136,7 +58,7 @@ class AuthService:
         otp_code = AuthService.generate_otp()
         
         # Store in Redis with 2-minute expiry (120 seconds)
-        redis_key = f"otp:{email}:{otp_code}"
+        redis_key = f"auth_otp:{formatted_number}:{otp_code}"
         await redis_client.setex(redis_key, 120, "1")  # 2 minutes expiry
         
         # Increment rate limit counter
@@ -145,46 +67,65 @@ class AuthService:
         else:
             await redis_client.setex(rate_limit_key, 900, 1)  # 15 minutes expiry
         
-        # Send OTP via email
-        await AuthService.send_otp_email(email, otp_code)
+        # Send OTP via WhatsApp
+        success, error = await whatsapp_service.send_phone_otp(formatted_number, otp_code)
+        
+        if not success:
+            logger.error(f"❌ Failed to send WhatsApp OTP to {formatted_number}: {error}")
+            # Still return code for console fallback
+            print(f"📱 [WhatsApp OTP] Code for {formatted_number}: {otp_code}")
+        else:
+            logger.info(f"✅ WhatsApp OTP sent to {formatted_number}")
         
         return otp_code
     
     @staticmethod
-    async def verify_otp(db: AsyncSession, email: str, code: str) -> Optional[User]:
+    async def verify_otp(db: AsyncSession, phone_number: str, code: str) -> Optional[User]:
         """
-        Verify OTP from Redis and return user (create if new)
+        Verify WhatsApp OTP and return user (create if new, auto-verify phone)
         
         Args:
             db: Database session
-            email: User's email address
+            phone_number: User's phone number (E.164 format)
             code: 6-digit OTP code
             
         Returns:
             User object if OTP is valid, None otherwise
         """
+        # Validate phone number format
+        is_valid, formatted_number = whatsapp_service.validate_phone_number(phone_number)
+        if not is_valid:
+            return None
+        
         redis_client = await redis_manager.get_cache_client()
-        redis_key = f"otp:{email}:{code}"
+        redis_key = f"auth_otp:{formatted_number}:{code}"
         
         # Check if OTP exists in Redis
         otp_exists = await redis_client.get(redis_key)
         
         if not otp_exists:
             # OTP is either invalid or expired (2 minutes)
+            logger.warning(f"❌ Invalid or expired OTP for {formatted_number}")
             return None
         
         # Delete OTP from Redis (one-time use)
         await redis_client.delete(redis_key)
         
-        # Get or create user
-        stmt = select(User).where(User.email == email)
+        # Get or create user by phone number
+        stmt = select(User).where(User.phone_number == formatted_number)
         result = await db.execute(stmt)
         user = result.scalar_one_or_none()
         
         if not user:
-            # Create new user with FREE plan
+            # Create new user with WhatsApp-only signup
+            # Generate a unique email placeholder since we removed email requirement
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+            placeholder_email = f"user_{formatted_number.replace('+', '')}_{timestamp}@whatsapp.local"
+            
             user = User(
-                email=email,
+                phone_number=formatted_number,
+                phone_verified=True,  # Auto-verify on successful OTP
+                email=placeholder_email,  # Placeholder email
                 is_verified=True
             )
             db.add(user)
@@ -203,21 +144,30 @@ class AuthService:
                 )
                 db.add(user_plan)
             
-            # Create notification preferences
+            # Create notification preferences with WhatsApp enabled by default
             notif_pref = NotificationPreference(
-                user_id=user.id
+                user_id=user.id,
+                whatsapp_enabled=True  # Enable WhatsApp by default since they signed up with it
             )
             db.add(notif_pref)
             
             await db.commit()
             await db.refresh(user)
+            
+            logger.info(f"✅ New user created via WhatsApp: {formatted_number}")
+        else:
+            # Existing user - verify phone if not already verified
+            if not user.phone_verified:
+                user.phone_verified = True
+                await db.commit()
+                logger.info(f"✅ Phone verified for existing user: {formatted_number}")
         
         return user
     
     @staticmethod
-    def create_user_tokens(user_id: int, email: str) -> dict:
+    def create_user_tokens(user_id: int, phone_number: str) -> dict:
         """Create access and refresh tokens"""
-        token_data = {"sub": str(user_id), "email": email}
+        token_data = {"sub": str(user_id), "phone": phone_number}
         
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)

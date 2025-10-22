@@ -57,8 +57,19 @@ async def create_filter(
     )
     
     db.add(new_filter)
-    await db.commit()
-    await db.refresh(new_filter)
+    
+    try:
+        await db.commit()
+        await db.refresh(new_filter)
+    except Exception as e:
+        await db.rollback()
+        # Check if it's a unique constraint violation for priority
+        if "uq_user_priority" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Priority {filter_data.priority} is already used by another filter. Please choose a different priority."
+            )
+        raise
     
     # Invalidate cache
     await FilterService.invalidate_user_filters_cache(current_user.id)
@@ -144,8 +155,18 @@ async def update_filter(
     for field, value in update_data.items():
         setattr(filter_obj, field, value)
     
-    await db.commit()
-    await db.refresh(filter_obj)
+    try:
+        await db.commit()
+        await db.refresh(filter_obj)
+    except Exception as e:
+        await db.rollback()
+        # Check if it's a unique constraint violation for priority
+        if "uq_user_priority" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Priority {update_data.get('priority')} is already used by another filter. Please choose a different priority."
+            )
+        raise
     
     # Invalidate cache
     await FilterService.invalidate_user_filters_cache(current_user.id)

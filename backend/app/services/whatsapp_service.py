@@ -1,12 +1,11 @@
 """
-WhatsApp notification service using Twilio
+WhatsApp notification service using WAHA (WhatsApp HTTP API)
 """
 import logging
 import random
+import httpx
 from typing import Optional
 from datetime import datetime, timedelta
-from twilio.rest import Client
-from twilio.base.exceptions import TwilioRestException
 import phonenumbers
 from phonenumbers import NumberParseException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,19 +18,53 @@ logger = logging.getLogger(__name__)
 
 
 class WhatsAppService:
-    """Service for WhatsApp notifications via Twilio"""
+    """Service for WhatsApp notifications via WAHA (WhatsApp HTTP API)"""
     
     def __init__(self):
-        """Initialize Twilio client"""
-        self.client = None
-        if settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN:
-            try:
-                self.client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                logger.info("✅ Twilio WhatsApp client initialized")
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize Twilio client: {e}")
+        """Initialize WAHA client"""
+        self.base_url = settings.WAHA_API_URL
+        self.api_key = settings.WAHA_API_KEY
+        self.session_name = settings.WAHA_SESSION_NAME
+        self.client_initialized = False
+        
+        if self.api_key:
+            self.client_initialized = True
+            logger.info(f"✅ WAHA client initialized - Base URL: {self.base_url}")
         else:
-            logger.warning("⚠️ Twilio credentials not configured - WhatsApp disabled")
+            logger.warning("⚠️ WAHA API key not configured - WhatsApp disabled")
+    
+    @property
+    def headers(self) -> dict:
+        """Get headers for WAHA API requests"""
+        return {
+            "X-Api-Key": self.api_key,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+    
+    def format_phone_to_whatsapp(self, phone_number: str) -> Optional[str]:
+        """
+        Convert phone number to WhatsApp chat ID format
+        E.164: +1 (213) 213-2130 -> WhatsApp: 12132132130@c.us
+        
+        Args:
+            phone_number: Phone number in E.164 format
+            
+        Returns:
+            WhatsApp chat ID or None if invalid
+        """
+        try:
+            parsed = phonenumbers.parse(phone_number, None)
+            if phonenumbers.is_valid_number(parsed):
+                # Remove + and format as international
+                number = phonenumbers.format_number(
+                    parsed, 
+                    phonenumbers.PhoneNumberFormat.E164
+                )[1:]  # Remove leading +
+                return f"{number}@c.us"
+        except NumberParseException as e:
+            logger.error(f"Error formatting phone {phone_number}: {e}")
+        return None
     
     def validate_phone_number(self, phone_number: str) -> tuple[bool, Optional[str]]:
         """
@@ -52,6 +85,30 @@ class WhatsAppService:
                 return False, None
         except NumberParseException:
             return False, None
+    
+    async def check_session_status(self) -> dict:
+        """
+        Check WAHA session status
+        
+        Returns:
+            Session info dict with status
+        """
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"{self.base_url}/sessions/{self.session_name}",
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    logger.error(f"Failed to get session status: {response.text}")
+                    return {"status": "FAILED", "error": response.text}
+                    
+        except Exception as e:
+            logger.error(f"Error checking session status: {e}")
+            return {"status": "FAILED", "error": str(e)}
     
     async def generate_phone_otp(self, phone_number: str) -> str:
         """
@@ -113,6 +170,62 @@ class WhatsAppService:
         else:
             return False, "User not found"
     
+    async def send_text(
+        self,
+        phone_number: str,
+        message: str
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Send text message via WAHA
+        
+        Args:
+            phone_number: Recipient's phone number (E.164 format)
+            message: Text message to send
+            
+        Returns:
+            Tuple of (success, error_message)
+        """
+        if not self.client_initialized:
+            logger.error("❌ WAHA client not initialized")
+            # Fallback: print to console for development
+            logger.warning(f"📱 [Console Fallback] Message to {phone_number}: {message}")
+            print(f"📱 [WAHA Not Configured] Message to {phone_number}: {message}")
+            return False, "WhatsApp service not configured"
+        
+        chat_id = self.format_phone_to_whatsapp(phone_number)
+        if not chat_id:
+            return False, "Invalid phone number format"
+        
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/sendText",
+                    headers=self.headers,
+                    json={
+                        "session": self.session_name,
+                        "chatId": chat_id,
+                        "text": message
+                    }
+                )
+                
+                if response.status_code == 201 or response.status_code == 200:
+                    logger.info(f"📤 WhatsApp message sent to {phone_number}")
+                    return True, None
+                else:
+                    error = response.json().get("message", "Unknown error")
+                    logger.error(f"❌ WAHA error: {error}")
+                    # Fallback: print to console
+                    print(f"📱 [WAHA Error - Console Fallback] Message to {phone_number}: {message}")
+                    return False, error
+                    
+        except httpx.TimeoutException:
+            logger.error(f"❌ Timeout sending message to {phone_number}")
+            return False, "Request timeout"
+        except Exception as e:
+            logger.error(f"❌ Error sending message: {e}")
+            print(f"📱 [Error - Console Fallback] Message to {phone_number}: {message}")
+            return False, str(e)
+    
     async def send_phone_otp(self, phone_number: str, code: str) -> tuple[bool, Optional[str]]:
         """
         Send OTP code via WhatsApp
@@ -124,15 +237,7 @@ class WhatsAppService:
         Returns:
             Tuple of (success, error_message)
         """
-        if not self.client:
-            logger.error("❌ Twilio client not initialized")
-            # Fallback: print to console for development
-            logger.warning(f"📱 [Console Fallback] Phone OTP for {phone_number}: {code}")
-            print(f"📱 [WhatsApp Not Configured] Phone OTP for {phone_number}: {code}")
-            return False, "WhatsApp service not configured"
-        
-        try:
-            message_body = f"""🔐 *EmailFilter Pro*
+        message_body = f"""🔐 *EmailFilter Pro*
 
 Your verification code is:
 
@@ -142,24 +247,129 @@ Your verification code is:
 
 If you didn't request this code, please ignore this message."""
 
-            message = self.client.messages.create(
-                from_=settings.TWILIO_WHATSAPP_FROM,
-                body=message_body,
-                to=f"whatsapp:{phone_number}"
-            )
+        return await self.send_text(phone_number, message_body)
+    
+    async def send_image(
+        self,
+        phone_number: str,
+        image_url: str,
+        caption: Optional[str] = None,
+        filename: str = "image.jpg"
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Send image via WAHA
+        
+        Args:
+            phone_number: Recipient's phone number (E.164 format)
+            image_url: URL to the image
+            caption: Optional caption text
+            filename: Image filename
             
-            logger.info(f"📤 WhatsApp OTP sent to {phone_number}, SID: {message.sid}")
-            return True, None
-            
-        except TwilioRestException as e:
-            logger.error(f"❌ Twilio error sending WhatsApp: {e}")
-            # Fallback: print to console
-            print(f"📱 [Twilio Error - Console Fallback] Phone OTP for {phone_number}: {code}")
-            return False, str(e)
+        Returns:
+            Tuple of (success, error_message)
+        """
+        if not self.client_initialized:
+            logger.error("❌ WAHA client not initialized")
+            return False, "WhatsApp service not configured"
+        
+        chat_id = self.format_phone_to_whatsapp(phone_number)
+        if not chat_id:
+            return False, "Invalid phone number format"
+        
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                payload = {
+                    "session": self.session_name,
+                    "chatId": chat_id,
+                    "file": {
+                        "mimetype": "image/jpeg",
+                        "url": image_url,
+                        "filename": filename
+                    }
+                }
+                
+                if caption:
+                    payload["caption"] = caption
+                
+                response = await client.post(
+                    f"{self.base_url}/sendImage",
+                    headers=self.headers,
+                    json=payload
+                )
+                
+                if response.status_code == 201 or response.status_code == 200:
+                    logger.info(f"📤 WhatsApp image sent to {phone_number}")
+                    return True, None
+                else:
+                    error = response.json().get("message", "Unknown error")
+                    logger.error(f"❌ WAHA error sending image: {error}")
+                    return False, error
+                    
         except Exception as e:
-            logger.error(f"❌ Error sending WhatsApp: {e}")
-            print(f"📱 [Error - Console Fallback] Phone OTP for {phone_number}: {code}")
-            return False, "Failed to send WhatsApp message"
+            logger.error(f"❌ Error sending image: {e}")
+            return False, str(e)
+    
+    async def send_file(
+        self,
+        phone_number: str,
+        file_url: str,
+        filename: str,
+        mimetype: str = "application/pdf",
+        caption: Optional[str] = None
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Send file/document via WAHA
+        
+        Args:
+            phone_number: Recipient's phone number (E.164 format)
+            file_url: URL to the file
+            filename: File name with extension
+            mimetype: MIME type of the file
+            caption: Optional caption text
+            
+        Returns:
+            Tuple of (success, error_message)
+        """
+        if not self.client_initialized:
+            logger.error("❌ WAHA client not initialized")
+            return False, "WhatsApp service not configured"
+        
+        chat_id = self.format_phone_to_whatsapp(phone_number)
+        if not chat_id:
+            return False, "Invalid phone number format"
+        
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                payload = {
+                    "session": self.session_name,
+                    "chatId": chat_id,
+                    "file": {
+                        "mimetype": mimetype,
+                        "url": file_url,
+                        "filename": filename
+                    }
+                }
+                
+                if caption:
+                    payload["caption"] = caption
+                
+                response = await client.post(
+                    f"{self.base_url}/sendFile",
+                    headers=self.headers,
+                    json=payload
+                )
+                
+                if response.status_code == 201 or response.status_code == 200:
+                    logger.info(f"📤 WhatsApp file sent to {phone_number}")
+                    return True, None
+                else:
+                    error = response.json().get("message", "Unknown error")
+                    logger.error(f"❌ WAHA error sending file: {error}")
+                    return False, error
+                    
+        except Exception as e:
+            logger.error(f"❌ Error sending file: {e}")
+            return False, str(e)
     
     async def send_filter_notification(
         self,
@@ -182,38 +392,19 @@ If you didn't request this code, please ignore this message."""
         Returns:
             Tuple of (success, error_message)
         """
-        if not self.client:
-            logger.warning("⚠️ Twilio client not initialized - notification skipped")
-            return False, "WhatsApp service not configured"
+        # Truncate long subjects
+        if len(subject) > 100:
+            subject = subject[:97] + "..."
         
-        try:
-            # Truncate long subjects
-            if len(subject) > 100:
-                subject = subject[:97] + "..."
-            
-            message_body = f"""🔔 *New Filtered Email*
+        message_body = f"""🔔 *New Filtered Email*
 
 📧 From: {sender}
 📝 Subject: {subject}
 🏷️ Filter: {filter_name}
 
 View in app: http://localhost:8000/emails/{email_id}"""
-            
-            message = self.client.messages.create(
-                from_=settings.TWILIO_WHATSAPP_FROM,
-                body=message_body,
-                to=f"whatsapp:{phone_number}"
-            )
-            
-            logger.info(f"📤 WhatsApp notification sent to {phone_number}, SID: {message.sid}")
-            return True, None
-            
-        except TwilioRestException as e:
-            logger.error(f"❌ Twilio error: {e}")
-            return False, str(e)
-        except Exception as e:
-            logger.error(f"❌ Error sending notification: {e}")
-            return False, "Failed to send notification"
+        
+        return await self.send_text(phone_number, message_body)
     
     async def check_whatsapp_enabled(self, user_id: int, db: AsyncSession) -> bool:
         """

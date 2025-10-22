@@ -34,7 +34,7 @@ google-api-python-client==2.116.0
 # Email & Notifications
 python-dotenv==1.0.0
 emails==0.6
-twilio==9.0.4
+# twilio==9.0.4  # Replaced with WAHA (WhatsApp HTTP API) - self-hosted solution
 phonenumbers==8.13.27
 
 # Utilities

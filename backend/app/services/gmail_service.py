@@ -191,6 +191,12 @@ class GoogleOAuthService:
         access_token = token_encryption.decrypt(connected_email.access_token_encrypted)
         refresh_token = token_encryption.decrypt(connected_email.refresh_token_encrypted)
         
+        def refresh_callback(request):
+            """Callback to update database when token is auto-refreshed"""
+            # This will run in a sync context, but we need async DB access
+            # For now, we'll handle this differently
+            pass
+        
         return Credentials(
             token=access_token,
             refresh_token=refresh_token,
