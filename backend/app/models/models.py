@@ -83,6 +83,7 @@ class ConnectedEmail(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+    last_history_id: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)  # Gmail history ID for incremental sync
     
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="connected_emails")

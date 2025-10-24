@@ -5,6 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models import User, EmailFilter, UserPlan
@@ -27,7 +28,7 @@ async def create_filter(
     stmt = select(UserPlan).where(
         UserPlan.user_id == current_user.id,
         UserPlan.is_active == True
-    ).join(UserPlan.plan)
+    ).options(selectinload(UserPlan.plan))
     result = await db.execute(stmt)
     user_plan = result.scalar_one_or_none()
     

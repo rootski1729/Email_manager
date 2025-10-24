@@ -3,7 +3,7 @@ Email filtering service - match emails against user-defined filters
 """
 import re
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from app.models import EmailFilter, FilteredEmail, ConnectedEmail, FilterType
@@ -131,11 +131,44 @@ class FilterService:
         if not filters:
             return None
         
+        # Convert email received time (Gmail internalDate is in milliseconds)
+        # Ensure it's always timezone-aware
+        email_timestamp = int(email_data.get('internal_date', 0)) / 1000
+        email_received_at = datetime.fromtimestamp(email_timestamp, tz=timezone.utc)
+        
         # Check each filter (ordered by priority)
         for filter_obj in filters:
+            # Ensure BOTH datetimes are timezone-aware for comparison
+            filter_created_at = filter_obj.created_at
+            
+            # Make filter_created_at timezone-aware if it's naive
+            if filter_created_at.tzinfo is None or filter_created_at.tzinfo.utcoffset(filter_created_at) is None:
+                # Naive datetime - assume UTC
+                filter_created_at = filter_created_at.replace(tzinfo=timezone.utc)
+            
+            # Skip if email was received before filter was created
+            # This prevents processing old emails when a new filter is added
+            if email_received_at < filter_created_at:
+                print(f"⏭️  Skipping filter '{filter_obj.name}' - email received before filter was created")
+                print(f"   Email: {email_received_at}, Filter: {filter_created_at}")
+                continue
+            
             if FilterService.check_filter_match(email_data, filter_obj):
                 # Email matches this filter
                 print(f"✅ Email matched filter: {filter_obj.name}")
+                
+                # Check if this email was already processed by ANY filter
+                # (gmail_message_id is unique in database)
+                existing = await db.execute(
+                    select(FilteredEmail).where(
+                        FilteredEmail.gmail_message_id == email_data['message_id']
+                    )
+                )
+                existing_email = existing.scalar_one_or_none()
+                
+                if existing_email:
+                    print(f"⏭️  Email already processed by filter ID {existing_email.matched_filter_id}")
+                    return None
                 
                 # Store filtered email
                 filtered_email = FilteredEmail(
@@ -147,7 +180,7 @@ class FilterService:
                     subject=email_data['subject'],
                     snippet=email_data.get('snippet'),
                     body_preview=email_data.get('body', '')[:500] if email_data.get('body') else None,
-                    received_at=datetime.fromtimestamp(int(email_data.get('internal_date', 0)) / 1000),
+                    received_at=email_received_at,
                     matched_filter_id=filter_obj.id
                 )
                 

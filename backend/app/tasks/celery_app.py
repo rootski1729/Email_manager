@@ -23,5 +23,21 @@ celery_app.conf.update(
     task_soft_time_limit=240,  # 4 minutes
 )
 
+# Celery Beat Schedule (periodic tasks)
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+    # Refresh expired OAuth tokens every hour
+    'refresh-tokens-hourly': {
+        'task': 'refresh_expired_tokens',
+        'schedule': 3600.0,  # Every hour (in seconds)
+    },
+    # Send daily digest at 8 AM UTC
+    'send-daily-digest': {
+        'task': 'send_daily_digest',
+        'schedule': crontab(hour=8, minute=0),  # 8:00 AM daily
+    },
+}
+
 # Auto-discover tasks
 celery_app.autodiscover_tasks(['app.tasks'])

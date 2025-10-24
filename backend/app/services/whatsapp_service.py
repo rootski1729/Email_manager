@@ -126,7 +126,7 @@ class WhatsAppService:
         redis_key = f"phone_otp:{phone_number}:{code}"
         await redis_manager.set(redis_key, "1", expire=120)  # 2 minutes
         
-        logger.info(f"📱 Phone OTP generated for {phone_number}: {code}")
+        logger.info(f"Phone OTP generated for {phone_number}: {code}")
         return code
     
     async def verify_phone_otp(
@@ -165,7 +165,7 @@ class WhatsAppService:
         if user:
             user.phone_verified = True
             await db.commit()
-            logger.info(f"✅ Phone verified for user {user.email}: {phone_number}")
+            logger.info(f"Phone verified for user {user.email}: {phone_number}")
             return True, None
         else:
             return False, "User not found"
@@ -237,13 +237,13 @@ class WhatsAppService:
         Returns:
             Tuple of (success, error_message)
         """
-        message_body = f"""🔐 *EmailFilter Pro*
+        message_body = f"""*EmailFilter Pro*
 
 Your verification code is:
 
 *{code}*
 
-⏰ This code will expire in 2 minutes.
+This code will expire in 2 minutes.
 
 If you didn't request this code, please ignore this message."""
 
@@ -376,6 +376,7 @@ If you didn't request this code, please ignore this message."""
         phone_number: str,
         sender: str,
         subject: str,
+        snippet: str,
         filter_name: str,
         email_id: int
     ) -> tuple[bool, Optional[str]]:
@@ -386,23 +387,40 @@ If you didn't request this code, please ignore this message."""
             phone_number: Recipient's phone number (E.164 format)
             sender: Email sender
             subject: Email subject
+            snippet: Email body preview/snippet
             filter_name: Name of matched filter
             email_id: Filtered email ID
             
         Returns:
             Tuple of (success, error_message)
         """
-        # Truncate long subjects
-        if len(subject) > 100:
-            subject = subject[:97] + "..."
+        # Truncate long text
+        if len(subject) > 80:
+            subject = subject[:77] + "..."
+        if len(snippet) > 150:
+            snippet = snippet[:147] + "..."
         
-        message_body = f"""🔔 *New Filtered Email*
+        # Clean sender (remove angle brackets if present)
+        # "John Doe <john@example.com>" -> "John Doe (john@example.com)"
+        if '<' in sender and '>' in sender:
+            import re
+            match = re.match(r'(.+?)\s*<(.+?)>', sender)
+            if match:
+                name, email = match.groups()
+                sender = f"{name.strip()} ({email.strip()})"
+        
+        message_body = f"""*New Email Alert*
 
-📧 From: {sender}
-📝 Subject: {subject}
-🏷️ Filter: {filter_name}
+*From:* {sender}
 
-View in app: http://localhost:8000/emails/{email_id}"""
+*Subject:* {subject}
+
+*Preview:*
+{snippet}
+
+*Filter:* {filter_name}
+
+View full email: http://localhost:8000/emails/{email_id}"""
         
         return await self.send_text(phone_number, message_body)
     

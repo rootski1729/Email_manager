@@ -3,28 +3,44 @@ Alembic environment configuration
 """
 import asyncio
 from logging.config import fileConfig
+
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# Import app config and models
+# Import app config and base model
 from app.core.config import settings
 from app.core.database import Base
-from app.models import *  # Import all models
 
-# this is the Alembic Config object
+# Import ALL models explicitly so Alembic can detect schema changes
+from app.models.models import (
+    User,
+    Plan,
+    UserPlan,
+    ConnectedEmail,
+    EmailFilter,
+    FilteredEmail,
+    NotificationPreference,
+    UsageMetric,
+)
+
+# ---- Alembic Config ----
 config = context.config
 
-# Override sqlalchemy.url with our config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Use DB URL from settings (escape '%' for ConfigParser)
+if settings.DATABASE_URL:
+    config.set_main_option(
+        "sqlalchemy.url",
+        settings.DATABASE_URL.replace("%", "%%")
+    )
 
-# Interpret the config file for Python logging
+# Logging configuration
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Target metadata
+# Target metadata — used for autogenerate
 target_metadata = Base.metadata
 
 
@@ -36,6 +52,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -43,15 +61,20 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    """Run migrations with given connection"""
-    context.configure(connection=connection, target_metadata=target_metadata)
+    """Run migrations with the provided connection."""
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        compare_server_default=True,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode (async)."""
+    """Run migrations in 'online' async mode."""
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

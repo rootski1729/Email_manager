@@ -77,12 +77,24 @@ async def gmail_webhook(
                 print(f"⚠️  No active connection found for {email_address}")
                 return {"status": "ignored", "reason": "email_not_connected"}
             
-            # Queue email processing task (Celery)
-            # For MVP, we'll process inline first
-            # In production: process_new_email.delay(connected_email.id, history_id)
+            # Use stored last_history_id if available, otherwise use a small offset
+            if connected_email.last_history_id:
+                start_history_id = connected_email.last_history_id
+                print(f"📖 Using stored history ID: {start_history_id}")
+            else:
+                # First webhook after connecting - go back just a bit to catch recent emails
+                try:
+                    start_history_id = str(int(history_id) - 100)  # Only 100 IDs back on first sync
+                    print(f"🆕 First sync - using offset history ID: {start_history_id}")
+                except:
+                    start_history_id = history_id
             
-            # For now, acknowledge receipt
-            print(f"✅ Queued processing for {email_address}")
+            # Queue email processing task (will update last_history_id after processing)
+            from app.tasks.email_processor import process_new_email
+            # Convert history_id to string to match database VARCHAR type
+            process_new_email.delay(connected_email.id, start_history_id, str(history_id))
+            
+            print(f"✅ Queued processing for {email_address} (history: {start_history_id} → {history_id})")
             
             return {"status": "queued", "email": email_address}
         

@@ -4,7 +4,7 @@ Google OAuth service for Gmail integration
 import base64
 import logging
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
@@ -132,7 +132,7 @@ class GoogleOAuthService:
             # Update tokens
             existing.access_token_encrypted = encrypted_access
             existing.refresh_token_encrypted = encrypted_refresh
-            existing.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            existing.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
             existing.is_active = True
             await db.commit()
             await db.refresh(existing)
@@ -144,29 +144,37 @@ class GoogleOAuthService:
             email_address=email_address,
             access_token_encrypted=encrypted_access,
             refresh_token_encrypted=encrypted_refresh,
-            token_expires_at=datetime.utcnow() + timedelta(seconds=expires_in)
+            token_expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in)
         )
         
         db.add(connected_email)
         await db.commit()
         await db.refresh(connected_email)
         
-        # Setup Gmail push notification (Pub/Sub)
-        await GoogleOAuthService.setup_gmail_push_notification(
-            connected_email.id,
+        # Setup Gmail push notification (Pub/Sub) and get initial historyId
+        initial_history_id = await GoogleOAuthService.setup_gmail_push_notification(
+            db,
+            connected_email,
             access_token,
             email_address
         )
+        
+        # Save the initial historyId
+        if initial_history_id:
+            connected_email.last_history_id = initial_history_id
+            await db.commit()
+            await db.refresh(connected_email)
         
         return connected_email
     
     @staticmethod
     async def setup_gmail_push_notification(
-        connected_email_id: int,
+        db: AsyncSession,
+        connected_email: ConnectedEmail,
         access_token: str,
         email_address: str
-    ):
-        """Setup Gmail push notifications via Pub/Sub"""
+    ) -> Optional[str]:
+        """Setup Gmail push notifications via Pub/Sub and return initial historyId"""
         try:
             credentials = Credentials(token=access_token)
             service = build('gmail', 'v1', credentials=credentials)
@@ -178,12 +186,18 @@ class GoogleOAuthService:
             
             response = service.users().watch(userId='me', body=request_body).execute()
             
-            # Store historyId for incremental sync
+            # Get historyId from watch response - this is our starting point
+            # Convert to string to match database VARCHAR type
+            history_id = str(response.get('historyId'))
+            
             print(f"✅ Gmail push notification setup for {email_address}")
-            print(f"   History ID: {response.get('historyId')}")
+            print(f"   Initial History ID: {history_id}")
+            
+            return history_id
             
         except HttpError as error:
             print(f"❌ Failed to setup Gmail push notification: {error}")
+            return None
     
     @staticmethod
     def get_credentials_from_connected_email(connected_email: ConnectedEmail) -> Credentials:
@@ -323,7 +337,8 @@ class GoogleOAuthService:
         # Check if token is expired or about to expire (5 min buffer)
         if connected_email.token_expires_at:
             buffer = timedelta(minutes=5)
-            if datetime.utcnow() + buffer >= connected_email.token_expires_at:
+            now_utc = datetime.now(timezone.utc)
+            if now_utc + buffer >= connected_email.token_expires_at:
                 logger.info(f"🔄 Access token expired, refreshing for {connected_email.email_address}")
                 return await GoogleOAuthService.refresh_access_token(db, connected_email)
         
@@ -521,6 +536,90 @@ class GoogleOAuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to fetch email: {str(e)}"
             )
+    
+    @staticmethod
+    async def get_history_changes(
+        db: AsyncSession,
+        connected_email: ConnectedEmail,
+        start_history_id: str
+    ) -> Dict[str, Any]:
+        """
+        Fetch Gmail history changes since a specific history ID
+        
+        This retrieves all message changes (added, deleted, modified) that occurred
+        after the given history ID. Used for processing webhook notifications.
+        
+        Args:
+            db: Database session
+            connected_email: Connected email account
+            start_history_id: The history ID to start from (from webhook)
+        
+        Returns:
+            Dict with:
+                - message_ids: List of new/changed message IDs
+                - new_history_id: Latest history ID
+                - changes_count: Number of changes detected
+        """
+        try:
+            # Get valid access token (auto-refresh if needed)
+            access_token = await GoogleOAuthService.get_valid_access_token(db, connected_email)
+            
+            credentials = Credentials(token=access_token)
+            service = build('gmail', 'v1', credentials=credentials)
+            
+            logger.info(f"📜 Fetching history changes since {start_history_id} for {connected_email.email_address}")
+            
+            # Fetch history list - temporarily fetch ALL history types to debug
+            response = service.users().history().list(
+                userId='me',
+                startHistoryId=start_history_id
+                # historyTypes=['messageAdded']  # Temporarily commented to see ALL history
+            ).execute()
+            
+            logger.info(f"🔍 History API raw response: {response}")
+            
+            history_records = response.get('history', [])
+            new_history_id = response.get('historyId', start_history_id)
+            
+            logger.info(f"📊 History records count: {len(history_records)}, New history ID: {new_history_id}")
+            
+            # Extract unique message IDs from history
+            message_ids = set()
+            for record in history_records:
+                logger.info(f"📝 Processing record: {record}")
+                # messagesAdded contains newly received messages
+                messages_added = record.get('messagesAdded', [])
+                for msg_record in messages_added:
+                    message = msg_record.get('message', {})
+                    msg_id = message.get('id')
+                    if msg_id:
+                        message_ids.add(msg_id)
+            
+            result = {
+                'message_ids': list(message_ids),
+                'new_history_id': new_history_id,
+                'changes_count': len(message_ids)
+            }
+            
+            logger.info(f"✅ Found {len(message_ids)} new messages in history")
+            
+            return result
+        
+        except HttpError as error:
+            if error.resp.status == 404:
+                logger.warning(f"⚠️  History ID {start_history_id} expired or invalid, need full sync")
+                # History too old, return empty (caller should do full sync)
+                return {
+                    'message_ids': [],
+                    'new_history_id': start_history_id,
+                    'changes_count': 0,
+                    'error': 'history_expired'
+                }
+            logger.error(f"❌ Failed to fetch history: {error}")
+            raise
+        except Exception as e:
+            logger.error(f"❌ Unexpected error fetching history: {str(e)}")
+            raise
 
 
 # Needed for token refresh and HTTP exceptions

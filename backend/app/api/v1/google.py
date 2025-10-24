@@ -4,6 +4,7 @@ Google OAuth API endpoints
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models import User, UserPlan, ConnectedEmail
@@ -76,7 +77,7 @@ async def google_oauth_callback(
         stmt = select(UserPlan).where(
             UserPlan.user_id == current_user.id,
             UserPlan.is_active == True
-        ).join(UserPlan.plan)
+        ).options(selectinload(UserPlan.plan))
         result = await db.execute(stmt)
         user_plan = result.scalar_one_or_none()
         

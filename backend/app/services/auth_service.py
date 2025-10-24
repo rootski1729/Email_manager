@@ -1,6 +1,3 @@
-"""
-Authentication service - WhatsApp OTP for login/signup
-"""
 import random
 import string
 from datetime import datetime, timedelta, timezone
@@ -18,8 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 class AuthService:
-    """Handle WhatsApp OTP authentication"""
-    
     @staticmethod
     def generate_otp() -> str:
         """Generate 6-digit OTP"""
@@ -71,11 +66,11 @@ class AuthService:
         success, error = await whatsapp_service.send_phone_otp(formatted_number, otp_code)
         
         if not success:
-            logger.error(f"❌ Failed to send WhatsApp OTP to {formatted_number}: {error}")
+            logger.error(f"Failed to send WhatsApp OTP to {formatted_number}: {error}")
             # Still return code for console fallback
-            print(f"📱 [WhatsApp OTP] Code for {formatted_number}: {otp_code}")
+            print(f"[WhatsApp OTP] Code for {formatted_number}: {otp_code}")
         else:
-            logger.info(f"✅ WhatsApp OTP sent to {formatted_number}")
+            logger.info(f"WhatsApp OTP sent to {formatted_number}")
         
         return otp_code
     
@@ -105,7 +100,7 @@ class AuthService:
         
         if not otp_exists:
             # OTP is either invalid or expired (2 minutes)
-            logger.warning(f"❌ Invalid or expired OTP for {formatted_number}")
+            logger.warning(f"Invalid or expired OTP for {formatted_number}")
             return None
         
         # Delete OTP from Redis (one-time use)
@@ -154,14 +149,14 @@ class AuthService:
             await db.commit()
             await db.refresh(user)
             
-            logger.info(f"✅ New user created via WhatsApp: {formatted_number}")
+            logger.info(f"New user created via WhatsApp: {formatted_number}")
         else:
             # Existing user - verify phone if not already verified
             if not user.phone_verified:
                 user.phone_verified = True
                 await db.commit()
-                logger.info(f"✅ Phone verified for existing user: {formatted_number}")
-        
+                logger.info(f"Phone verified for existing user: {formatted_number}")
+
         return user
     
     @staticmethod
