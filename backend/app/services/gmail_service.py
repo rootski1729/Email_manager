@@ -190,8 +190,8 @@ class GoogleOAuthService:
             # Convert to string to match database VARCHAR type
             history_id = str(response.get('historyId'))
             
-            print(f"✅ Gmail push notification setup for {email_address}")
-            print(f"   Initial History ID: {history_id}")
+            print(f"Gmail push notification setup for {email_address}")
+            print(f"Initial History ID: {history_id}")
             
             return history_id
             
@@ -335,6 +335,7 @@ class GoogleOAuthService:
     ) -> str:
         """Get valid access token, refresh if expired"""
         # Check if token is expired or about to expire (5 min buffer)
+        print(connected_email.token_expires_at)
         if connected_email.token_expires_at:
             buffer = timedelta(minutes=5)
             now_utc = datetime.now(timezone.utc)
