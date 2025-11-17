@@ -23,10 +23,11 @@ async def list_filtered_emails(
     page_size: int = Query(20, ge=1, le=100),
     filter_id: Optional[int] = None,
     is_read: Optional[bool] = None,
-    is_archived: Optional[bool] = None
+    is_archived: Optional[bool] = None,
+    connected_email_id: Optional[int] = None
 ):
-    """Get filtered emails for current user (paginated)"""
-    # Build query
+    """Get filtered emails for current user (paginated). Only returns emails from active connected accounts."""
+    # Build query - only from active connected emails
     conditions = [FilteredEmail.user_id == current_user.id]
     
     if filter_id:
@@ -104,7 +105,7 @@ async def get_filtered_email(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get a specific filtered email"""
+    """Get a specific filtered email. Only accessible if connected email is active."""
     stmt = select(FilteredEmail).where(
         FilteredEmail.id == email_id,
         FilteredEmail.user_id == current_user.id
@@ -116,6 +117,17 @@ async def get_filtered_email(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Email not found"
+        )
+    
+    # Verify connected email is active
+    conn_stmt = select(ConnectedEmail).where(ConnectedEmail.id == email.connected_email_id)
+    conn_result = await db.execute(conn_stmt)
+    conn_email = conn_result.scalar_one_or_none()
+    
+    if not conn_email or not conn_email.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot access email from an inactive connected account"
         )
     
     # Enrich response
@@ -160,7 +172,7 @@ async def update_filtered_email(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update filtered email (mark as read/archived)"""
+    """Update a filtered email (mark as read/archived). Only accessible if connected email is active."""
     stmt = select(FilteredEmail).where(
         FilteredEmail.id == email_id,
         FilteredEmail.user_id == current_user.id
@@ -172,6 +184,17 @@ async def update_filtered_email(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Email not found"
+        )
+    
+    # Verify connected email is active
+    conn_stmt = select(ConnectedEmail).where(ConnectedEmail.id == email.connected_email_id)
+    conn_result = await db.execute(conn_stmt)
+    conn_email = conn_result.scalar_one_or_none()
+    
+    if not conn_email or not conn_email.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot modify email from an inactive connected account"
         )
     
     # Update fields
@@ -205,6 +228,17 @@ async def mark_email_read(
             detail="Email not found"
         )
     
+    # Verify connected email is active
+    conn_stmt = select(ConnectedEmail).where(ConnectedEmail.id == email.connected_email_id)
+    conn_result = await db.execute(conn_stmt)
+    conn_email = conn_result.scalar_one_or_none()
+    
+    if not conn_email or not conn_email.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot modify email from an inactive connected account"
+        )
+    
     email.is_read = True
     await db.commit()
     
@@ -229,6 +263,17 @@ async def archive_email(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Email not found"
+        )
+    
+    # Verify connected email is active
+    conn_stmt = select(ConnectedEmail).where(ConnectedEmail.id == email.connected_email_id)
+    conn_result = await db.execute(conn_stmt)
+    conn_email = conn_result.scalar_one_or_none()
+    
+    if not conn_email or not conn_email.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot modify email from an inactive connected account"
         )
     
     email.is_archived = True

@@ -479,26 +479,72 @@ class GoogleOAuthService:
             
             # Extract body
             body = ''
+            html_body = ''
+            
             if format == 'full':
                 payload = message.get('payload', {})
                 
+                def extract_body_recursive(parts, text_body='', html_body=''):
+                    """Recursively extract text and HTML from nested parts"""
+                    for part in parts:
+                        mime_type = part.get('mimeType', '')
+                        
+                        # Handle nested multipart
+                        if mime_type.startswith('multipart/'):
+                            nested_parts = part.get('parts', [])
+                            if nested_parts:
+                                text_body, html_body = extract_body_recursive(nested_parts, text_body, html_body)
+                        
+                        # Extract text/plain
+                        elif mime_type == 'text/plain' and not text_body:
+                            data = part.get('body', {}).get('data', '')
+                            if data:
+                                text_body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+                        
+                        # Extract text/html
+                        elif mime_type == 'text/html' and not html_body:
+                            data = part.get('body', {}).get('data', '')
+                            if data:
+                                html_body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+                    
+                    return text_body, html_body
+                
                 if 'parts' in payload:
                     # Multipart message
-                    for part in payload['parts']:
-                        if part.get('mimeType') == 'text/plain':
-                            data = part.get('body', {}).get('data', '')
-                            if data:
-                                body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
-                                break
-                        elif part.get('mimeType') == 'text/html' and not body:
-                            data = part.get('body', {}).get('data', '')
-                            if data:
-                                body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+                    body, html_body = extract_body_recursive(payload['parts'])
                 else:
                     # Simple message
+                    mime_type = payload.get('mimeType', '')
                     data = payload.get('body', {}).get('data', '')
+                    
                     if data:
-                        body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+                        decoded = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+                        if mime_type == 'text/plain':
+                            body = decoded
+                        elif mime_type == 'text/html':
+                            html_body = decoded
+                
+                # If no plain text but HTML exists, convert HTML to text
+                if not body and html_body:
+                    import re
+                    from html import unescape
+                    
+                    # Remove script and style elements
+                    html_body = re.sub(r'<script[^>]*>.*?</script>', '', html_body, flags=re.DOTALL | re.IGNORECASE)
+                    html_body = re.sub(r'<style[^>]*>.*?</style>', '', html_body, flags=re.DOTALL | re.IGNORECASE)
+                    
+                    # Remove HTML tags
+                    html_body = re.sub(r'<[^>]+>', '', html_body)
+                    
+                    # Decode HTML entities
+                    html_body = unescape(html_body)
+                    
+                    # Clean up whitespace
+                    html_body = re.sub(r'\n\s*\n', '\n\n', html_body)  # Multiple newlines to double
+                    html_body = re.sub(r'[ \t]+', ' ', html_body)  # Multiple spaces to single
+                    html_body = html_body.strip()
+                    
+                    body = html_body
             
             result = {
                 'id': message['id'],

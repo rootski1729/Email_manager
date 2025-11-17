@@ -16,6 +16,8 @@ class User(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
     # Phone number is now required for authentication
     phone_number: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True)
+    first_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -47,6 +47,9 @@ tenacity==8.2.3
 slowapi==0.1.9
 email-validator==2.1.0
 
+# Payment
+razorpay==1.4.1
+
 # Monitoring
 sentry-sdk==1.40.0
 

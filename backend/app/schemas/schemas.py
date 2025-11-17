@@ -11,6 +11,7 @@ from app.models import PlanType, FilterType, ActionType, EmailDigestFrequency
 class OTPRequest(BaseModel):
     """Request OTP for login/signup via WhatsApp"""
     phone_number: str = Field(..., description="Phone number in E.164 format (e.g., +1234567890)")
+    captcha_token: str = Field(..., description="Cloudflare Turnstile token from frontend")
 
 
 class OTPVerify(BaseModel):
@@ -36,6 +37,8 @@ class UserBase(BaseModel):
     """Base user schema"""
     email: Optional[str] = None  # Now optional for WhatsApp-only users
     phone_number: Optional[str] = Field(None, description="Phone number in E.164 format (e.g., +1234567890)")
+    first_name: Optional[str] = Field(None, max_length=100)
+    last_name: Optional[str] = Field(None, max_length=100)
 
 
 class UserCreate(UserBase):
@@ -46,7 +49,8 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     """Update user profile"""
     email: Optional[str] = Field(None, description="Email address (optional)")
-    phone_number: Optional[str] = Field(None, description="Phone number in E.164 format (e.g., +1234567890)")
+    first_name: Optional[str] = Field(None, max_length=100)
+    last_name: Optional[str] = Field(None, max_length=100)
 
 
 class UserResponse(UserBase):
@@ -297,6 +301,55 @@ class PhoneVerificationVerify(BaseModel):
     """Verify phone OTP"""
     phone_number: str = Field(..., description="Phone number in E.164 format")
     code: str = Field(..., min_length=6, max_length=6)
+
+
+# ===== Razorpay Payment Schemas =====
+class RazorpayOrderCreate(BaseModel):
+    """Create Razorpay payment order"""
+    plan_type: PlanType = Field(..., description="Plan type: free, basic, pro")
+
+
+class RazorpayOrderResponse(BaseModel):
+    """Razorpay order response"""
+    order_id: str
+    amount: float  # In dollars
+    currency: str = "USD"
+    plan_type: str
+    plan_name: str
+    user_email: str
+
+
+class RazorpayPaymentVerify(BaseModel):
+    """Verify Razorpay payment"""
+    razorpay_payment_id: str = Field(..., description="Payment ID from Razorpay")
+    razorpay_order_id: str = Field(..., description="Order ID from Razorpay")
+    razorpay_signature: str = Field(..., description="Signature from Razorpay webhook")
+    plan_type: PlanType = Field(..., description="Plan type purchased")
+
+
+class RazorpayPaymentResponse(BaseModel):
+    """Payment verification response"""
+    status: str  # "success" or "failed"
+    message: str
+    payment_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+class PaymentStatusResponse(BaseModel):
+    """Payment status response"""
+    payment_id: str
+    amount: float  # In dollars
+    currency: str
+    status: str
+    method: Optional[str] = None
+    email: Optional[str] = None
+    contact: Optional[str] = None
+    created_at: Optional[int] = None
+
+
+class RazorpayKeyResponse(BaseModel):
+    """Razorpay Key ID for frontend"""
+    key_id: str
 
 
 # ===== Generic Responses =====

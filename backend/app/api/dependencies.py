@@ -99,6 +99,36 @@ async def get_current_active_user(
     return current_user
 
 
+async def get_active_connected_email(
+    connected_email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get active connected email and verify ownership"""
+    from app.models import ConnectedEmail
+    
+    stmt = select(ConnectedEmail).where(
+        ConnectedEmail.id == connected_email_id,
+        ConnectedEmail.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    connected_email = result.scalar_one_or_none()
+    
+    if not connected_email:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Connected email not found"
+        )
+    
+    if not connected_email.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This email account is inactive. Please reactivate it to access its data."
+        )
+    
+    return connected_email
+
+
 async def get_current_verified_user(
     current_user: User = Depends(get_current_user)
 ) -> User:

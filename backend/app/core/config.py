@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 60
     WEBHOOK_RATE_LIMIT: int = 1000
     
+    # Razorpay Payment
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
+    
+    # Cloudflare Turnstile (CAPTCHA)
+    TURNSTILE_SECRET_KEY: str = ""
+    TURNSTILE_ENABLED: bool = True  # Set to False to disable in development
+    
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = []
     

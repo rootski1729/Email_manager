@@ -10,11 +10,62 @@ from app.core.security import create_access_token, create_refresh_token
 from app.core.config import settings
 from app.services.whatsapp_service import whatsapp_service
 import logging
+import httpx
 
 logger = logging.getLogger(__name__)
 
 
 class AuthService:
+    @staticmethod
+    async def verify_turnstile(token: str) -> bool:
+        """
+        Verify Cloudflare Turnstile CAPTCHA token
+        
+        Args:
+            token: Turnstile token from frontend
+            
+        Returns:
+            True if token is valid, False otherwise
+        """
+        # Skip verification if disabled (useful for development/testing)
+        if not settings.TURNSTILE_ENABLED:
+            logger.warning("Turnstile verification is DISABLED")
+            return True
+        
+        if not settings.TURNSTILE_SECRET_KEY:
+            logger.error("TURNSTILE_SECRET_KEY not configured")
+            return False
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                    json={
+                        "secret": settings.TURNSTILE_SECRET_KEY,
+                        "response": token
+                    },
+                    timeout=10.0
+                )
+                
+                result = response.json()
+                success = result.get("success", False)
+                
+                if not success:
+                    error_codes = result.get("error-codes", [])
+                    logger.warning(f"Turnstile verification failed: {error_codes}")
+                    return False
+                
+                logger.info("Turnstile verification successful")
+                return True
+                
+        except httpx.RequestError as e:
+            logger.error(f"Turnstile verification request failed: {e}")
+            # Fail open in case of network issues (consider your security requirements)
+            return False
+        except Exception as e:
+            logger.error(f"Turnstile verification error: {e}")
+            return False
+    
     @staticmethod
     def generate_otp() -> str:
         """Generate 6-digit OTP"""

@@ -18,6 +18,7 @@ async def request_otp(
     """
     Request WhatsApp OTP for login/signup
     
+    - Verifies Cloudflare Turnstile CAPTCHA token
     - Validates phone number format (E.164: +1234567890)
     - Generates 6-digit OTP
     - Sends OTP via WhatsApp
@@ -26,6 +27,14 @@ async def request_otp(
     - Works for both new signups and existing user logins
     """
     try:
+        # Verify Turnstile CAPTCHA first
+        is_valid_captcha = await AuthService.verify_turnstile(request.captcha_token)
+        if not is_valid_captcha:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="CAPTCHA verification failed. Please try again."
+            )
+        
         await AuthService.create_otp(db, request.phone_number)
         return MessageResponse(
             message=f"OTP sent to {request.phone_number} via WhatsApp. Valid for 2 minutes.",

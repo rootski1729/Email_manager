@@ -47,6 +47,8 @@ async def get_current_user_info(
         "id": current_user.id,
         "email": current_user.email,
         "phone_number": current_user.phone_number,
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
         "phone_verified": current_user.phone_verified,
         "is_active": current_user.is_active,
         "is_verified": current_user.is_verified,
