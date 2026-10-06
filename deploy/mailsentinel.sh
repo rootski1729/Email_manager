@@ -53,7 +53,7 @@ wait_healthy() {
   info "Waiting for the app to come up (first start builds images; this can take a few minutes)…"
   for _ in $(seq 1 90); do
     if compose exec -T api python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/readyz',timeout=2)" \
-        >/dev/null 2>&1; then
+        </dev/null >/dev/null 2>&1; then
       ok "Backend is healthy"
       return 0
     fi
@@ -254,7 +254,9 @@ UNIT
 cmd_backup() {
   mkdir -p backups
   local file="backups/manual-$(date +%Y%m%d-%H%M%S).sql.gz"
-  compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' | gzip > "$file"
+  # </dev/null: never let docker swallow the caller's stdin (e.g. a script piped over ssh).
+  compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' </dev/null \
+    | gzip > "$file"
   [[ -s "$file" ]] || { rm -f "$file"; return 1; }
   ok "Saved $file ($(du -h "$file" | cut -f1))"
 }
