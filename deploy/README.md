@@ -70,6 +70,27 @@ Run these from the `deploy/` folder.
 | `./mailsentinel.sh restore backups/<file>.sql.gz` | Replace the data with a dump (asks you to confirm) |
 | `./mailsentinel.sh admin-password` | Show the first admin's login |
 | `./mailsentinel.sh gmail-listener on` | Turn on instant Gmail updates (see below) |
+| `./mailsentinel.sh autodeploy on` | Deploy every new commit on `main` automatically (see below) |
+| `./mailsentinel.sh deploy` | Back up, rebuild and restart from the code that's checked out now |
+
+## Automatic deployment (CD)
+
+`./mailsentinel.sh autodeploy on` installs a systemd timer on the VM. Every 2 minutes it checks GitHub for new
+commits on `main`; when there are any:
+1. it backs up the database;
+2. it pulls the commit, rebuilds and restarts the app;
+3. it checks the app is healthy. **If it isn't, it rolls back to the previous commit automatically** and skips
+   the bad one.
+
+Your data is never touched by a deploy. The database, WhatsApp pairing and HTTPS certificates live in Docker
+volumes that survive rebuilds, and database changes are applied by migrations that only add tables and columns.
+
+Nothing connects into the VM and no secrets are stored in GitHub; the VM pulls the public repository itself.
+Set `AUTODEPLOY_REQUIRE_CI=true` in `.env` to deploy only commits whose GitHub Actions checks passed.
+
+- `./mailsentinel.sh autodeploy status`: next check time and the last deployments
+- `./mailsentinel.sh autodeploy logs`: full output of recent runs
+- `./mailsentinel.sh autodeploy off`: stop deploying automatically
 
 **Backups:**
 - A nightly dump runs automatically (7 daily, 4 weekly and 3 monthly dumps are kept in `deploy/backups/`).

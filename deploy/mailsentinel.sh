@@ -8,11 +8,12 @@
 #   ./mailsentinel.sh restore <file>     restore a dump (stops the app while restoring)
 #   ./mailsentinel.sh admin-password     show the first admin's username and password
 #   ./mailsentinel.sh gmail-listener on|off   instant Gmail updates (needs secrets/gcp-pubsub.json)
+#   ./mailsentinel.sh autodeploy on|off|status|logs   deploy new commits on main automatically (with rollback)
 #
 # Settings live in .env next to this script (ENV_FILE overrides the path). Never commit it.
 set -euo pipefail
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIR="${MS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 cd "$DIR"
 ENV_FILE="${ENV_FILE:-$DIR/.env}"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-mailsentinel}"
@@ -58,7 +59,8 @@ wait_healthy() {
     fi
     sleep 4
   done
-  die "The backend didn't become healthy. Check: ./mailsentinel.sh logs api"
+  printf '  \033[31m✗\033[0m %s\n' "The backend didn't become healthy. Check: ./mailsentinel.sh logs api" >&2
+  return 1
 }
 
 public_url() {
@@ -116,7 +118,7 @@ cmd_install() {
   if [[ -f secrets/gcp-pubsub.json ]] && ! grep -q '^GMAIL_LISTENER=' "$ENV_FILE"; then env_set GMAIL_LISTENER on; fi
   info "Building and starting (Postgres, Redis, WhatsApp, API, workers, web app, HTTPS proxy)…"
   compose up -d --build --remove-orphans
-  wait_healthy
+  wait_healthy || exit 1
   echo
   bold "MailSentinel is running 🎉"
   echo "  Web app:        $(public_url)"
@@ -126,19 +128,127 @@ cmd_install() {
   echo "  Next: sign in to the admin console → WhatsApp → scan the QR code with the phone that sends alerts."
 }
 
-cmd_update() {
+# Build and restart from the code that is checked out now. Data volumes (database, WhatsApp session,
+# certificates) are never touched; schema changes are applied by the one-shot `migrate` service.
+cmd_deploy() {
   need_docker
   [[ -f "$ENV_FILE" ]] || die "Not installed yet. Run: ./mailsentinel.sh install"
+  info "Backing up the database first…"
+  cmd_backup || info "Backup skipped (database not running yet)"
+  compose up -d --build --remove-orphans || return 1
+  wait_healthy || return 1
+  docker image prune -f >/dev/null 2>&1 || true
+  ok "Deployed $(git -C "$DIR/.." rev-parse --short HEAD 2>/dev/null || echo)"
+}
+
+cmd_update() {
   if git -C "$DIR/.." rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     info "Pulling the latest code…"
     git -C "$DIR/.." pull --ff-only
   fi
-  info "Backing up the database first…"
-  cmd_backup || info "Backup skipped (database not running yet)"
-  compose up -d --build --remove-orphans
-  wait_healthy
-  docker image prune -f >/dev/null 2>&1 || true
-  ok "Updated"
+  cmd_deploy || exit 1
+}
+
+# ---------------------------------------------------------------- automatic deployment (pull-based)
+# A systemd timer runs `autodeploy-run` every 2 minutes: when `main` has new commits it deploys them, and
+# rolls back to the previous commit if the new version isn't healthy. Nothing connects into the VM and no
+# secrets are stored in GitHub. With AUTODEPLOY_REQUIRE_CI=true it only deploys commits whose GitHub
+# checks all passed.
+BRANCH="${AUTODEPLOY_BRANCH:-main}"
+STATE_DIR="$DIR/.autodeploy"
+
+ci_state() {  # success | pending | failure | none
+  local sha="$1" url repo
+  url="$(git -C "$DIR/.." remote get-url origin)"
+  repo="$(sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##' <<<"$url")"
+  curl -fsS -m 20 -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/$repo/commits/$sha/check-runs?per_page=100" 2>/dev/null |
+    python3 -c '
+import json, sys
+runs = json.load(sys.stdin).get("check_runs", [])
+if not runs: print("none")
+elif any(r["status"] != "completed" for r in runs): print("pending")
+elif all(r["conclusion"] in ("success", "skipped", "neutral") for r in runs): print("success")
+else: print("failure")' 2>/dev/null || echo "none"
+}
+
+cmd_autodeploy_run() {
+  mkdir -p "$STATE_DIR"
+  # The update rewrites this very file; bash reads scripts lazily, so run from a private copy.
+  if [[ -z "${MS_RUNNER:-}" ]]; then
+    cp "$DIR/mailsentinel.sh" "$STATE_DIR/runner.sh"
+    MS_RUNNER=1 MS_DIR="$DIR" exec bash "$STATE_DIR/runner.sh" autodeploy-run
+  fi
+  exec 9>"$STATE_DIR/lock"
+  flock -n 9 || { echo "Another deploy is running"; return 0; }
+  local repo="$DIR/.." current target
+  git -C "$repo" fetch -q origin "$BRANCH" || { echo "fetch failed"; return 1; }
+  current="$(git -C "$repo" rev-parse HEAD)"
+  target="$(git -C "$repo" rev-parse "origin/$BRANCH")"
+  [[ "$current" == "$target" ]] && return 0
+  if grep -qx "$target" "$STATE_DIR/skipped" 2>/dev/null; then return 0; fi
+  if [[ "$(env_get AUTODEPLOY_REQUIRE_CI)" == "true" ]]; then
+    case "$(ci_state "$target")" in
+      success) ;;
+      pending | none) echo "Waiting for GitHub checks on ${target:0:7}"; return 0 ;;
+      failure) echo "${target:0:7} failed its GitHub checks; not deploying"; echo "$target" >> "$STATE_DIR/skipped"; return 0 ;;
+    esac
+  fi
+  echo "$(date -Is) deploying ${current:0:7} -> ${target:0:7}" | tee -a "$STATE_DIR/history.log"
+  git -C "$repo" merge -q --ff-only "$target" || { echo "Local changes on the VM block the update"; return 1; }
+  if cmd_deploy; then
+    echo "$(date -Is) deployed ${target:0:7}" | tee -a "$STATE_DIR/history.log"
+    return 0
+  fi
+  echo "$(date -Is) ${target:0:7} is unhealthy; rolling back to ${current:0:7}" | tee -a "$STATE_DIR/history.log"
+  echo "$target" >> "$STATE_DIR/skipped"
+  git -C "$repo" reset -q --hard "$current"
+  cmd_deploy && echo "$(date -Is) rolled back to ${current:0:7}" | tee -a "$STATE_DIR/history.log"
+  return 1
+}
+
+cmd_autodeploy() {
+  local unit=mailsentinel-autodeploy
+  case "${1:-status}" in
+    on)
+      command -v flock >/dev/null || die "flock is missing (apt install util-linux)"
+      sudo tee /etc/systemd/system/$unit.service >/dev/null <<UNIT
+[Unit]
+Description=MailSentinel: deploy new commits from GitHub
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=$(id -un)
+Group=docker
+Environment=ENV_FILE=$ENV_FILE
+ExecStart=$DIR/mailsentinel.sh autodeploy-run
+UNIT
+      sudo tee /etc/systemd/system/$unit.timer >/dev/null <<UNIT
+[Unit]
+Description=MailSentinel: check GitHub for new commits every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+      sudo systemctl daemon-reload
+      sudo systemctl enable --now $unit.timer
+      ok "Automatic deployment is on (branch $BRANCH, every 2 minutes)" ;;
+    off)
+      sudo systemctl disable --now $unit.timer
+      ok "Automatic deployment is off" ;;
+    status)
+      systemctl list-timers $unit.timer --no-pager || true
+      echo; tail -n 10 "$STATE_DIR/history.log" 2>/dev/null || echo "No deployments yet." ;;
+    logs) journalctl -u $unit.service -n 100 --no-pager ;;
+    *) die "Usage: ./mailsentinel.sh autodeploy on|off|status|logs" ;;
+  esac
 }
 
 cmd_backup() {
@@ -158,7 +268,7 @@ cmd_restore() {
   if [[ "$file" == *.gz ]]; then gunzip -c "$file"; else cat "$file"; fi |
     compose exec -T postgres sh -c 'psql -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null
   compose up -d
-  wait_healthy
+  wait_healthy || exit 1
   ok "Restored $file"
 }
 
@@ -189,6 +299,9 @@ main() {
   case "$cmd" in
     install) cmd_install ;;
     update) cmd_update ;;
+    deploy) cmd_deploy || exit 1 ;;
+    autodeploy) cmd_autodeploy "$@" ;;
+    autodeploy-run) cmd_autodeploy_run ;;
     start) compose up -d ;;
     stop) compose stop ;;
     restart) compose restart ;;
@@ -198,7 +311,7 @@ main() {
     restore) need_docker; cmd_restore "$@" ;;
     admin-password) cmd_admin_password ;;
     gmail-listener) cmd_gmail_listener "$@" ;;
-    *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
   esac
 }
 main "$@"

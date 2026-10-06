@@ -28,3 +28,6 @@ gcp-*.json
 .DS_Store
 .idea/
 .vscode/
+
+# VM deploy state
+deploy/.autodeploy/
