@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon, Newspaper } from "lucide-react";
+import { Moon, Newspaper, Sunrise } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ import type { Settings } from "@/lib/api/types";
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+/** When alerts reach your phone: quiet hours, the daily summary and the weekly recap. */
 export function NotificationSettingsCard({ settings }: { settings: Settings }) {
   const update = useUpdateSettings();
   const [quiet, setQuiet] = useState({
@@ -27,26 +28,35 @@ export function NotificationSettingsCard({ settings }: { settings: Settings }) {
     enabled: settings.digest.enabled ?? false,
     time: settings.digest.time ?? "08:00",
   });
+  const [recap, setRecap] = useState(settings.weekly_recap);
   const [cap, setCap] = useState(settings.daily_cap == null ? "" : String(settings.daily_cap));
   const planCap = settings.plan_limits?.daily_alerts ?? settings.plan_limits?.alerts_per_day;
   const capNum = cap.trim() === "" ? null : Number(cap);
   const capInvalid = capNum !== null && (!Number.isInteger(capNum) || capNum < 1 || capNum > 10000);
   const timesInvalid = !TIME.test(quiet.start) || !TIME.test(quiet.end) || !TIME.test(digest.time);
+  const dirty =
+    quiet.enabled !== (settings.quiet_hours.enabled ?? false) ||
+    quiet.start !== (settings.quiet_hours.start ?? "23:00") ||
+    quiet.end !== (settings.quiet_hours.end ?? "07:00") ||
+    digest.enabled !== (settings.digest.enabled ?? false) ||
+    digest.time !== (settings.digest.time ?? "08:00") ||
+    recap !== settings.weekly_recap ||
+    capNum !== (settings.daily_cap ?? null);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Alert delivery</CardTitle>
-        <CardDescription>Control when alerts reach your phone.</CardDescription>
+        <CardTitle>Notifications</CardTitle>
+        <CardDescription>Choose when alerts reach your phone.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-3">
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel htmlFor="quiet-enabled" className="flex items-center gap-2">
-                <Moon className="size-4 text-muted-foreground" /> Quiet hours
+                <Moon className="size-4 text-muted-foreground" aria-hidden /> Quiet hours
               </FieldLabel>
-              <FieldDescription>Hold alerts overnight and deliver them as one digest when quiet hours end.</FieldDescription>
+              <FieldDescription>No buzzing at night. Alerts wait and arrive together in the morning. Urgent ones still come through.</FieldDescription>
             </FieldContent>
             <Switch id="quiet-enabled" checked={quiet.enabled} onCheckedChange={(v) => setQuiet({ ...quiet, enabled: v })} />
           </Field>
@@ -68,9 +78,9 @@ export function NotificationSettingsCard({ settings }: { settings: Settings }) {
           <Field orientation="horizontal">
             <FieldContent>
               <FieldLabel htmlFor="digest-enabled" className="flex items-center gap-2">
-                <Newspaper className="size-4 text-muted-foreground" /> Daily digest
+                <Sunrise className="size-4 text-muted-foreground" aria-hidden /> Daily summary
               </FieldLabel>
-              <FieldDescription>One summary message a day for rules set to digest mode.</FieldDescription>
+              <FieldDescription>One message a day for the things you set to &ldquo;once a day&rdquo;.</FieldDescription>
             </FieldContent>
             <Switch id="digest-enabled" checked={digest.enabled} onCheckedChange={(v) => setDigest({ ...digest, enabled: v })} />
           </Field>
@@ -82,36 +92,50 @@ export function NotificationSettingsCard({ settings }: { settings: Settings }) {
           ) : null}
         </div>
         <Separator />
-        <Field data-invalid={capInvalid || undefined} className="sm:max-w-xs">
-          <FieldLabel htmlFor="daily-cap">Daily alert cap</FieldLabel>
-          <Input
-            id="daily-cap"
-            inputMode="numeric"
-            value={cap}
-            placeholder={planCap ? `Plan default (${planCap})` : "Plan default"}
-            onChange={(e) => setCap(e.target.value.replace(/\D/g, ""))}
-            className="tabular"
-            aria-invalid={capInvalid || undefined}
-          />
-          {capInvalid ? (
-            <FieldError>Enter a number between 1 and 10,000.</FieldError>
-          ) : (
-            <FieldDescription>Alerts beyond this are held until tomorrow. Leave empty for your plan&apos;s limit.</FieldDescription>
-          )}
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor="weekly-recap" className="flex items-center gap-2">
+              <Newspaper className="size-4 text-muted-foreground" aria-hidden /> Weekly recap
+            </FieldLabel>
+            <FieldDescription>Sunday at 6 PM: what arrived this week and what&apos;s coming up.</FieldDescription>
+          </FieldContent>
+          <Switch id="weekly-recap" checked={recap} onCheckedChange={setRecap} />
         </Field>
+        <details className="text-sm">
+          <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+            More options
+          </summary>
+          <Field data-invalid={capInvalid || undefined} className="mt-3 sm:max-w-xs">
+            <FieldLabel htmlFor="daily-cap">Most alerts per day</FieldLabel>
+            <Input
+              id="daily-cap"
+              inputMode="numeric"
+              value={cap}
+              placeholder={planCap ? `Your plan's limit (${planCap})` : "Your plan's limit"}
+              onChange={(e) => setCap(e.target.value.replace(/\D/g, ""))}
+              className="tabular"
+              aria-invalid={capInvalid || undefined}
+            />
+            {capInvalid ? (
+              <FieldError>Enter a number between 1 and 10,000.</FieldError>
+            ) : (
+              <FieldDescription>Anything over this waits until tomorrow. Leave empty to use your plan&apos;s limit.</FieldDescription>
+            )}
+          </Field>
+        </details>
       </CardContent>
       <CardFooter className="justify-end border-t">
         <Button
-          disabled={capInvalid || timesInvalid || update.isPending}
+          disabled={!dirty || capInvalid || timesInvalid || update.isPending}
           onClick={() =>
             update.mutate(
-              { quiet_hours: quiet, digest, daily_cap: capNum },
-              { onSuccess: () => toast.success("Delivery settings saved") },
+              { quiet_hours: quiet, digest, daily_cap: capNum, weekly_recap: recap },
+              { onSuccess: () => toast.success("Saved") },
             )
           }
         >
           {update.isPending ? <Spinner /> : null}
-          Save delivery settings
+          Save
         </Button>
       </CardFooter>
     </Card>

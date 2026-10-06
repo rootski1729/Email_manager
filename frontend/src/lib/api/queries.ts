@@ -191,9 +191,10 @@ export function useUpdateMe() {
   });
 }
 
-export function useUpdateSettings() {
+export function useUpdateSettings(opts: { silent?: boolean } = {}) {
   const qc = useQueryClient();
   return useMutation({
+    meta: { silent: opts.silent },
     mutationFn: (body: SettingsUpdate) => unwrap(api.PUT("/api/v1/me/settings", { body })),
     onSuccess: (settings) => qc.setQueryData(qk.settings, settings),
   });
@@ -290,6 +291,7 @@ export function useCreateRule(opts: { silent?: boolean } = {}) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.rules });
       void qc.invalidateQueries({ queryKey: qk.overview });
+      void qc.invalidateQueries({ queryKey: qk.onboarding });
     },
   });
 }
@@ -330,6 +332,9 @@ export function useDeleteRule() {
       qc.setQueryData<Rule[]>(qk.rules, (old) => old?.filter((r) => r.id !== id));
       qc.removeQueries({ queryKey: qk.rule(id) });
       void qc.invalidateQueries({ queryKey: qk.overview });
+      // Deleting a starter-pack rule makes the pack installable again.
+      void qc.invalidateQueries({ queryKey: qk.rulePacks });
+      void qc.invalidateQueries({ queryKey: qk.onboarding });
     },
   });
 }

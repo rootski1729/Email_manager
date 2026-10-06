@@ -5,15 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { useGmailAuthorize } from "@/lib/api/queries";
 
@@ -30,49 +22,43 @@ export function useStartGmailConnect() {
   };
 }
 
-export function ConnectGmailButton({ variant = "default" }: { variant?: "default" | "outline" }) {
+/** The Gmail step of "Add a mailbox": explain what we ask Google for, then hand over to Google. */
+export function GmailConnectPanel({ onBack }: { onBack: () => void }) {
   const { start, pending } = useStartGmailConnect();
   const [send, setSend] = useState(true);
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant={variant}>
-          <Mail /> Connect Gmail
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Connect Gmail</DialogTitle>
-          <DialogDescription>
-            You&apos;ll sign in with Google and approve access. Gmail then tells MailSentinel the moment new mail arrives.
-          </DialogDescription>
-        </DialogHeader>
-        <ul className="space-y-2 text-sm">
-          <li className="flex gap-2">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span>
-              <span className="font-medium">Read your mail</span>
-              <span className="text-muted-foreground"> — to check new emails against your rules. Nothing is changed or deleted.</span>
-            </span>
-          </li>
-        </ul>
-        <label className="flex cursor-pointer gap-3 rounded-lg border p-3 has-[[data-state=checked]]:border-primary/40 has-[[data-state=checked]]:bg-primary/5">
+    <>
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          You&apos;ll sign in with Google and say yes. After that, Gmail tells us the moment a new email arrives.
+        </p>
+        <p className="flex gap-2 rounded-xl bg-success/10 px-3 py-2.5 text-sm">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+          <span>
+            <span className="font-medium">We only read new email</span>
+            <span className="text-muted-foreground"> to see if it&apos;s important. We never change or delete anything.</span>
+          </span>
+        </p>
+        <label className="flex cursor-pointer gap-3 rounded-xl border p-3 has-[[data-state=checked]]:border-brand has-[[data-state=checked]]:bg-brand/10">
           <Checkbox checked={send} onCheckedChange={(v) => setSend(v === true)} className="mt-0.5" />
           <span className="text-sm">
             <span className="flex items-center gap-1.5 font-medium">
-              <Send className="size-3.5" /> Also allow sending email from WhatsApp
+              <Send className="size-3.5" aria-hidden /> Also let me send email from WhatsApp
             </span>
             <span className="mt-0.5 block text-muted-foreground">
-              Lets you send email from this address with /email on WhatsApp. Every email waits for your YES before it goes out.
+              Write an email on WhatsApp and send it from this address. Nothing goes out until you reply YES.
             </span>
           </span>
         </label>
-        <DialogFooter>
-          <Button onClick={() => start({ send })} disabled={pending}>
-            {pending ? <Spinner /> : <Mail />} Continue to Google
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" type="button" onClick={onBack}>
+          Back
+        </Button>
+        <Button onClick={() => start({ send })} disabled={pending}>
+          {pending ? <Spinner /> : <Mail />} Continue to Google
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

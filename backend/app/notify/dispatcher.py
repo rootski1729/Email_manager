@@ -183,15 +183,18 @@ class Dispatcher:
         alerts = [i for i in items if i.kind == NotificationKind.alert]
         others = [i for i in items if i.kind != NotificationKind.alert]
         if alerts and user and in_quiet_hours(pref.quiet_hours if pref else None, user.timezone):
-            async with session_factory()() as db:
-                await db.execute(
-                    update(Notification).where(Notification.id.in_([a.id for a in alerts]))
-                    .values(status=NotificationStatus.held, held_reason="quiet_hours")
-                )
-                await db.commit()
-            for a in alerts:
-                await events.publish(a.user_id, "notification.updated", {"id": str(a.id), "status": "held"})
-            alerts = []
+            # Urgent rules (exams, interviews, security) are delivered even during quiet hours.
+            held = [a for a in alerts if not a.payload.get("urgent")]
+            if held:
+                async with session_factory()() as db:
+                    await db.execute(
+                        update(Notification).where(Notification.id.in_([a.id for a in held]))
+                        .values(status=NotificationStatus.held, held_reason="quiet_hours")
+                    )
+                    await db.commit()
+                for a in held:
+                    await events.publish(a.user_id, "notification.updated", {"id": str(a.id), "status": "held"})
+            alerts = [a for a in alerts if a.payload.get("urgent")]
         # Verification codes and system notices go first and alone; alerts for one chat are merged.
         units: list[tuple[list[Notification], str]] = [([o], render_payload(o.kind, o.payload)) for o in others]
         if alerts:
@@ -217,7 +220,8 @@ class Dispatcher:
         self, user: User | None, pref: UserSettings | None, chat_id: str, items: list[Notification], text: str
     ) -> None:
         kinds = {i.kind for i in items}
-        system_only = kinds <= {NotificationKind.verification, NotificationKind.system, NotificationKind.reply}
+        system_only = kinds <= {NotificationKind.verification, NotificationKind.system, NotificationKind.reply,
+                                NotificationKind.reminder, NotificationKind.recap}
         buckets = self._buckets(None if system_only else user, pref, chat_id)
         decision = await self.limiter.acquire(*buckets)
         if not decision.allowed:

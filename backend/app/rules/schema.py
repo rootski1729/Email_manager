@@ -172,6 +172,8 @@ class NotifyAction(BaseModel):
     # Empty list means "the user's default destination".
     destinations: list[UUID] = Field(default_factory=list, max_length=10)
     mode: Literal["instant", "digest"] = "instant"
+    # Urgent alerts skip quiet hours and the digest (exams, interviews, security alerts).
+    urgent: bool = False
 
 
 class Actions(BaseModel):

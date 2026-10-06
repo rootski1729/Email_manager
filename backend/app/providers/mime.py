@@ -92,6 +92,22 @@ def _body_text(msg: EmailMessage) -> str:
     return content[:MAX_BODY_CHARS]
 
 
+MAX_CALENDAR_BYTES = 256 * 1024
+
+
+def _calendars(msg: EmailMessage) -> list[bytes]:
+    """text/calendar parts, inline (Gmail/Outlook invites) or attached as .ics."""
+    found: list[bytes] = []
+    for part in msg.walk():
+        name = (part.get_filename() or "").lower()
+        if part.get_content_type() != "text/calendar" and not name.endswith(".ics"):
+            continue
+        payload = part.get_payload(decode=True)
+        if isinstance(payload, bytes) and 0 < len(payload) <= MAX_CALENDAR_BYTES:
+            found.append(payload)
+    return found[:5]
+
+
 def _attachments(msg: EmailMessage) -> list[Attachment]:
     found: list[Attachment] = []
     for part in msg.iter_attachments():
@@ -119,6 +135,7 @@ def envelope_from_bytes(
     if full:
         env.body_text = _body_text(msg)
         env.attachments = _attachments(msg)
+        env.calendars = _calendars(msg)
         if not env.snippet:
             env.snippet = make_snippet(env.body_text, snippet_chars)
     return env

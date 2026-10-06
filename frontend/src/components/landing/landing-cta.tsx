@@ -10,9 +10,9 @@ export function LandingCta({ size = "lg", label = "Get started" }: { size?: "lg"
   const { status } = useAuth();
   const authed = status === "authenticated";
   return (
-    <Button asChild size={size} className={size === "lg" ? "h-11 px-5 text-[15px]" : undefined}>
+    <Button asChild size={size} className={size === "lg" ? "h-12 px-6 text-[15px]" : undefined}>
       <Link href={authed ? "/dashboard" : "/login"}>
-        {authed ? "Open dashboard" : label}
+        {authed ? "Open MailSentinel" : label}
         <ArrowRight />
       </Link>
     </Button>
@@ -24,7 +24,7 @@ export function NavAuthLink() {
   return (
     <Button asChild variant="ghost" size="sm">
       <Link href={status === "authenticated" ? "/dashboard" : "/login"}>
-        {status === "authenticated" ? "Dashboard" : "Sign in"}
+        {status === "authenticated" ? "Open MailSentinel" : "Sign in"}
       </Link>
     </Button>
   );

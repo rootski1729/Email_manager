@@ -24,6 +24,7 @@ from app.core.db import uuid7
 from app.core.errors import AppError, Conflict, LimitReached, NotFound
 from app.core.logging import log
 from app.core.redis import Keys, get_redis
+from app.core.runtime import google_config
 from app.core.security import new_opaque_token, vault
 from app.models import Mailbox, MailboxStatus, Provider, User
 from app.providers import get_provider
@@ -108,8 +109,7 @@ async def gmail_authorize(
     user: CurrentUser, db: DB, login_hint: str | None = None,
     send: bool = Query(False, description="Also ask for permission to send email (WhatsApp /email)"),
 ) -> AuthorizeOut:
-    settings = get_settings()
-    if not settings.google_client_id:
+    if not (await google_config()).oauth_ready:
         raise AppError("Gmail is not configured on this server", code="gmail_not_configured", status=503)
     count = await db.scalar(select(func.count()).select_from(Mailbox).where(Mailbox.user_id == user.id)) or 0
     reconnecting = bool(login_hint) and await db.scalar(select(Mailbox.id).where(
@@ -119,7 +119,7 @@ async def gmail_authorize(
     state, verifier = new_opaque_token(), new_opaque_token() + new_opaque_token()
     await get_redis().set(Keys.oauth_state(state), json.dumps({"user_id": str(user.id), "verifier": verifier}),
                           ex=OAUTH_STATE_TTL_S)
-    return AuthorizeOut(url=gmail_api.authorize_url(state, verifier, login_hint, send=send))
+    return AuthorizeOut(url=await gmail_api.authorize_url(state, verifier, login_hint, send=send))
 
 
 def _back_to_app(**params: str) -> RedirectResponse:

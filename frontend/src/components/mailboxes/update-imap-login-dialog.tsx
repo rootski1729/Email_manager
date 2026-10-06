@@ -38,7 +38,7 @@ import {
 } from "./smtp-section";
 
 const schema = z.object({
-  host: z.string().trim().min(1, "Enter the IMAP server host.").max(255),
+  host: z.string().trim().min(1, "Enter the incoming mail server.").max(255),
   port: z.coerce.number<string | number>().int().min(1, "Port must be 1–65535.").max(65535, "Port must be 1–65535."),
   security: z.enum(["ssl", "plain"]),
   username: z.string().trim().min(1, "Enter the username.").max(320),
@@ -188,7 +188,7 @@ function UpdateImapLoginForm({
             </Field>
             <div className="grid grid-cols-[1fr_6rem] gap-3">
               <Field data-invalid={!!form.formState.errors.host}>
-                <FieldLabel htmlFor="imap-host">IMAP server</FieldLabel>
+                <FieldLabel htmlFor="imap-host">Incoming mail server (IMAP)</FieldLabel>
                 <Input id="imap-host" placeholder="imap.example.com" autoComplete="off" {...form.register("host")} />
                 <FieldError errors={[form.formState.errors.host]} />
               </Field>
@@ -243,7 +243,7 @@ function UpdateImapLoginForm({
               defaultOpen={mailbox.can_send}
               note={
                 saved?.has_smtp_password
-                  ? "The SMTP password is saved. Leave it blank to keep it. Turning sending off stops /email from using this mailbox."
+                  ? "Your sending password is saved. Leave it blank to keep it. Switch sending off to stop /email from using this mailbox."
                   : mailbox.can_send
                     ? "Turning sending off stops /email from using this mailbox."
                     : undefined

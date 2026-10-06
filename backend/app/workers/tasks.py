@@ -11,7 +11,7 @@ from app.core.security import vault
 from app.models import Mailbox, MailboxStatus, Notification, NotificationStatus, Provider, RefreshToken
 from app.providers.base import ProviderError
 from app.providers.gmail import GmailSession
-from app.services import compose, ingest, outbox
+from app.services import compose, ingest, outbox, recap
 from app.services.events import wake_dispatcher
 from app.workers.broker import broker
 
@@ -45,6 +45,11 @@ async def kick_send(email_id: str) -> None:
 @broker.task(task_name="expire_drafts", schedule=[{"cron": "* * * * *"}])
 async def expire_drafts() -> int:
     return await compose.expire_drafts()
+
+
+@broker.task(task_name="weekly_recap", schedule=[{"cron": "*/15 * * * *"}])
+async def weekly_recap() -> int:
+    return await recap.send_due_recaps()
 
 
 @broker.task(task_name="schedule_polls", schedule=[{"cron": "* * * * *"}])

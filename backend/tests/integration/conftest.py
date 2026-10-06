@@ -35,7 +35,8 @@ def infra() -> Iterator[dict[str, Any]]:
             "IMAP_ALLOW_INSECURE": "true",
             "LOG_JSON": "false",
             "LOG_LEVEL": "WARNING",
-            "ADMIN_PHONES": "+14155550100",
+            "ADMIN_USERNAME": "admin",
+            "ADMIN_PASSWORD": "test-admin-password",
             "WAHA_URL": "http://waha.test",
         }
         os.environ.update(env)
@@ -61,7 +62,8 @@ async def clean(infra: dict[str, Any]) -> AsyncIterator[None]:
     async with get_engine().begin() as conn:
         await conn.execute(text(
             "TRUNCATE users, refresh_tokens, user_settings, destinations, mailboxes, rules, messages, "
-            "rule_matches, notifications, email_templates, outbound_emails, outbound_attachments CASCADE"))
+            "rule_matches, notifications, email_templates, outbound_emails, outbound_attachments, events, "
+            "admin_accounts, admin_sessions, admin_audit, app_settings CASCADE"))
     await get_redis().flushdb()
     yield
 

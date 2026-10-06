@@ -11,11 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 export const metadata: Metadata = { title: "Sign in" };
 
 const SAMPLE = [
-  "📬 *Important email*",
+  "📬 *Important email*  #K7",
   "*Rule:* University exams",
-  "*Inbox:* you@gmail.com",
   "*From:* Examination Cell <exam@univ.edu>",
-  "*Subject:* Admit card released for end-semester examinations",
+  "*Subject:* Admit card released for end-semester exams",
   "",
   "> Download your admit card from the student portal before Friday.",
 ].join("\n");
@@ -31,28 +30,27 @@ export default function LoginPage() {
           <ThemeToggle />
         </div>
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-          <p className="mt-1 mb-8 text-sm text-muted-foreground">
-            No password needed — we verify you through WhatsApp.
+          <h1 className="text-3xl font-semibold tracking-tight">Welcome</h1>
+          <p className="mt-2 mb-8 text-muted-foreground text-pretty">
+            Sign in with your WhatsApp number. No password needed.
           </p>
-          <Suspense fallback={<Skeleton className="h-40 w-full" />}>
-            <LoginForm />
-          </Suspense>
-          <p className="mt-8 text-xs text-muted-foreground">
-            New here? Signing in creates your account. Your number is used only to sign you in and deliver your alerts.
+          <div className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+            <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+              <LoginForm />
+            </Suspense>
+          </div>
+          <p className="mt-6 text-xs text-muted-foreground text-pretty">
+            New here? Signing in creates your account. We only use your number to sign you in and send your alerts.
           </p>
         </div>
       </div>
-      <div className="relative hidden overflow-hidden border-l bg-muted/40 lg:flex lg:items-center lg:justify-center">
-        <div aria-hidden className="absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" />
-        <div aria-hidden className="absolute -top-24 -right-24 size-96 rounded-full bg-primary/20 blur-3xl" />
-        <div aria-hidden className="absolute -bottom-32 -left-16 size-96 rounded-full bg-brand-2/20 blur-3xl" />
+      <div className="relative hidden overflow-hidden bg-sidebar text-sidebar-foreground lg:flex lg:items-center lg:justify-center">
+        <div aria-hidden className="absolute -top-24 -right-24 size-96 rounded-full bg-sidebar-primary/25 blur-3xl" />
+        <div aria-hidden className="absolute -bottom-32 -left-16 size-96 rounded-full bg-secondary/15 blur-3xl" />
         <div className="relative w-full max-w-md px-8">
-          <p className="mb-4 text-sm font-medium text-muted-foreground">What lands on your phone</p>
-          <div className="rounded-2xl border bg-card p-2 shadow-xl shadow-primary/5">
-            <WhatsAppBubble text={SAMPLE} time="09:41" />
-          </div>
-          <p className="mt-6 text-lg font-medium tracking-tight text-balance">
+          <p className="mb-4 text-sm font-medium text-sidebar-foreground/70">What lands on your phone</p>
+          <WhatsAppBubble text={SAMPLE} time="09:41" className="rounded-2xl shadow-2xl" />
+          <p className="mt-8 text-2xl font-semibold tracking-tight text-balance text-sidebar-accent-foreground">
             The emails that matter, on the app you actually check.
           </p>
         </div>

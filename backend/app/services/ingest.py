@@ -1,26 +1,28 @@
 """Mailbox sync: fetch new mail, run rules, record matches and queue alerts in one transaction."""
 
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from redis.exceptions import LockError
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.compose.commands import encode_ref
 from app.core.config import get_settings
 from app.core.db import session_factory, uuid7
 from app.core.logging import log
 from app.core.redis import Keys, get_redis
 from app.core.security import vault
-from app.models import Mailbox, MailboxStatus, Message, NotificationKind, Rule, RuleMatch
+from app.models import Mailbox, MailboxStatus, Message, NotificationKind, Rule, RuleMatch, User, UserSettings
 from app.providers import get_provider
 from app.providers.base import ProviderError, ReauthRequired
 from app.rules.engine import CompiledRule
-from app.rules.envelope import Envelope
-from app.services import events, outbox
+from app.rules.envelope import Envelope, domain_of
+from app.services import deadlines, events, outbox
 from app.services.rulesets import load_ruleset
 
 SEEN_TTL_S = 7 * 24 * 3600
@@ -43,6 +45,48 @@ async def request_sync(mailbox_id: UUID | str) -> bool:
     return True
 
 
+@dataclass
+class SyncContext:
+    """Per-sync user data, loaded once instead of per message."""
+
+    user: User
+    muted: list[str]
+    deadlines: bool
+
+
+async def load_context(db: AsyncSession, user_id: UUID) -> SyncContext | None:
+    user = await db.get(User, user_id)
+    if user is None:
+        return None
+    prefs = await db.get(UserSettings, user_id)
+    return SyncContext(user=user, muted=[m.lower() for m in (prefs.muted_senders if prefs else []) or []],
+                       deadlines=prefs.deadlines_enabled if prefs else True)
+
+
+def is_muted(address: str, muted: list[str]) -> bool:
+    address = address.lower()
+    domain = domain_of(address)
+    for entry in muted:
+        if "@" in entry:
+            if address == entry:
+                return True
+        elif domain == entry or domain.endswith("." + entry):
+            return True
+    return False
+
+
+async def next_ref(db: AsyncSession, user_id: UUID) -> str:
+    """Per-user short code. Seeded from the database if Redis lost the counter."""
+    redis = get_redis()
+    key = Keys.ref_seq(user_id)
+    n = await redis.incr(key)
+    if n == 1:
+        existing = await db.scalar(select(func.count()).select_from(Message).where(Message.user_id == user_id)) or 0
+        if existing:
+            n = await redis.incrby(key, existing)
+    return encode_ref(n)
+
+
 def alert_payload(mailbox: Mailbox, env: Envelope, rules: list[CompiledRule], message_id: UUID) -> dict:
     return {
         "message_id": str(message_id),
@@ -58,11 +102,14 @@ def alert_payload(mailbox: Mailbox, env: Envelope, rules: list[CompiledRule], me
 
 
 async def record_match(
-    db: AsyncSession, mailbox: Mailbox, env: Envelope, matched: list[CompiledRule]
+    db: AsyncSession, mailbox: Mailbox, env: Envelope, matched: list[CompiledRule],
+    ctx: SyncContext | None = None,
 ) -> dict[str, Any] | None:
-    """Insert the message, its rule matches and outbox rows. Idempotent per (mailbox, message)."""
+    """Insert the message, its rule matches, detected dates and outbox rows. Idempotent per (mailbox, message)."""
     settings = get_settings()
+    ctx = ctx or await load_context(db, mailbox.user_id)
     message_id = uuid7()
+    ref = await next_ref(db, mailbox.user_id)
     inserted = await db.scalar(
         insert(Message).values(
             id=message_id, user_id=mailbox.user_id, mailbox_id=mailbox.id,
@@ -71,7 +118,7 @@ async def record_match(
             to_addresses=[*env.to, *env.cc][:50], subject=env.subject,
             snippet=env.snippet[: settings.snippet_chars] if env.snippet else None,
             received_at=env.received_at, list_id=(env.list_id or None) and env.list_id[:320],
-            has_attachments=bool(env.attachments), web_url=env.web_url,
+            has_attachments=bool(env.attachments), web_url=env.web_url, ref=ref,
             headers={k: v for k, v in env.headers.items() if k in KEPT_HEADERS},
         ).on_conflict_do_nothing(index_elements=["mailbox_id", "provider_message_id"]).returning(Message.id)
     )
@@ -92,13 +139,29 @@ async def record_match(
         )
 
     destination_ids: set[UUID] = set()
-    instant = False
+    instant = urgent = False
     notify_rules = [r for r in matched if (r.actions or {}).get("notify", {}) is not None]
     for rule in notify_rules:
         notify = (rule.actions or {}).get("notify") or {}
         destination_ids |= {UUID(str(d)) for d in notify.get("destinations", [])}
-        instant |= notify.get("mode", "instant") == "instant"
+        urgent |= bool(notify.get("urgent"))
+        instant |= notify.get("mode", "instant") == "instant" or bool(notify.get("urgent"))
     payload = alert_payload(mailbox, env, matched, message_id)
+    payload["ref"] = ref
+    payload["urgent"] = urgent
+    if ctx is not None:
+        payload["timezone"] = ctx.user.timezone
+        if ctx.deadlines:
+            try:
+                found = deadlines.detect(env, ctx.user.timezone)
+                stored = await deadlines.store_found(db, ctx.user, message_id, found, ref=ref)
+            except Exception:
+                log.exception("deadline_detection_failed", message_id=str(message_id))
+                stored = []
+            payload["events"] = [deadlines.event_brief(e) for e in stored]
+        if is_muted(env.from_address, ctx.muted):
+            payload["muted"] = True
+            return payload
     if notify_rules:
         for destination in await outbox.resolve_destinations(db, mailbox.user_id, destination_ids):
             await outbox.enqueue(
@@ -167,6 +230,7 @@ async def _sync_locked(mailbox_id: UUID) -> dict[str, Any]:
             return {"status": "skipped"}
         credentials = vault().decrypt_json(mailbox.credentials)
         ruleset = await load_ruleset(db, mailbox.user_id)
+        ctx = await load_context(db, mailbox.user_id)
         matched_payloads: list[dict[str, Any]] = []
         new_refs: list[str] = []
 
@@ -186,9 +250,10 @@ async def _sync_locked(mailbox_id: UUID) -> dict[str, Any]:
                 matched = ruleset.evaluate(env)
                 if not matched:
                     continue
-                if not env.snippet and not env.is_full:
+                # Matched mail is read in full once: for the snippet and to find exam dates and invites.
+                if not env.is_full and (not env.snippet or (ctx and ctx.deadlines)):
                     env = await session.load(ref, full=True) or env
-                payload = await record_match(db, mailbox, env, matched)
+                payload = await record_match(db, mailbox, env, matched, ctx)
                 if payload:
                     matched_payloads.append(payload)
             new_credentials = session.credentials

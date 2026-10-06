@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { ListSkeleton } from "@/components/common/stat";
 import { SentView } from "@/components/sent/sent-view";
 
-export const metadata: Metadata = { title: "Sent emails" };
+export const metadata: Metadata = { title: "Sent · Send email" };
 
 export default function SentPage() {
   return (

@@ -1,0 +1,21 @@
+/** Query keys for the admin console. Everything lives under ["admin"] so sign-out can drop it in one go. */
+export const ak = {
+  all: ["admin"] as const,
+  me: ["admin", "me"] as const,
+  overview: ["admin", "overview"] as const,
+  health: ["admin", "health"] as const,
+  waha: ["admin", "waha"] as const,
+  notifications: (status: string | null) => ["admin", "notifications", status ?? "all"] as const,
+  audit: (limit: number) => ["admin", "audit", limit] as const,
+  clients: ["admin", "clients"] as const,
+  clientList: (params: Record<string, unknown>) => ["admin", "clients", "list", params] as const,
+  client: (id: string) => ["admin", "clients", "detail", id] as const,
+  mailboxes: ["admin", "mailboxes"] as const,
+  mailboxList: (params: Record<string, unknown>) => ["admin", "mailboxes", "list", params] as const,
+  rules: ["admin", "rules"] as const,
+  ruleList: (params: Record<string, unknown>) => ["admin", "rules", "list", params] as const,
+  google: ["admin", "google"] as const,
+  admins: ["admin", "admins"] as const,
+  dbTables: ["admin", "db", "tables"] as const,
+  dbRows: (table: string, params: Record<string, unknown>) => ["admin", "db", "rows", table, params] as const,
+};

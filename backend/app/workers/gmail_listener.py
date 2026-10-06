@@ -6,10 +6,10 @@ import signal
 import socket
 from typing import Any
 
-from app.core.config import get_settings
 from app.core.db import dispose_engine
 from app.core.logging import configure_logging, log
 from app.core.redis import Keys, close_redis, get_redis
+from app.core.runtime import google_config
 from app.services import ingest
 from app.services.gmail_intake import handle_gmail_notification
 from app.workers.broker import broker
@@ -18,13 +18,13 @@ from app.workers.tasks import kick_sync
 
 async def main() -> None:
     configure_logging()
-    settings = get_settings()
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
 
-    if settings.gmail_push_mode != "pull" or not settings.google_project_id:
+    config = await google_config()
+    if config.push_mode != "pull" or not config.project_id:
         log.info("gmail_listener_idle", reason="pull mode disabled or GOOGLE_PROJECT_ID unset")
         await stop.wait()
         return
@@ -34,7 +34,7 @@ async def main() -> None:
     await broker.startup()
     ingest.kick_sync = kick_sync
     subscriber = pubsub_v1.SubscriberClient()
-    path = subscriber.subscription_path(settings.google_project_id, settings.google_pubsub_subscription)
+    path = subscriber.subscription_path(config.project_id, config.pubsub_subscription)
 
     def callback(message: Any) -> None:
         try:

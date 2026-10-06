@@ -28,6 +28,24 @@ def create_access_token(user_id: UUID, role: str) -> str:
     return jwt.encode(payload, settings.jwt_secret.get_secret_value(), algorithm=JWT_ALG)
 
 
+def create_admin_token(admin_id: UUID) -> str:
+    """A different token type: a client's token can never open the admin API, and vice versa."""
+    settings = get_settings()
+    now = datetime.now(UTC)
+    payload = {"sub": str(admin_id), "type": "admin", "iat": now,
+               "exp": now + timedelta(seconds=settings.admin_access_ttl_s)}
+    return jwt.encode(payload, settings.jwt_secret.get_secret_value(), algorithm=JWT_ALG)
+
+
+def decode_admin_token(token: str) -> dict[str, Any] | None:
+    try:
+        payload = jwt.decode(token, get_settings().jwt_secret.get_secret_value(), algorithms=[JWT_ALG],
+                             options={"require": ["exp", "sub", "type"]})
+    except jwt.PyJWTError:
+        return None
+    return payload if payload.get("type") == "admin" else None
+
+
 def decode_access_token(token: str) -> dict[str, Any] | None:
     try:
         payload = jwt.decode(

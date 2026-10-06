@@ -5,7 +5,8 @@ x-backend: &backend
   image: mailsentinel-backend:${TAG:-local}
   build:
     context: ../backend
-  env_file: [.env]
+  env_file:
+    - ${ENV_FILE:-.env}
   environment: &backend-env
     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mailsentinel}:${POSTGRES_PASSWORD:-mailsentinel}@postgres:5432/${POSTGRES_DB:-mailsentinel}
     REDIS_URL: redis://redis:6379/0

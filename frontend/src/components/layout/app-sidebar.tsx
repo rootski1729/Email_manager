@@ -11,7 +11,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuBadge,
@@ -23,66 +22,68 @@ import {
 import { mailboxesQuery } from "@/lib/api/queries";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { maskPhone } from "@/lib/format";
-import { NAV_ADMIN, NAV_MAIN, NAV_SETUP, isActive, type NavItem } from "./nav-items";
-
-function NavGroup({ label, items, badges }: { label: string; items: NavItem[]; badges?: Record<string, number> }) {
-  const pathname = usePathname();
-  const { setOpenMobile } = useSidebar();
-  return (
-    <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {items.map((item) => {
-            const badge = badges?.[item.href];
-            return (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={isActive(pathname, item.href)} tooltip={item.label}>
-                  <Link href={item.href} onClick={() => setOpenMobile(false)}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-                {badge ? (
-                  <SidebarMenuBadge className="bg-amber-500/15 text-amber-800 dark:text-amber-200" aria-label={`${badge} need attention`}>
-                    {badge}
-                  </SidebarMenuBadge>
-                ) : null}
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  );
-}
+import { NAV, isActive } from "./nav-items";
 
 export function AppSidebar() {
-  const { isAdmin, user } = useAuth();
+  const { user } = useAuth();
+  const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
   const mailboxes = useQuery(mailboxesQuery);
   const attention = mailboxes.data?.filter((m) => m.status === "reauth_required" || m.status === "error").length ?? 0;
+  const badges: Record<string, number> = { "/mailboxes": attention };
 
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard" aria-label="Dashboard">
-                <Brand />
+            <SidebarMenuButton size="lg" asChild className="hover:bg-transparent">
+              <Link href="/dashboard" aria-label="Home" onClick={() => setOpenMobile(false)}>
+                <Brand className="text-sidebar-accent-foreground" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavGroup label="Monitor" items={NAV_MAIN} />
-        <NavGroup label="Configure" items={NAV_SETUP} badges={{ "/mailboxes": attention }} />
-        {isAdmin ? <NavGroup label="Operations" items={NAV_ADMIN} /> : null}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1">
+              {NAV.map((item) => {
+                const active = isActive(pathname, item);
+                const badge = badges[item.href];
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      size="lg"
+                      isActive={active}
+                      tooltip={item.label}
+                      className="relative h-10 gap-3 text-[0.9rem] text-sidebar-foreground/80 group-data-[collapsible=icon]:size-10! before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-sidebar-primary before:opacity-0 before:transition-opacity data-active:text-sidebar-accent-foreground data-active:before:opacity-100 data-active:[&_svg]:text-sidebar-primary group-data-[collapsible=icon]:before:hidden"
+                    >
+                      <Link href={item.href} onClick={() => setOpenMobile(false)} aria-current={active ? "page" : undefined}>
+                        <item.icon className="size-[18px]!" />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                    {badge ? (
+                      <SidebarMenuBadge
+                        className="top-2.5! rounded-full bg-warning px-1.5 text-warning-foreground dark:text-warning-foreground"
+                        aria-label={`${badge} need${badge === 1 ? "s" : ""} attention`}
+                      >
+                        {badge}
+                      </SidebarMenuBadge>
+                    ) : null}
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         {user ? (
-          <div className="truncate px-2 pb-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+          <div className="truncate px-2 pb-1 text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
             Signed in as {user.display_name || maskPhone(user.phone_e164)}
           </div>
         ) : null}

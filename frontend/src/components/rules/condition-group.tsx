@@ -36,7 +36,7 @@ export function ConditionGroup({ node, depth, isRoot = false }: { node: GroupNod
       className={cn(
         "rounded-xl border p-3",
         isRoot ? "bg-muted/30" : "bg-card",
-        node.negated && "border-rose-500/30",
+        node.negated && "border-destructive/30",
         issue && "border-destructive/50",
       )}
       role="group"
@@ -53,10 +53,10 @@ export function ConditionGroup({ node, depth, isRoot = false }: { node: GroupNod
           onValueChange={(v) => v && patch({ mode: v as "all" | "any" })}
           aria-label="Group logic"
         >
-          <ToggleGroupItem value="all" className="px-3 data-[state=on]:bg-primary/10 data-[state=on]:text-primary">
+          <ToggleGroupItem value="all" className="px-3 data-[state=on]:bg-brand/20 data-[state=on]:text-brand-ink">
             ALL
           </ToggleGroupItem>
-          <ToggleGroupItem value="any" className="px-3 data-[state=on]:bg-primary/10 data-[state=on]:text-primary">
+          <ToggleGroupItem value="any" className="px-3 data-[state=on]:bg-brand/20 data-[state=on]:text-brand-ink">
             ANY
           </ToggleGroupItem>
         </ToggleGroup>

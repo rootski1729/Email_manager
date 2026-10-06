@@ -9,10 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from sqlalchemy import text
 
+from app.api import admin as admin_api
 from app.api.routes import (
-    admin,
     auth,
     destinations,
+    events,
     mailboxes,
     me,
     messages,
@@ -30,6 +31,7 @@ from app.core.http import close_http
 from app.core.logging import configure_logging, log
 from app.core.redis import close_redis, get_redis
 from app.services import compose, ingest
+from app.services.admin_auth import ensure_bootstrap_admin
 from app.workers.broker import broker
 from app.workers.tasks import kick_send, kick_sync
 
@@ -43,6 +45,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await broker.startup()
     ingest.kick_sync = kick_sync
     compose.kick_send = kick_send
+    await ensure_bootstrap_admin()
     log.info("api_started", environment=get_settings().environment)
     yield
     await broker.shutdown()
@@ -85,9 +88,12 @@ def create_app() -> FastAPI:
 
     problem = {"model": Problem, "content": {"application/problem+json": {}}}
     api = APIRouter(prefix="/api/v1", responses={code: problem for code in (400, 401, 403, 404, 409, 429, 502)})
-    for module in (auth, me, destinations, mailboxes, rules, messages, templates, outbound, stats, admin, webhooks):
+    for module in (auth, me, destinations, mailboxes, rules, messages, events, templates, outbound, stats,
+                   webhooks):
         api.include_router(module.router)
     api.include_router(mailboxes.oauth_router)
+    api.include_router(admin_api.router)
+    api.include_router(events.public_router)
     app.include_router(api)
 
     @app.get("/healthz", include_in_schema=False)

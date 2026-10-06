@@ -23,7 +23,7 @@ from app.core.security import (
     phone_to_chat_id,
     sha256,
 )
-from app.models import Destination, DestinationKind, RefreshToken, Role, User, UserSettings
+from app.models import Destination, DestinationKind, RefreshToken, User, UserSettings
 from app.notify.direct import send_now
 from app.notify.waha import WahaError
 
@@ -85,8 +85,8 @@ async def request_code(phone_raw: str, *, ip: str | None, turnstile_token: str |
     try:
         await send_now(phone_to_chat_id(phone), text)
     except WahaError as exc:
-        if settings.environment != "production" or phone in settings.admin_phones:
-            # Bootstrap path: the operator signs in before WhatsApp is paired, reading the server log.
+        if settings.environment != "production":
+            # Development only: read the code from the server log while WhatsApp isn't paired.
             log.warning("otp_delivery_failed_logged_for_operator", phone=phone, code=code, error=str(exc))
         else:
             await redis.delete(key)
@@ -129,7 +129,6 @@ async def verify_code(
         log.info("user_created", user_id=str(user.id))
     if not user.is_active:
         raise Unauthorized("This account is disabled", code="account_disabled")
-    user.role = Role.admin if phone in settings.admin_phones else Role.user
     user.last_login_at = datetime.now(UTC)
     tokens = await _issue(db, user, family_id=uuid7(), user_agent=user_agent, ip=ip)
     await db.commit()

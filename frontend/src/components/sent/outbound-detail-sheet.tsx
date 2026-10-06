@@ -16,7 +16,7 @@ import { outboundEmailQuery, useCancelOutbound } from "@/lib/api/queries";
 import { absoluteTime } from "@/lib/format";
 import { AttachmentChip, OutboundStatusBadge } from "./outbound-parts";
 
-const SOURCE_LABELS: Record<string, string> = { whatsapp: "WhatsApp", dashboard: "Dashboard" };
+const SOURCE_LABELS: Record<string, string> = { whatsapp: "WhatsApp", dashboard: "the website" };
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -64,7 +64,7 @@ export function OutboundDetailSheet({ id, onOpenChange }: { id: string | null; o
           ) : e ? (
             <>
               {e.status === "awaiting_confirmation" ? (
-                <div className="flex gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+                <div className="flex gap-2 rounded-lg bg-warning/10 px-3 py-2 text-sm text-foreground">
                   <MessageCircle className="mt-0.5 size-4 shrink-0" />
                   <p>
                     Reply <strong>YES</strong> to the preview on WhatsApp to send it
@@ -79,7 +79,7 @@ export function OutboundDetailSheet({ id, onOpenChange }: { id: string | null; o
                 </div>
               ) : null}
               {e.error ? (
-                <p className="rounded-md bg-rose-500/8 px-3 py-2 font-mono text-xs break-words text-rose-800 dark:text-rose-200">
+                <p className="rounded-md bg-destructive/8 px-3 py-2 font-mono text-xs break-words text-destructive">
                   {e.error}
                 </p>
               ) : null}

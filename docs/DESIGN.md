@@ -555,3 +555,134 @@ you: YES                       bot: ⏳ Sending…  →  ✅ Sent "Leave on 05 O
 Verified locally: 30 new tests (unit tests for the parser and MIME builder; integration tests covering the
 webhook → form → attachment → preview → YES → real SMTP send, read back over IMAP from GreenMail), plus a live
 run through the Docker stack with HMAC-signed webhooks.
+
+## 20. Engagement release: Deadline radar and acting on alerts
+
+### Deadline radar (new pillar)
+
+Every email that matches a rule is read in full once, and the dates in it become **events**.
+
+- **Calendar invites** (`text/calendar` parts and `.ics` files) are exact. Confidence 1.0, UID-based updates,
+  and `METHOD:CANCEL` dismisses the event.
+- **Text** (`app/events/extract.py`, pure and dependency-free apart from `icalendar`):
+  - Date forms: `12 Oct 2026`, `October 12`, `2026-10-12`, `15/10/2026` (day-first except US timezones),
+    `today`/`tomorrow`, plus a nearby clock time (`at 10:00 AM`, `14:30 hrs`).
+  - The sentence's keywords set the kind, checked in priority order so "last date to pay the exam fee" is
+    a *deadline*, not an exam: deadline → payment → interview → exam → travel → meeting.
+  - Ignored: dates before the email, quoted reply history, and anything more than 2 years ahead.
+  - At most 3 events per email.
+- **Confidence:** at 0.7 or above an event is `upcoming` and gets reminders. Below that it's `suggested`,
+  shown in the app for one-tap confirmation and never reminded.
+- **Reminders** (`app/services/deadlines.py`) are outbox rows (`kind=reminder`) with a future
+  `next_attempt_at`, so delivery, retries and rate limits are the dispatcher's as usual.
+  - All-day events: 18:00 the evening before and 07:30 that morning (user's timezone).
+  - Timed events: a day before and 2 hours before.
+  - Moving or dismissing an event cancels its pending reminders (`status=cancelled`).
+- **API:** `/api/v1/deadlines` (list, create, edit, delete) and `/api/v1/deadlines/calendar` for the feed link.
+- **Surfaces:**
+  - The alert itself ("📝 Thu 15 Oct, 10:00 – I'll remind you").
+  - `/upcoming` on WhatsApp.
+  - The **Upcoming** page.
+  - A private iCalendar feed (`/api/v1/calendar/{token}.ics`, rotatable) for Google or Apple Calendar.
+- Can be turned off with `user_settings.deadlines_enabled`. A failure in date detection is logged and never
+  blocks the alert.
+
+### Acting on alerts from WhatsApp
+
+- **Codes:** every matched email gets a per-user short code (`messages.ref`, e.g. `#K7`).
+  - 31-character alphabet with no look-alikes, generated from a Redis counter. The counter is re-seeded
+    from the DB if lost; on repeats the newest message wins.
+  - Migration 0003 backfills codes for older emails.
+- **Commands:**
+  - `/open K7`: full text, fetched live from the mailbox; never stored.
+  - `/reply K7`: compose form addressed to the sender or Reply-To, `Re:` subject. It's sent with
+    `In-Reply-To`/`References` and, for Gmail, the original `threadId` (multipart upload).
+  - `/remind K7 2h|tomorrow 9am|mon 8:30|6pm|in 3 days`.
+  - `/mute K7 [domain]`, `/unmute`, `/muted`: muted senders are still recorded, just not alerted.
+  - `/recent`, `/upcoming`.
+- **Quoting an alert** in WhatsApp (WAHA's `replyTo.body`) supplies the code, so "remind 2h" is enough.
+  When the quoted message lists several codes, nothing is guessed.
+
+### Smaller additions
+
+- **Urgent rules** (`actions.notify.urgent`) skip quiet hours and digest mode, and alert as "🚨 Urgent email".
+- **Starter packs** (`app/rules/packs.py`): Exams, Jobs, Bank, Bills, Security, Deliveries, Travel and
+  Government documents. Each is compiled at import time, and installing one is a single click
+  (`rules.source = "pack:<id>"`).
+- **Suggestions** (`GET /rules/suggestions`):
+  - Reads recent mail headers (cached 10 minutes; nothing stored) and shows which packs *would have caught*
+    something, with examples.
+  - Also shows organisations that write to you personally (no List-Unsubscribe, not a noreply address, not
+    freemail), grouped by registrable domain. Senders your rules already catch aren't suggested.
+- **Onboarding checklist** (`GET /me/onboarding`) and a **test alert** (`POST /me/test-alert`, 3 per hour)
+  that looks exactly like a real one.
+- **Weekly recap** on WhatsApp, Sunday 18:00 local time, at most once a week. It covers scanned vs
+  important, top rules and senders, emails sent from WhatsApp, and what's coming up. Can be turned off.
+- **IMAP:** a mailbox whose UIDNEXT drops below the saved cursor (a renumber without a UIDVALIDITY change) is
+  rescanned instead of silently stalling.
+
+## 21. Admin console
+
+Admins are **separate accounts**, not clients with a flag.
+
+**Sign-in and security**
+- Admins sign in with username + password at `/admin/login`. Passwords are hashed with Argon2id.
+- Lockouts: 5 wrong passwords lock the account for 15 minutes; there's also a per-IP limit.
+- Admin access tokens are their own JWT type (`type=admin`) and can never be used on the client API, or the
+  reverse.
+- Sessions use a rotating refresh cookie (`ms_admin`, path `/api/v1/admin/auth`, SameSite=strict) with reuse
+  detection.
+- The first admin is created at startup from `ADMIN_USERNAME`/`ADMIN_PASSWORD` when none exists. The old
+  `ADMIN_PHONES` (phone numbers that became admins) is gone, and phone sign-in always produces a client.
+- This removes the bootstrap problem: an admin can sign in and pair WhatsApp before any OTP can be delivered.
+
+**API (`/api/v1/admin/*`)**
+| Area | Routes |
+|---|---|
+| Overview | `overview` (KPIs, 14-day series, health in plain words), `health` |
+| Clients | list/search, create, detail, edit (plan, active), sign-out everywhere, WhatsApp message, delete (cascades) |
+| Mailboxes and rules | across all clients, with sync/pause/resume/delete and enable/delete |
+| WhatsApp | status and QR, start/restart/stop/logout |
+| Google | `config/google` (GET/PUT/DELETE), `check` |
+| Test lab | `tools/rule` (✓/✗ explanation per condition), `tools/dates`, `tools/whatsapp`, `tools/mailbox` |
+| Database | `db/*` |
+| Audit | `audit` |
+| Admin accounts | create, disable, change password |
+
+**Google configuration at runtime** (`app/core/runtime.py`)
+- Values saved in the console live in `app_settings`, with the client secret encrypted by the app's Fernet
+  keys. They override the environment variables.
+- Every process re-reads them when the Redis counter `cfg:ver` changes, so OAuth, token refresh, watch
+  renewal and push verification all use the new values within seconds.
+- The "check" endpoint makes a dummy code exchange: Google answers `invalid_grant` for a valid client and
+  `invalid_client` otherwise. That verifies the ID and secret without a user.
+
+**Database browser**
+- Generic over every table except `admin_sessions`.
+- Secret columns are never returned or exported: credentials, token hashes, password hashes, file contents,
+  the calendar token and encrypted settings.
+- Primary keys, foreign keys and timestamps can't be edited. The audit log, admin accounts and app settings
+  are read-only there.
+- Input values are coerced and validated per column type. Every edit, delete and export is audited.
+  Deleting a client cascades.
+
+**Audit log**: `admin_audit` records who, what, target, details and IP for every console action.
+
+## 22. Deployment on a VM
+
+`deploy/mailsentinel.sh install` sets up the whole system on any Docker host (guide: `deploy/README.md`).
+- **Install:** generates every secret into `deploy/.env` (mode 600), then builds and starts
+  `compose.yml` + `compose.prod.yml`.
+- **Other commands:** `update` (backup, `git pull`, rebuild; migrations run automatically through the
+  `migrate` one-shot), `backup`/`restore`, `status`, `logs`, `admin-password`, `gmail-listener on|off`.
+- **Topology:** Caddy is the only published service (80/443; automatic Let's Encrypt when `SITE_ADDRESS` is a
+  domain, plain HTTP with `:80`). It routes `/api/*` to the API (unbuffered, for SSE) and everything else to
+  the Next.js `web` container, so the browser only ever sees one origin.
+  - Internal endpoints (`/api/v1/webhooks/waha`, `/api/docs`, `/api/openapi.json`) return 404 at the edge.
+  - Security headers are set there too.
+- **Cookies:** `Secure` follows the public URL's scheme (`Settings.cookie_secure`), so an IP-only HTTP install
+  still signs in.
+- **Containers:** each has a memory limit and capped json logs. A `backup` sidecar writes nightly
+  `pg_dump`s to `deploy/backups/`.
+- **Verified:** a from-scratch install as an isolated project behind the proxy, then sign-in through the
+  proxy, internal paths blocked, backup and restore.

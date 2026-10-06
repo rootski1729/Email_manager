@@ -12,31 +12,39 @@ export function WhatsAppPreview({
   hit,
   mailbox,
   mode,
+  urgent = false,
 }: {
   ruleName: string;
   hit: RuleTestHit | null;
   mailbox: string | null;
   mode: "instant" | "digest";
+  urgent?: boolean;
 }) {
   const origin = useOrigin();
   const text = renderAlertPreview({
-    rules: [ruleName.trim() || "Untitled rule"],
+    rules: [ruleName.trim() || "My rule"],
     mailbox: mailbox ?? "you@example.com",
     fromName: hit ? hit.from_name : "Examination Cell",
     fromAddress: hit ? hit.from_address : "exams@univ.edu",
     subject: hit ? hit.subject : "Admit card released for end-semester examinations",
     snippet: hit ? hit.snippet : "Your admit card is now available on the student portal. Download it before the deadline.",
     detailsUrl: origin ? `${origin}/messages/…` : null,
+    urgent,
+    ref: "K7",
   });
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <MessageCircle className="size-4 text-wa" /> WhatsApp preview
+          <MessageCircle className="size-4 text-wa" /> What you&apos;ll get on WhatsApp
         </CardTitle>
         <CardDescription>
-          {hit ? "Using the first match from your test." : "Example alert — run a test to preview a real match."}
-          {mode === "digest" ? " Digest mode bundles matches into one summary message instead." : ""}
+          {hit ? "Using the first email your test caught." : "An example. Try it on your email to see a real one."}
+          {urgent
+            ? " Urgent alerts arrive immediately, even during quiet hours."
+            : mode === "digest"
+              ? " These are collected into one daily summary message instead."
+              : ""}
         </CardDescription>
       </CardHeader>
       <CardContent>

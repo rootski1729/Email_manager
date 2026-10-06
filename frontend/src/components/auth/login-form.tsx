@@ -122,7 +122,7 @@ export function LoginForm() {
             autoFocus
           />
           <FieldDescription>
-            We&apos;ll send a 6-digit sign-in code to this number on WhatsApp.
+            We&apos;ll send a 6-digit code to your WhatsApp.
           </FieldDescription>
           {error ? <FieldError>{error}</FieldError> : null}
         </Field>
@@ -136,9 +136,9 @@ export function LoginForm() {
             options={{ size: "flexible", theme: "auto" }}
           />
         ) : null}
-        <Button type="submit" size="lg" className="h-10 w-full" disabled={pending || needsCaptcha || !raw.trim()}>
+        <Button type="submit" size="lg" className="w-full" disabled={pending || needsCaptcha || !raw.trim()}>
           {pending ? <Spinner /> : <MessageCircle />}
-          Send code on WhatsApp
+          Send me the code
         </Button>
       </form>
     );
@@ -153,9 +153,9 @@ export function LoginForm() {
       }}
     >
       <Field data-invalid={Boolean(error) || undefined}>
-        <FieldLabel htmlFor="otp">Enter the code</FieldLabel>
+        <FieldLabel htmlFor="otp">Enter the 6-digit code</FieldLabel>
         <FieldDescription>
-          Sent to <span className="font-medium text-foreground tabular">{phone}</span> on WhatsApp.
+          We sent it to <span className="font-medium text-foreground tabular">{phone}</span> on WhatsApp.
         </FieldDescription>
         <InputOTP
           id="otp"
@@ -188,9 +188,9 @@ export function LoginForm() {
         </InputOTP>
         {error ? <FieldError>{error}</FieldError> : null}
       </Field>
-      <Button type="submit" size="lg" className="h-10 w-full" disabled={pending || code.length !== 6}>
+      <Button type="submit" size="lg" className="w-full" disabled={pending || code.length !== 6}>
         {pending ? <Spinner /> : <ArrowRight />}
-        Verify and sign in
+        Sign in
       </Button>
       <div className="flex items-center justify-between gap-2 text-sm">
         <Button

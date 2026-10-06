@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { BrandMark } from "@/components/common/brand";
+import { Brand, BrandMark } from "@/components/common/brand";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,26 +19,26 @@ import { UserMenu } from "./user-menu";
 function ShellSkeleton() {
   return (
     <div className="flex min-h-svh w-full" aria-busy="true" aria-label="Restoring your session">
-      <div className="hidden w-64 flex-col gap-3 border-r bg-sidebar p-4 md:flex">
+      <div className="hidden w-64 flex-col gap-3 bg-sidebar p-4 md:flex">
         <div className="flex items-center gap-2">
           <BrandMark />
-          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-28 bg-sidebar-accent" />
         </div>
         <div className="mt-6 space-y-2">
           {Array.from({ length: 7 }, (_, i) => (
-            <Skeleton key={i} className="h-8 w-full" />
+            <Skeleton key={i} className="h-10 w-full bg-sidebar-accent" />
           ))}
         </div>
       </div>
-      <div className="flex-1 p-4 md:p-8">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="mt-2 h-4 w-80 max-w-full" />
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
+      <div className="flex-1 p-4 md:p-10">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="mt-3 h-4 w-80 max-w-full" />
+        <Skeleton className="mt-8 h-24 rounded-2xl" />
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
-        <Skeleton className="mt-4 h-72 rounded-xl" />
       </div>
     </div>
   );
@@ -71,16 +72,16 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
           <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background/85 px-3 backdrop-blur-md md:px-4">
             <SidebarTrigger className="hidden md:inline-flex" />
             <Separator orientation="vertical" className="mr-1 hidden md:block data-vertical:h-4 data-vertical:self-center" />
-            <span className="md:hidden">
-              <BrandMark className="size-6" />
-            </span>
+            <Link href="/dashboard" aria-label="Home" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:hidden">
+              <Brand />
+            </Link>
             <div className="ml-auto flex items-center gap-1.5">
               <ConnectionIndicator />
               <ThemeToggle />
               <UserMenu />
             </div>
           </header>
-          <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-28 md:px-8 md:pt-8 md:pb-12">
+          <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:px-8 md:pt-10 md:pb-16">
             {children}
           </main>
         </SidebarInset>

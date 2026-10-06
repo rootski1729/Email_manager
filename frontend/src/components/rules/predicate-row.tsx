@@ -23,7 +23,7 @@ export function NotToggle({ pressed, onChange, label }: { pressed: boolean; onCh
           pressed={pressed}
           onPressedChange={onChange}
           aria-label={label}
-          className="h-8 px-2 font-mono text-[11px] font-semibold tracking-wide data-[state=on]:border-rose-500/40 data-[state=on]:bg-rose-500/10 data-[state=on]:text-rose-700 dark:data-[state=on]:text-rose-300"
+          className="h-8 px-2 font-mono text-[11px] font-semibold tracking-wide data-[state=on]:border-destructive/40 data-[state=on]:bg-destructive/10 data-[state=on]:text-destructive"
         >
           NOT
         </Toggle>
@@ -54,7 +54,7 @@ export function PredicateRow({ node, canDelete }: { node: PredicateNode; canDele
     <div
       className={cn(
         "@container rounded-lg border bg-background p-2 transition-colors",
-        node.negated && "border-rose-500/30 bg-rose-500/[0.03]",
+        node.negated && "border-destructive/30 bg-destructive/[0.03]",
         issue && "border-destructive/50",
       )}
     >

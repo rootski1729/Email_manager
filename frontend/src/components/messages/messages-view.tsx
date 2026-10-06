@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { ExternalLink, MailCheck, Paperclip, Search, X } from "lucide-react";
+import { MailCheck, Paperclip, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -9,61 +9,55 @@ import { useState } from "react";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { PageHeader } from "@/components/common/page-header";
+import { RefBadge } from "@/components/common/ref-badge";
 import { RelativeTime } from "@/components/common/relative-time";
 import { ListSkeleton } from "@/components/common/stat";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { mailboxesQuery, messagesQuery, rulesQuery, type MessageFilters } from "@/lib/api/queries";
 import type { Message } from "@/lib/api/types";
+import { addDays, dayKey, formatDayKey } from "@/lib/datetime";
+import { initials } from "@/lib/format";
 import { useDebounced } from "@/lib/hooks/use-debounced";
+import { useNow } from "@/lib/hooks/use-now";
+import { useZone } from "@/lib/hooks/use-zone";
 
 const ALL = "__all";
 
 function MessageRow({ m }: { m: Message }) {
+  const from = m.from_name || m.from_address;
   return (
-    <li className="group relative flex gap-3 px-4 py-3 transition-colors hover:bg-muted/50">
+    <li className="relative flex gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50 has-[a:focus-visible]:bg-muted/50">
+      <span
+        aria-hidden
+        className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground"
+      >
+        {initials(from)}
+      </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
+          <span className="truncate text-sm font-medium">{from}</span>
+          <RelativeTime iso={m.received_at} className="relative z-10 shrink-0 text-xs text-muted-foreground" />
+        </div>
+        <div className="flex items-center gap-1.5">
           <Link
             href={`/messages/${m.id}`}
-            className="min-w-0 truncate font-medium outline-none after:absolute after:inset-0 focus-visible:underline"
+            className="min-w-0 truncate text-[0.95rem] outline-none after:absolute after:inset-0 focus-visible:underline"
           >
             {m.subject || "(no subject)"}
           </Link>
-          <RelativeTime iso={m.received_at} className="relative z-10 shrink-0 text-xs text-muted-foreground" />
+          {m.has_attachments ? <Paperclip className="size-3.5 shrink-0 text-muted-foreground" aria-label="Has attachments" /> : null}
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-          <span className="truncate">
-            {m.from_name ? (
-              <>
-                <span className="text-foreground/80">{m.from_name}</span> · {m.from_address}
-              </>
-            ) : (
-              m.from_address
-            )}
-          </span>
-          {m.has_attachments ? <Paperclip className="size-3.5 shrink-0" aria-label="Has attachments" /> : null}
-        </div>
-        {m.snippet ? <p className="mt-1 line-clamp-1 text-sm text-muted-foreground/80">{m.snippet}</p> : null}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {(m.rules ?? []).map((r) => (
-            <Badge key={r} variant="secondary" className="bg-primary/10 text-primary">
-              {r}
-            </Badge>
-          ))}
-          {m.mailbox_address ? <span className="text-xs text-muted-foreground">in {m.mailbox_address}</span> : null}
-          {m.web_url ? (
-            <a
-              href={m.web_url}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="relative z-10 ml-auto inline-flex items-center gap-1 rounded text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Open in mail <ExternalLink className="size-3" />
-            </a>
+        {m.snippet ? <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{m.snippet}</p> : null}
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <RefBadge value={m.ref} />
+          {(m.rules ?? []).length ? (
+            <span className="truncate">
+              {m.rules[0]}
+              {m.rules.length > 1 ? ` +${m.rules.length - 1}` : ""}
+            </span>
           ) : null}
         </div>
       </div>
@@ -71,10 +65,18 @@ function MessageRow({ m }: { m: Message }) {
   );
 }
 
+function dayLabel(key: string, today: string | null) {
+  if (today && key === today) return "Today";
+  if (today && key === addDays(today, -1)) return "Yesterday";
+  return formatDayKey(key, { weekday: "long", day: "numeric", month: "long" });
+}
+
 export function MessagesView() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const zone = useZone();
+  const now = useNow();
   const mailboxId = params.get("mailbox") ?? "";
   const ruleId = params.get("rule") ?? "";
   const [q, setQ] = useState(params.get("q") ?? "");
@@ -99,20 +101,33 @@ export function MessagesView() {
 
   const items = messages.data?.pages.flatMap((p) => p.items) ?? [];
   const filtered = Boolean(mailboxId || ruleId || debouncedQ);
+  const today = now ? dayKey(now, zone) : null;
+  const groups: { key: string; items: Message[] }[] = [];
+  for (const m of items) {
+    const key = dayKey(m.received_at, zone);
+    const last = groups[groups.length - 1];
+    if (last?.key === key) last.items.push(m);
+    else groups.push({ key, items: [m] });
+  }
+  const showMailboxFilter = (mailboxes.data?.length ?? 0) > 1 || Boolean(mailboxId);
+  const showRuleFilter = (rules.data?.length ?? 0) > 1 || Boolean(ruleId);
 
   return (
     <div>
-      <PageHeader title="Matched mail" description="Every email that matched at least one of your rules. Bodies of other mail are never stored." />
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-        <InputGroup className="sm:max-w-sm">
+      <PageHeader
+        title="Important mail"
+        description="Every email that matched what you watch for. Open one to set a reminder or mute the sender."
+      />
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row">
+        <InputGroup className="h-10 sm:max-w-sm">
           <InputGroupAddon>
             <Search />
           </InputGroupAddon>
           <InputGroupInput
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search subject or sender"
-            aria-label="Search matched mail"
+            placeholder="Search by subject or sender"
+            aria-label="Search important mail"
             maxLength={200}
           />
           {q ? (
@@ -123,32 +138,36 @@ export function MessagesView() {
             </InputGroupAddon>
           ) : null}
         </InputGroup>
-        <Select value={mailboxId || ALL} onValueChange={(v) => setParam("mailbox", v)}>
-          <SelectTrigger className="w-full sm:w-52" aria-label="Filter by mailbox">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All mailboxes</SelectItem>
-            {(mailboxes.data ?? []).map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.display_name || m.address}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={ruleId || ALL} onValueChange={(v) => setParam("rule", v)}>
-          <SelectTrigger className="w-full sm:w-52" aria-label="Filter by rule">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All rules</SelectItem>
-            {(rules.data ?? []).map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                {r.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {showMailboxFilter ? (
+          <Select value={mailboxId || ALL} onValueChange={(v) => setParam("mailbox", v)}>
+            <SelectTrigger className="h-10! w-full sm:w-48" aria-label="Show mail from">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All mailboxes</SelectItem>
+              {(mailboxes.data ?? []).map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.display_name || m.address}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        {showRuleFilter ? (
+          <Select value={ruleId || ALL} onValueChange={(v) => setParam("rule", v)}>
+            <SelectTrigger className="h-10! w-full sm:w-48" aria-label="Show mail caught by">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Everything I watch</SelectItem>
+              {(rules.data ?? []).map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
       </div>
 
       {messages.isPending ? (
@@ -157,7 +176,7 @@ export function MessagesView() {
         <ErrorState error={messages.error} onRetry={() => void messages.refetch()} />
       ) : items.length === 0 ? (
         filtered ? (
-          <EmptyState icon={Search} title="No matching emails" description="Try a different search or clear the filters.">
+          <EmptyState icon={Search} title="Nothing found" description="Try other words, or show everything again.">
             <Button
               variant="outline"
               onClick={() => {
@@ -165,38 +184,45 @@ export function MessagesView() {
                 router.replace(pathname, { scroll: false });
               }}
             >
-              Clear filters
+              Show everything
             </Button>
           </EmptyState>
         ) : (
           <EmptyState
             icon={MailCheck}
-            title="Nothing matched yet"
-            description="When a new email matches one of your rules it will show up here, and on WhatsApp."
+            title="No important mail yet"
+            description="When a new email matches what you watch for, it shows up here and on your WhatsApp."
           >
-            <Button asChild variant="outline">
-              <Link href="/rules">Review rules</Link>
+            <Button asChild>
+              <Link href="/rules">Choose what to watch</Link>
             </Button>
           </EmptyState>
         )
       ) : (
-        <>
-          <ul className="divide-y overflow-hidden rounded-xl border bg-card">
-            {items.map((m) => (
-              <MessageRow key={m.id} m={m} />
-            ))}
-          </ul>
-          <div className="mt-4 flex justify-center">
+        <div className="space-y-6">
+          {groups.map((g) => (
+            <section key={g.key} aria-label={dayLabel(g.key, today)}>
+              <h2 className="mb-2 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                {dayLabel(g.key, today)}
+              </h2>
+              <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
+                {g.items.map((m) => (
+                  <MessageRow key={m.id} m={m} />
+                ))}
+              </ul>
+            </section>
+          ))}
+          <div className="flex justify-center">
             {messages.hasNextPage ? (
               <Button variant="outline" onClick={() => void messages.fetchNextPage()} disabled={messages.isFetchingNextPage}>
                 {messages.isFetchingNextPage ? <Spinner /> : null}
-                Load more
+                Show older emails
               </Button>
             ) : (
               <p className="text-xs text-muted-foreground">That&apos;s everything.</p>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

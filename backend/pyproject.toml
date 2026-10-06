@@ -29,6 +29,9 @@ dependencies = [
     "uuid-utils>=1.0",
     "email-validator>=2.3",
     "aiosmtplib>=4",
+    "icalendar>=6",
+    "python-dateutil>=2.9",
+    "argon2-cffi>=23",
 ]
 
 [dependency-groups]

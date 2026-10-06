@@ -32,6 +32,7 @@ from app.models import (
     EmailTemplate,
     Mailbox,
     MailboxStatus,
+    Message,
     NotificationKind,
     OutboundAttachment,
     OutboundEmail,
@@ -45,6 +46,7 @@ from app.notify.ratelimit import Bucket, RateLimiter
 from app.notify.waha import WahaClient, WahaError
 from app.providers.base import ProviderError, ReauthRequired
 from app.providers.gmail import GmailSession
+from app.services import alert_actions as actions
 from app.services import events, outbox
 from app.services.schedule import tz
 
@@ -99,6 +101,7 @@ class Inbound:
     sender_phone: str
     has_media: bool
     media: dict[str, Any] | None
+    quoted: str | None = None  # text of the message being replied to (WhatsApp "reply" / swipe)
 
 
 async def identify(payload: dict[str, Any], waha: WahaClient) -> Inbound | None:
@@ -126,7 +129,9 @@ async def identify(payload: dict[str, Any], waha: WahaClient) -> Inbound | None:
         if not sender:
             return None
     media = payload.get("media") if isinstance(payload.get("media"), dict) else None
-    return Inbound(message_id, text, sender, bool(payload.get("hasMedia")), media)
+    reply_to = payload.get("replyTo") if isinstance(payload.get("replyTo"), dict) else None
+    quoted = str(reply_to.get("body") or "") if reply_to else None
+    return Inbound(message_id, text, sender, bool(payload.get("hasMedia")), media, quoted or None)
 
 
 # ---------------------------------------------------------------- replies
@@ -222,6 +227,25 @@ async def _on_email(db: AsyncSession, user: User, name: str) -> None:
     await reply(db, user, intro, cmd.render_form(template_values(template, mailbox, user)))
 
 
+async def _on_reply(db: AsyncSession, user: User, arg: str) -> None:
+    texts, context = await actions.on_reply(db, user, arg)
+    if context is None:
+        await reply(db, user, *texts)
+        return
+    mailboxes = await sending_mailboxes(db, user.id)
+    if not mailboxes:
+        link = f"{get_settings().public_web_url.rstrip('/')}/mailboxes"
+        await reply(db, user, "To reply by email, connect a mailbox that can send: reconnect Gmail with *sending "
+                              f"allowed*, or add SMTP settings in {link}")
+        return
+    mailbox = pick_mailbox(mailboxes, UUID(context["mailbox_id"]))
+    await actions.open_session(user.id, context)
+    values = cmd.TemplateValues(from_address=mailbox.address if mailbox else "", to=[context["to"]], cc=[], bcc=[],
+                                subject=context["subject"], body="")
+    await reply(db, user, "↩️ *Reply by email* – copy the next message, write your answer after *Body:* and send it "
+                          "back. I'll show a preview before anything is sent.", cmd.render_form(values))
+
+
 async def _on_templates(db: AsyncSession, user: User) -> None:
     rows = (await db.scalars(select(EmailTemplate).where(EmailTemplate.user_id == user.id)
                              .order_by(EmailTemplate.is_default.desc(), EmailTemplate.name))).all()
@@ -303,12 +327,28 @@ async def _on_send(db: AsyncSession, user: User, text: str) -> None:
         chat_id=phone_to_chat_id(user.phone_e164), template_name=session.get("template"),
         confirm_expires_at=datetime.now(UTC) + timedelta(seconds=settings.compose_confirm_ttl_s),
     )
+    if session.get("reply_to"):
+        await _thread_reply(db, email, UUID(session["reply_to"]))
     db.add(email)
     await db.flush()
     if files:
         await db.execute(update(OutboundAttachment).where(OutboundAttachment.id.in_([f.id for f in files]))
                          .values(email_id=email.id))
     await reply(db, user, _preview(email, files, settings.compose_confirm_ttl_s // 60))
+
+
+async def _thread_reply(db: AsyncSession, email: OutboundEmail, message_id: UUID) -> None:
+    """Make the email a proper reply: In-Reply-To/References, and the Gmail thread when sent from that mailbox."""
+    original = await db.get(Message, message_id)
+    if original is None or original.user_id != email.user_id:
+        return
+    email.reply_to_message_id = original.id
+    original_id = ((original.headers or {}).get("message-id") or [None])[0]
+    if original_id:
+        email.in_reply_to = original_id[:998]
+        email.references = original_id
+    if original.mailbox_id == email.mailbox_id and original.thread_id:
+        email.provider_thread_id = original.thread_id
 
 
 async def _on_confirm(db: AsyncSession, user: User) -> UUID | None:
@@ -388,6 +428,29 @@ async def _on_media(db: AsyncSession, user: User, inbound: Inbound, waha: WahaCl
     return True
 
 
+ALERT_COMMANDS = {cmd.Kind.open, cmd.Kind.remind, cmd.Kind.mute, cmd.Kind.unmute, cmd.Kind.muted,
+                  cmd.Kind.recent, cmd.Kind.upcoming}
+
+
+async def _alert_command(db: AsyncSession, user: User, command: cmd.Command) -> list[str]:
+    """Commands that act on alerts work even when sending email from WhatsApp is turned off."""
+    match command.kind:
+        case cmd.Kind.open:
+            return await actions.on_open(db, user, command.arg)
+        case cmd.Kind.remind:
+            return await actions.on_remind(db, user, command.arg)
+        case cmd.Kind.mute:
+            return await actions.on_mute(db, user, command.arg)
+        case cmd.Kind.unmute:
+            return await actions.on_unmute(db, user, command.arg)
+        case cmd.Kind.muted:
+            return await actions.on_muted(db, user)
+        case cmd.Kind.recent:
+            return await actions.on_recent(db, user)
+        case _:
+            return await actions.on_upcoming(db, user)
+
+
 async def handle_inbound(payload: dict[str, Any]) -> str:
     """Entry point for every WhatsApp message WAHA reports (task `handle_whatsapp_message`)."""
     message_id = str(payload.get("id") or "")
@@ -398,14 +461,17 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
     inbound = await identify(payload, waha)
     if inbound is None:
         return "ignored"
-    command = cmd.parse_command(inbound.text)
+    command = cmd.parse_command(inbound.text, quoted=inbound.quoted)
     to_send: list[UUID] = []  # confirmed inside this transaction; sent after commit
     async with session_factory()() as db:
         user = await db.scalar(select(User).where(User.phone_e164 == inbound.sender_phone,
                                                   User.is_active.is_(True)))
         if user is None:
             return "unknown_sender"
-        if command.kind == cmd.Kind.text and not inbound.has_media:
+        if command.kind in ALERT_COMMANDS:
+            texts = await _alert_command(db, user, command)
+            await reply(db, user, *texts)
+        elif command.kind == cmd.Kind.text and not inbound.has_media:
             # Ordinary chat (or notes to self): only nudge if a draft is waiting.
             waiting = await db.scalar(select(func.count()).select_from(OutboundEmail).where(
                 OutboundEmail.user_id == user.id, OutboundEmail.status == OutboundStatus.awaiting_confirmation))
@@ -425,6 +491,8 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
                         await _on_email(db, user, command.arg)
                     case cmd.Kind.templates:
                         await _on_templates(db, user)
+                    case cmd.Kind.reply:
+                        await _on_reply(db, user, command.arg)
                     case cmd.Kind.send:
                         await _on_send(db, user, command.raw)
                     case cmd.Kind.confirm:
@@ -472,7 +540,7 @@ async def send_outbound(email_id: UUID) -> str:
             message = build_message(
                 from_address=mailbox.address, from_name=mailbox.display_name or (user.display_name if user else None),
                 to=email.to_addresses, cc=email.cc_addresses, subject=email.subject, body=email.body,
-                files=outgoing,
+                files=outgoing, in_reply_to=email.in_reply_to, references=email.references,
             )
             creds = vault().decrypt_json(mailbox.credentials)
             provider_id = await _deliver(mailbox, creds, message, email)
@@ -518,7 +586,7 @@ async def _deliver(mailbox: Mailbox, creds: dict[str, Any], message: Any, email:
         with attempt:
             if mailbox.provider == Provider.gmail:
                 session = GmailSession(mailbox.id, mailbox.address, creds)
-                provider_id = await send_gmail(session, message, email.bcc_addresses)
+                provider_id = await send_gmail(session, message, email.bcc_addresses, email.provider_thread_id)
                 if session.credentials != creds:
                     mailbox.credentials = vault().encrypt_json(session.credentials)
                 return provider_id

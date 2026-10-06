@@ -85,4 +85,4 @@ async def test_rule_round_trips_not_groups(client, sent):
     cond = {"not": {"field": "header:List-Unsubscribe", "op": "exists"}}
     rule = (await client.post("/api/v1/rules", headers=headers, json={"name": "n", "condition": cond})).json()
     assert rule["condition"]["not"]["field"] == "header:List-Unsubscribe"
-    assert rule["actions"] == {"notify": {"destinations": [], "mode": "instant"}}
+    assert rule["actions"] == {"notify": {"destinations": [], "mode": "instant", "urgent": False}}

@@ -4,29 +4,29 @@ export type Tone = "success" | "warning" | "danger" | "info" | "brand" | "neutra
 
 export const TONE_CLASSES: Record<Tone, { badge: string; dot: string; text: string }> = {
   success: {
-    badge: "bg-emerald-500/10 text-emerald-700 ring-emerald-600/20 dark:text-emerald-300 dark:ring-emerald-400/25",
-    dot: "bg-emerald-500",
-    text: "text-emerald-700 dark:text-emerald-300",
+    badge: "bg-success/12 text-success ring-success/25",
+    dot: "bg-success",
+    text: "text-success",
   },
   warning: {
-    badge: "bg-amber-500/12 text-amber-800 ring-amber-600/25 dark:text-amber-200 dark:ring-amber-400/25",
-    dot: "bg-amber-500",
-    text: "text-amber-800 dark:text-amber-200",
+    badge: "bg-warning/12 text-warning ring-warning/30",
+    dot: "bg-warning",
+    text: "text-warning",
   },
   danger: {
-    badge: "bg-rose-500/10 text-rose-700 ring-rose-600/20 dark:text-rose-300 dark:ring-rose-400/25",
-    dot: "bg-rose-500",
-    text: "text-rose-700 dark:text-rose-300",
+    badge: "bg-destructive/10 text-destructive ring-destructive/25",
+    dot: "bg-destructive",
+    text: "text-destructive",
   },
   info: {
-    badge: "bg-sky-500/10 text-sky-700 ring-sky-600/20 dark:text-sky-300 dark:ring-sky-400/25",
-    dot: "bg-sky-500",
-    text: "text-sky-700 dark:text-sky-300",
+    badge: "bg-info/12 text-info ring-info/25",
+    dot: "bg-info",
+    text: "text-info",
   },
   brand: {
-    badge: "bg-primary/10 text-primary ring-primary/20",
-    dot: "bg-primary",
-    text: "text-primary",
+    badge: "bg-brand/15 text-brand-ink ring-brand/35",
+    dot: "bg-brand",
+    text: "text-brand-ink",
   },
   neutral: {
     badge: "bg-muted text-muted-foreground ring-border",
@@ -36,10 +36,10 @@ export const TONE_CLASSES: Record<Tone, { badge: string; dot: string; text: stri
 };
 
 export const MAILBOX_STATUS: Record<MailboxStatus, { label: string; tone: Tone }> = {
-  active: { label: "Active", tone: "success" },
+  active: { label: "Connected", tone: "success" },
   paused: { label: "Paused", tone: "neutral" },
-  reauth_required: { label: "Reconnect needed", tone: "warning" },
-  error: { label: "Error", tone: "danger" },
+  reauth_required: { label: "Needs reconnecting", tone: "warning" },
+  error: { label: "Having trouble", tone: "danger" },
 };
 
 export const NOTIFICATION_STATUS: Record<NotificationStatus, { label: string; tone: Tone; hint: string }> = {
@@ -52,6 +52,24 @@ export const NOTIFICATION_STATUS: Record<NotificationStatus, { label: string; to
   folded: { label: "In digest", tone: "neutral", hint: "Folded into a digest message." },
   failed: { label: "Failed", tone: "danger", hint: "The last attempt failed; it will be retried." },
   dead: { label: "Dead", tone: "danger", hint: "Gave up after the maximum number of attempts." },
+  cancelled: { label: "Cancelled", tone: "neutral", hint: "Cancelled before it was sent, e.g. a reminder for a date that changed." },
+};
+
+/**
+ * Plain-language delivery states for clients (the technical labels above stay for the admin console).
+ * Several internal states collapse into one simple word.
+ */
+export const ALERT_STATUS: Record<NotificationStatus, { label: string; tone: Tone; hint: string }> = {
+  queued: { label: "Waiting", tone: "neutral", hint: "It will go out in a moment." },
+  sending: { label: "Sending", tone: "info", hint: "On its way to WhatsApp right now." },
+  sent: { label: "Sent", tone: "brand", hint: "WhatsApp accepted it." },
+  delivered: { label: "Delivered", tone: "success", hint: "It reached the phone." },
+  read: { label: "Read", tone: "success", hint: "It was opened on the phone." },
+  held: { label: "Waiting", tone: "warning", hint: "Held for quiet hours or today's limit. It goes out later." },
+  folded: { label: "In your summary", tone: "neutral", hint: "Included in a summary message instead of on its own." },
+  failed: { label: "Retrying", tone: "warning", hint: "The last try didn't work. We'll try again automatically." },
+  dead: { label: "Failed", tone: "danger", hint: "We couldn't deliver it. You can try again." },
+  cancelled: { label: "Cancelled", tone: "neutral", hint: "Not needed any more, e.g. a reminder for a date that changed." },
 };
 
 export function wahaStatus(status: string | undefined | null): { label: string; tone: Tone } {

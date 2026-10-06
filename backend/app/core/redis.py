@@ -102,6 +102,18 @@ class Keys:
         return f"wa:lid:{lid}"
 
     @staticmethod
+    def ref_seq(user_id: object) -> str:
+        return f"refseq:{user_id}"
+
+    @staticmethod
+    def suggestions(mailbox_id: object) -> str:
+        return f"suggest:{mailbox_id}"
+
+    @staticmethod
+    def test_alerts(user_id: object) -> str:
+        return f"rl:testalert:{user_id}"
+
+    @staticmethod
     def rate_email(user_id: object, day: str) -> str:
         return f"rl:email:{user_id}:{day}"
 

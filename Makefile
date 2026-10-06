@@ -13,7 +13,8 @@ secrets:         ## Print fresh random secrets for deploy/.env
 	print('ENCRYPTION_KEYS=' + base64.urlsafe_b64encode(os.urandom(32)).decode()); \
 	print('WAHA_API_KEY=' + secrets.token_hex(24)); \
 	print('WAHA_DASHBOARD_PASSWORD=' + secrets.token_urlsafe(18)); \
-	print('WAHA_WEBHOOK_HMAC_KEY=' + secrets.token_hex(32))"
+	print('WAHA_WEBHOOK_HMAC_KEY=' + secrets.token_hex(32)); \
+	print('ADMIN_PASSWORD=' + secrets.token_urlsafe(18))"
 
 env:             ## Create deploy/.env from the example with fresh secrets (won't overwrite)
 	@test -f deploy/.env && echo "deploy/.env already exists" || ( \
@@ -59,5 +60,5 @@ send-test-mail:  ## Send a matching test email to the sandbox mailbox (to=addres
 	m['Subject']='Admit card for end-semester exams'; m.set_content('Download your hall ticket before Friday.'); \
 	s=smtplib.SMTP('localhost',3025); s.send_message(m); s.quit(); print('sent')"
 
-prod:            ## Start the production stack (on the server)
-	$(COMPOSE_PROD) up -d --build
+prod:            ## Install or update the production stack on a VM (see deploy/README.md)
+	cd deploy && ./mailsentinel.sh $(if $(wildcard deploy/.env),update,install)

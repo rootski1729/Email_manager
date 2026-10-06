@@ -8,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -58,6 +59,8 @@ class NotificationKind(StrEnum):
     system = "system"
     verification = "verification"
     reply = "reply"  # bot answers to WhatsApp commands (/email, /send, ...)
+    reminder = "reminder"  # "/remind K7 tomorrow" and deadline reminders
+    recap = "recap"  # weekly summary
 
 
 class OutboundStatus(StrEnum):
@@ -80,6 +83,24 @@ class NotificationStatus(StrEnum):
     folded = "folded"  # merged into another notification (digest/coalesced)
     failed = "failed"  # last attempt failed, will retry
     dead = "dead"  # gave up; manual retry from the UI
+    cancelled = "cancelled"  # e.g. a reminder for an event that was dismissed or moved
+
+
+class EventKind(StrEnum):
+    exam = "exam"
+    interview = "interview"
+    deadline = "deadline"
+    payment = "payment"
+    meeting = "meeting"
+    travel = "travel"
+    other = "other"
+
+
+class EventStatus(StrEnum):
+    suggested = "suggested"  # low-confidence date: shown for one-tap confirmation, no reminders
+    upcoming = "upcoming"
+    done = "done"
+    dismissed = "dismissed"
 
 
 class User(IdMixin, TimestampMixin, Base):
@@ -120,6 +141,15 @@ class UserSettings(TimestampMixin, Base):
     daily_cap: Mapped[int | None] = mapped_column(Integer)
     # Allow composing and sending email from WhatsApp with /email.
     compose_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    # Senders (addresses or domains) whose matches are kept in the app but never alerted on WhatsApp.
+    muted_senders: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, server_default=text("'{}'"))
+    weekly_recap: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    last_recap_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Detect dates in important emails and remind before them.
+    deadlines_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    calendar_token: Mapped[str | None] = mapped_column(String(64), unique=True)
+    test_alert_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    onboarding_dismissed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     last_digest_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -176,6 +206,8 @@ class Rule(IdMixin, TimestampMixin, Base):
     actions: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default=text("'{}'"))
     match_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     last_matched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Where the rule came from: "pack:exams", "sender:univ.edu", or null when built by hand.
+    source: Mapped[str | None] = mapped_column(String(80))
 
 
 class Message(IdMixin, Base):
@@ -185,6 +217,7 @@ class Message(IdMixin, Base):
     __table_args__ = (
         UniqueConstraint("mailbox_id", "provider_message_id"),
         Index("ix_messages_user_received", "user_id", text("received_at DESC")),
+        Index("ix_messages_user_ref", "user_id", "ref"),
     )
 
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -201,6 +234,8 @@ class Message(IdMixin, Base):
     has_attachments: Mapped[bool] = mapped_column(Boolean, default=False)
     headers: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     web_url: Mapped[str | None] = mapped_column(Text)
+    # Short code shown in WhatsApp alerts ("#K7") so the user can act on it: /open K7, /reply K7, ...
+    ref: Mapped[str | None] = mapped_column(String(8))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -296,6 +331,11 @@ class OutboundEmail(IdMixin, TimestampMixin, Base):
     provider_message_id: Mapped[str | None] = mapped_column(String(255))
     error: Mapped[str | None] = mapped_column(Text)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set when composed with /reply: threads the answer under the original email.
+    reply_to_message_id: Mapped[UUID | None] = mapped_column(ForeignKey("messages.id", ondelete="SET NULL"))
+    in_reply_to: Mapped[str | None] = mapped_column(String(998))
+    references: Mapped[str | None] = mapped_column(Text)
+    provider_thread_id: Mapped[str | None] = mapped_column(String(255))
 
 
 class OutboundAttachment(IdMixin, Base):
@@ -312,4 +352,83 @@ class OutboundAttachment(IdMixin, Base):
     size: Mapped[int] = mapped_column(Integer)
     # Content is dropped a few days after sending (see cleanup); metadata stays for the log.
     content: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Event(IdMixin, TimestampMixin, Base):
+    """A date found in an important email (or added by hand): exams, interviews, due dates, flights."""
+
+    __tablename__ = "events"
+    __table_args__ = (
+        UniqueConstraint("message_id", "starts_at"),
+        Index("ix_events_user_starts", "user_id", "starts_at"),
+    )
+
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    message_id: Mapped[UUID | None] = mapped_column(ForeignKey("messages.id", ondelete="SET NULL"))
+    source: Mapped[str] = mapped_column(String(16))  # ics | text | manual
+    kind: Mapped[EventKind] = mapped_column(_enum(EventKind))
+    title: Mapped[str] = mapped_column(String(200))
+    context: Mapped[str | None] = mapped_column(Text)  # the sentence the date was found in
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    all_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    location: Mapped[str | None] = mapped_column(String(300))
+    confidence: Mapped[float] = mapped_column(Float, default=1.0, server_default="1")
+    status: Mapped[EventStatus] = mapped_column(_enum(EventStatus))
+    ics_uid: Mapped[str | None] = mapped_column(String(255))
+
+
+class AdminAccount(IdMixin, TimestampMixin, Base):
+    """Operators of this installation. Separate from clients: username + password, never WhatsApp OTP."""
+
+    __tablename__ = "admin_accounts"
+
+    username: Mapped[str] = mapped_column(String(64), unique=True)
+    display_name: Mapped[str | None] = mapped_column(String(120))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    failed_logins: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AdminSession(IdMixin, Base):
+    __tablename__ = "admin_sessions"
+
+    admin_id: Mapped[UUID] = mapped_column(ForeignKey("admin_accounts.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    user_agent: Mapped[str | None] = mapped_column(String(300))
+    ip: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AppSetting(Base):
+    """Settings an admin changes at runtime (e.g. Google credentials). Secrets are encrypted in `secret`."""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default=text("'{}'"))
+    secret: Mapped[bytes | None] = mapped_column(LargeBinary)
+    updated_by: Mapped[UUID | None] = mapped_column(ForeignKey("admin_accounts.id", ondelete="SET NULL"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
+                                                 onupdate=func.now())
+
+
+class AdminAudit(IdMixin, Base):
+    """Append-only record of everything done from the admin console."""
+
+    __tablename__ = "admin_audit"
+    __table_args__ = (Index("ix_admin_audit_created", text("created_at DESC")),)
+
+    admin_id: Mapped[UUID | None] = mapped_column(ForeignKey("admin_accounts.id", ondelete="SET NULL"))
+    admin_username: Mapped[str] = mapped_column(String(64))
+    action: Mapped[str] = mapped_column(String(64))
+    target_type: Mapped[str | None] = mapped_column(String(64))
+    target_id: Mapped[str | None] = mapped_column(String(128))
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default=text("'{}'"))
+    ip: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

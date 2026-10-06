@@ -34,6 +34,14 @@ class Kind(StrEnum):
     confirm = "confirm"  # YES
     cancel = "cancel"  # NO / /cancel
     help = "help"  # /help
+    open = "open"  # /open K7: full text of an alerted email
+    reply = "reply"  # /reply K7: reply form addressed to the sender
+    remind = "remind"  # /remind K7 tomorrow 9am
+    mute = "mute"  # /mute K7 [domain] | /mute someone@x.com | /mute x.com
+    unmute = "unmute"
+    muted = "muted"  # list muted senders
+    recent = "recent"  # last alerts with their codes
+    upcoming = "upcoming"  # dates found in your important email
     unknown_command = "unknown_command"  # any other /word
     text = "text"  # ordinary message
 
@@ -45,10 +53,49 @@ class Command:
     raw: str = ""
 
 
-def parse_command(text: str | None) -> Command:
+REF_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+_REF_IN_ALERT = re.compile(r"#([2-9A-HJKMNP-Z]{2,6})\b")
+_REF_ARG = re.compile(r"^#?([2-9a-hjkmnp-z]{2,6})$", re.I)
+# Words that act on a quoted alert, with or without the slash: "remind 2h", "open", "mute".
+QUOTE_ACTIONS = {"open": "/open", "full": "/open", "read": "/open", "show": "/open", "reply": "/reply",
+                 "remind": "/remind", "snooze": "/remind", "mute": "/mute"}
+
+
+def encode_ref(n: int) -> str:
+    """1 -> '32' ... at least two characters, no look-alikes (0/O, 1/I/L)."""
+    n += len(REF_ALPHABET) - 1
+    out = ""
+    while n:
+        n, r = divmod(n, len(REF_ALPHABET))
+        out = REF_ALPHABET[r] + out
+    return out
+
+
+def normalize_ref(token: str) -> str | None:
+    match = _REF_ARG.match(token.strip())
+    return match.group(1).upper() if match else None
+
+
+def refs_in(text: str | None) -> list[str]:
+    return list(dict.fromkeys(_REF_IN_ALERT.findall(text or "")))
+
+
+def parse_command(text: str | None, *, quoted: str | None = None) -> Command:
     raw = (text or "").strip()
     if not raw:
         return Command(Kind.text, raw=raw)
+    # Replying to (quoting) one of our alerts: "remind 2h" -> "/remind K7 2h".
+    quoted_refs = refs_in(quoted)
+    if len(quoted_refs) == 1:
+        word, _, rest = raw.partition(" ")
+        action = QUOTE_ACTIONS.get(word.lower().lstrip("/"))
+        first = rest.split(" ", 1)[0] if rest else ""
+        # "remind 2h": 2h looks like a code too, so the quoted alert wins unless a code is typed as "#AB".
+        explicit = first.startswith("#") and normalize_ref(first) is not None
+        if action and (explicit or normalize_ref(first) == quoted_refs[0]):
+            raw = f"{action} {rest}".strip()
+        elif action:
+            raw = f"{action} {quoted_refs[0]} {rest}".strip()
     first_line = raw.splitlines()[0].strip()
     lowered = first_line.lower()
     if lowered.startswith("/send"):
@@ -67,6 +114,22 @@ def parse_command(text: str | None) -> Command:
             return Command(Kind.templates, raw=raw)
         case "/help" | "/start" | "/commands":
             return Command(Kind.help, raw=raw)
+        case "/open" | "/full" | "/read" | "/show":
+            return Command(Kind.open, arg=rest.strip(), raw=raw)
+        case "/reply" | "/re":
+            return Command(Kind.reply, arg=rest.strip(), raw=raw)
+        case "/remind" | "/snooze" | "/remindme":
+            return Command(Kind.remind, arg=rest.strip(), raw=raw)
+        case "/mute":
+            return Command(Kind.mute, arg=rest.strip(), raw=raw)
+        case "/unmute":
+            return Command(Kind.unmute, arg=rest.strip(), raw=raw)
+        case "/muted":
+            return Command(Kind.muted, raw=raw)
+        case "/recent" | "/latest" | "/last":
+            return Command(Kind.recent, raw=raw)
+        case "/upcoming" | "/deadlines" | "/agenda" | "/calendar":
+            return Command(Kind.upcoming, raw=raw)
     return Command(Kind.unknown_command, arg=word, raw=raw)
 
 
@@ -198,6 +261,14 @@ INSTRUCTIONS = (
 
 HELP = (
     "🤖 *MailSentinel commands*\n\n"
+    "*Act on an alert* (use the code, e.g. #K7, or just quote the alert):\n"
+    "*/open K7* – read the full email\n"
+    "*/reply K7* – reply to the sender\n"
+    "*/remind K7 2h* – remind me later (2h, tomorrow 9am, mon 8:30)\n"
+    "*/mute K7* – stop alerts from this sender (*/mute K7 domain* for the whole domain)\n"
+    "*/recent* – your last alerts · */upcoming* – exams, interviews and due dates\n"
+    "*/muted* · */unmute <address or domain>*\n\n"
+    "*Send email:*\n"
     "*/email* – get a blank email form\n"
     "*/email <template>* – get a saved template, e.g. /email leave\n"
     "*/templates* – list your templates\n"

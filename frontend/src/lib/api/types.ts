@@ -41,6 +41,26 @@ export type OutboundEmail = S["OutboundEmailOut"];
 export type OutboundEmailDetail = S["OutboundEmailDetail"];
 export type OutboundStatus = S["OutboundStatus"];
 export type OutboundAttachment = S["AttachmentOut"];
+export type EventItem = S["EventOut"];
+export type EventCreate = S["EventCreate"];
+export type EventUpdate = S["EventUpdate"];
+export type EventKind = S["EventKind"];
+export type EventStatus = S["EventStatus"];
+export type CalendarFeed = S["CalendarFeedOut"];
+export type RemindRequest = S["RemindRequest"];
+export type RemindOut = S["RemindOut"];
+export type MuteScope = NonNullable<S["MuteRequest"]["scope"]>;
+export type MuteOut = S["MuteOut"];
+export type RulePack = S["RulePackOut"];
+export type Suggestions = S["SuggestionsOut"];
+export type PackSuggestion = S["PackSuggestion"];
+export type SenderSuggestion = S["SenderSuggestionOut"];
+export type SenderRuleCreate = S["SenderRuleCreate"];
+export type Onboarding = S["OnboardingOut"];
+export type OnboardingStep = S["OnboardingStep"];
+export type TestAlertOut = S["TestAlertOut"];
+
+export const EVENT_KINDS: EventKind[] = ["exam", "interview", "deadline", "payment", "meeting", "travel", "other"];
 
 export const OUTBOUND_STATUSES: OutboundStatus[] = [
   "awaiting_confirmation",
@@ -62,6 +82,7 @@ export const NOTIFICATION_STATUSES: NotificationStatus[] = [
   "folded",
   "failed",
   "dead",
+  "cancelled",
 ];
 
 /** Shape of `Overview.waha` (typed as a free-form object in the OpenAPI document). */
@@ -81,6 +102,9 @@ export interface MessageMatchedEvent {
   rules: string[];
   web_url?: string | null;
   received_at?: string | null;
+  /** Short WhatsApp code, e.g. "K7". */
+  ref?: string | null;
+  urgent?: boolean;
 }
 
 export interface NotificationUpdatedEvent {

@@ -25,25 +25,25 @@ export function ProfileCard({ user }: { user: User }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Profile</CardTitle>
+        <CardTitle>About you</CardTitle>
         <CardDescription>
           Signed in with <span className="font-medium text-foreground tabular">{user.phone_e164}</span>.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="display-name">Display name</FieldLabel>
+          <FieldLabel htmlFor="display-name">Your name</FieldLabel>
           <Input id="display-name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
         </Field>
         <Field data-invalid={emailInvalid || undefined}>
           <FieldLabel htmlFor="email">Email</FieldLabel>
           <Input id="email" type="email" value={email} maxLength={320} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-invalid={emailInvalid || undefined} />
-          {emailInvalid ? <FieldError>Enter a valid email address.</FieldError> : <FieldDescription>For account notices only.</FieldDescription>}
+          {emailInvalid ? <FieldError>Enter a valid email address.</FieldError> : <FieldDescription>Only for account notices.</FieldDescription>}
         </Field>
         <Field className="sm:col-span-2">
           <FieldLabel htmlFor="timezone">Time zone</FieldLabel>
           <TimezoneSelect id="timezone" value={tz} onChange={setTz} />
-          <FieldDescription>Used for quiet hours, digests and the daily cap.</FieldDescription>
+          <FieldDescription>So quiet hours, summaries and reminders happen at the right local time.</FieldDescription>
         </Field>
       </CardContent>
       <CardFooter className="justify-end border-t">
@@ -52,12 +52,12 @@ export function ProfileCard({ user }: { user: User }) {
           onClick={() =>
             update.mutate(
               { display_name: name.trim() || null, email: email.trim() || null, timezone: tz },
-              { onSuccess: () => toast.success("Profile saved") },
+              { onSuccess: () => toast.success("Saved") },
             )
           }
         >
           {update.isPending ? <Spinner /> : null}
-          Save profile
+          Save
         </Button>
       </CardFooter>
     </Card>

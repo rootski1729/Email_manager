@@ -41,7 +41,7 @@ function HitRow({ hit }: { hit: RuleTestHit }) {
   return (
     <li className="flex gap-2.5 py-2.5">
       {hit.matched ? (
-        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-label="Matched" />
+        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-label="Matched" />
       ) : (
         <CircleSlash className="mt-0.5 size-4 shrink-0 text-muted-foreground/60" aria-label="Not matched" />
       )}
@@ -118,15 +118,15 @@ export function TestPanel({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FlaskConical className="size-4 text-primary" /> Test rule
+          <FlaskConical className="size-4 text-brand-ink" /> Try it on your email
         </CardTitle>
-        <CardDescription>Try the current conditions before saving. Nothing is sent.</CardDescription>
+        <CardDescription>See which of your recent emails this would catch. Nothing is sent.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs defaultValue="mailbox" onValueChange={() => test.reset()}>
           <TabsList className="w-full">
-            <TabsTrigger value="mailbox">Recent mail</TabsTrigger>
-            <TabsTrigger value="sample">Sample email</TabsTrigger>
+            <TabsTrigger value="mailbox">My recent mail</TabsTrigger>
+            <TabsTrigger value="sample">A made-up email</TabsTrigger>
           </TabsList>
           <TabsContent value="mailbox" className="space-y-3 pt-2">
             {mailboxes.data && mailboxes.data.length === 0 ? (
@@ -149,7 +149,7 @@ export function TestPanel({
                   </Select>
                 </Field>
                 <Button type="button" className="w-full" onClick={() => run("mailbox")} disabled={!effectiveMailbox || test.isPending}>
-                  {test.isPending ? <Spinner /> : <Play />} Run against recent mail
+                  {test.isPending ? <Spinner /> : <Play />} Check my recent mail
                 </Button>
               </>
             )}
@@ -172,14 +172,14 @@ export function TestPanel({
             />
             <Input aria-label="Attachment names" placeholder="Attachment names (comma separated)" value={sample.attachments} onChange={(e) => setSample({ ...sample, attachments: e.target.value })} />
             <Button type="button" className="w-full" onClick={() => run("sample")} disabled={test.isPending}>
-              {test.isPending ? <Spinner /> : <Play />} Test sample
+              {test.isPending ? <Spinner /> : <Play />} Check this email
             </Button>
           </TabsContent>
         </Tabs>
 
         {blocked ? (
           <Alert variant="destructive">
-            <AlertDescription>Fix the highlighted conditions first.</AlertDescription>
+            <AlertDescription>Finish filling in what to watch for first.</AlertDescription>
           </Alert>
         ) : null}
         {test.isError ? (
@@ -193,17 +193,17 @@ export function TestPanel({
             <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
               <p className="text-sm">
                 <span className="font-semibold tabular">{result.matched}</span>
-                <span className="text-muted-foreground"> of {result.tested} matched</span>
+                <span className="text-muted-foreground"> of {result.tested} would be caught</span>
               </p>
               {result.tested > 1 ? (
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Switch size="sm" checked={onlyMatches} onCheckedChange={setOnlyMatches} /> Only matches
+                  <Switch size="sm" checked={onlyMatches} onCheckedChange={setOnlyMatches} /> Only caught
                 </label>
               ) : null}
             </div>
             {hits.length === 0 ? (
               <p className="px-3 py-4 text-sm text-muted-foreground">
-                {result.tested === 0 ? "No recent mail found in this mailbox." : "No matches in this sample."}
+                {result.tested === 0 ? "No recent mail found in this mailbox." : "This email wouldn’t be caught."}
               </p>
             ) : (
               <ul className="max-h-80 divide-y overflow-y-auto px-3">

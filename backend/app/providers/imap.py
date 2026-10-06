@@ -94,14 +94,17 @@ class ImapSession:
             # First sync: start from "now", don't alert on the existing inbox.
             last = self.uidnext - 1 if self.uidnext > 1 else max(await self._search("ALL"), default=0)
             return [], {"uidvalidity": self.uidvalidity, "last_uid": max(last, 0)}
-        if int(known_validity) != self.uidvalidity:
-            log.warning("imap_uidvalidity_changed", mailbox_id=str(self.mailbox_id))
+        # The mailbox was renumbered: UIDVALIDITY changed, or (on servers that don't bump it) UIDNEXT went
+        # backwards. Rescan the last day; per-message dedup keeps this from alerting twice.
+        reset = int(known_validity) != self.uidvalidity or 1 < self.uidnext <= last_uid
+        if reset:
+            log.warning("imap_mailbox_renumbered", mailbox_id=str(self.mailbox_id))
             since = (datetime.now(UTC) - timedelta(days=1)).strftime("%d-%b-%Y")
             uids = await self._search(f"SINCE {since}")
         else:
             uids = [u for u in await self._search(f"UID {last_uid + 1}:*") if u > last_uid]
         uids = uids[:MAX_MESSAGES_PER_SYNC]
-        new_last = max([last_uid if int(known_validity) == self.uidvalidity else 0, *uids])
+        new_last = max([0 if reset else last_uid, *uids])
         return [str(u) for u in uids], {"uidvalidity": self.uidvalidity, "last_uid": new_last}
 
     async def recent(self, limit: int) -> list[str]:

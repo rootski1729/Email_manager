@@ -16,7 +16,7 @@ function inline(text: string, keyPrefix: string): React.ReactNode[] {
     const key = `${keyPrefix}-${i++}`;
     if (token.startsWith("http")) {
       out.push(
-        <span key={key} className="break-all text-sky-700 underline dark:text-sky-300">
+        <span key={key} className="break-all text-brand-ink underline">
           {token}
         </span>,
       );
@@ -75,7 +75,7 @@ export function WhatsAppBubble({
         </div>
         <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
           <span>{time}</span>
-          {ticks ? <CheckCheck className="size-3.5 text-sky-500" aria-label="Read" /> : null}
+          {ticks ? <CheckCheck className="size-3.5 text-info" aria-label="Read" /> : null}
         </div>
       </div>
     </div>
@@ -92,6 +92,8 @@ export function renderAlertPreview(p: {
   snippet?: string | null;
   webUrl?: string | null;
   detailsUrl?: string | null;
+  urgent?: boolean;
+  ref?: string | null;
 }): string {
   const plain = (t: string) => t.replace(/\*/g, "∗").replace(/_/g, "ˍ").replace(/~/g, "˜").replace(/`/g, "'");
   const clip = (t: string | null | undefined, n: number) => {
@@ -101,8 +103,9 @@ export function renderAlertPreview(p: {
   const name = p.fromName ?? "";
   const addr = p.fromAddress ?? "";
   const sender = name && name.toLowerCase() !== addr ? `${plain(name)} <${addr}>` : addr;
+  const head = p.urgent ? "🚨 *Urgent email*" : "📬 *Important email*";
   const lines = [
-    "📬 *Important email*",
+    p.ref ? `${head}  #${p.ref}` : head,
     `*Rule:* ${plain(p.rules.join(", ") || "—")}`,
     `*Inbox:* ${p.mailbox ?? ""}`,
     `*From:* ${sender}`,
@@ -112,6 +115,7 @@ export function renderAlertPreview(p: {
   if (snippet) lines.push("", `> ${plain(snippet)}`);
   if (p.webUrl) lines.push("", `Open in mail: ${p.webUrl}`);
   if (p.detailsUrl) lines.push(`Details: ${p.detailsUrl}`);
+  if (p.ref) lines.push("", `_Reply_ */open ${p.ref}* · */reply ${p.ref}* · */remind ${p.ref} 2h* · */mute ${p.ref}*`);
   return lines.join("\n");
 }
 
@@ -137,7 +141,7 @@ export function WhatsAppThread({ messages, className }: { messages: ChatMessage[
             {m.mono ? m.text : <WhatsAppText text={m.text} />}
           </div>
           <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
-            {m.from === "me" ? <CheckCheck className="size-3.5 text-sky-500" aria-label="Read" /> : null}
+            {m.from === "me" ? <CheckCheck className="size-3.5 text-info" aria-label="Read" /> : null}
           </div>
         </div>
       ))}

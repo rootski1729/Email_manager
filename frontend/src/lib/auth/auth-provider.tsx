@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 
 import { meQuery } from "@/lib/api/queries";
@@ -10,7 +11,6 @@ import { bootstrapSession, logout, session, setSession, type SessionStatus } fro
 interface AuthContextValue {
   status: SessionStatus;
   user: User | undefined;
-  isAdmin: boolean;
   signIn: (token: TokenOut) => void;
   signOut: () => Promise<void>;
 }
@@ -20,15 +20,17 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const qc = useQueryClient();
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getServerSnapshot);
+  // The admin console has its own session; don't restore or clear the client one there.
+  const inAdmin = usePathname()?.startsWith("/admin") ?? false;
 
   useEffect(() => {
-    void bootstrapSession();
-  }, []);
+    if (!inAdmin) void bootstrapSession();
+  }, [inAdmin]);
 
-  // Drop cached tenant data whenever the session ends (logout, expiry, other tab).
+  // Drop cached client data whenever the client session ends (logout, expiry, other tab).
   useEffect(() => {
-    if (state.status === "anonymous") qc.clear();
-  }, [state.status, qc]);
+    if (state.status === "anonymous" && !inAdmin) qc.clear();
+  }, [state.status, qc, inAdmin]);
 
   const me = useQuery({ ...meQuery, enabled: state.status === "authenticated" });
 
@@ -44,7 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       status: state.status,
       user: me.data,
-      isAdmin: me.data?.role === "admin",
       signIn,
       signOut,
     }),

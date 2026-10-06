@@ -44,7 +44,11 @@ class Settings(BaseSettings):
     otp_requests_per_window: int = 3
     otp_request_window_s: int = 15 * 60
     turnstile_secret: SecretStr | None = None
-    admin_phones: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    # First admin account, created on startup when no admin exists yet (then change the password in the console).
+    admin_username: str = ""
+    admin_password: SecretStr = SecretStr("")
+    admin_access_ttl_s: int = 30 * 60
+    admin_session_ttl_s: int = 12 * 3600
 
     # Comma separated Fernet keys; first one encrypts, all of them decrypt (rotation).
     encryption_keys: Annotated[list[str], NoDecode] = Field(default_factory=list)
@@ -91,7 +95,7 @@ class Settings(BaseSettings):
     compose_max_total_bytes: int = 18 * 1024 * 1024
     smtp_timeout_s: int = 30
 
-    @field_validator("cors_origins", "admin_phones", "encryption_keys", mode="before")
+    @field_validator("cors_origins", "encryption_keys", mode="before")
     @classmethod
     def _split_csv(cls, v: object) -> object:
         if isinstance(v, str):
@@ -101,6 +105,11 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def cookie_secure(self) -> bool:
+        """HTTPS-only cookies whenever the site is served over HTTPS (a VM reached by plain http://IP still works)."""
+        return self.public_web_url.startswith("https://")
 
     @property
     def google_oauth_redirect_uri(self) -> str:

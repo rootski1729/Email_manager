@@ -2,7 +2,9 @@
 
 import base64
 import hashlib
+import json
 import time
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -17,6 +19,7 @@ import stamina
 from app.core.config import get_settings
 from app.core.http import get_http
 from app.core.logging import log
+from app.core.runtime import google_config
 from app.providers.base import ProviderError, ReauthRequired
 from app.providers.mime import envelope_from_bytes, envelope_from_headers
 from app.rules.envelope import Envelope
@@ -41,11 +44,13 @@ def pkce_pair(verifier: str) -> str:
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
 
 
-def authorize_url(state: str, code_verifier: str, login_hint: str | None = None, *, send: bool = False) -> str:
-    s = get_settings()
+async def authorize_url(
+    state: str, code_verifier: str, login_hint: str | None = None, *, send: bool = False
+) -> str:
+    g = await google_config()
     params = {
-        "client_id": s.google_client_id,
-        "redirect_uri": s.google_oauth_redirect_uri,
+        "client_id": g.client_id,
+        "redirect_uri": g.redirect_uri,
         "response_type": "code",
         "scope": " ".join([*SCOPES, *([SEND_SCOPE] if send else [])]),
         "access_type": "offline",
@@ -61,12 +66,12 @@ def authorize_url(state: str, code_verifier: str, login_hint: str | None = None,
 
 
 async def exchange_code(code: str, code_verifier: str) -> dict[str, Any]:
-    s = get_settings()
+    g = await google_config()
     resp = await get_http().post(TOKEN_URL, data={
         "code": code,
-        "client_id": s.google_client_id,
-        "client_secret": s.google_client_secret.get_secret_value(),
-        "redirect_uri": s.google_oauth_redirect_uri,
+        "client_id": g.client_id,
+        "client_secret": g.client_secret,
+        "redirect_uri": g.redirect_uri,
         "grant_type": "authorization_code",
         "code_verifier": code_verifier,
     })
@@ -121,10 +126,10 @@ class GmailSession:
     async def _refresh(self) -> None:
         if not self._creds.get("refresh_token"):
             raise ReauthRequired("No refresh token stored; reconnect the mailbox")
-        s = self._settings
+        g = await google_config()
         resp = await get_http().post(TOKEN_URL, data={
-            "client_id": s.google_client_id,
-            "client_secret": s.google_client_secret.get_secret_value(),
+            "client_id": g.client_id,
+            "client_secret": g.client_secret,
             "refresh_token": self._creds["refresh_token"],
             "grant_type": "refresh_token",
         })
@@ -165,14 +170,24 @@ class GmailSession:
             raise ReauthRequired("Gmail permission missing; reconnect the mailbox")
         return resp
 
-    async def upload_send(self, raw_message: bytes) -> httpx.Response:
-        """Send a full RFC 822 message (up to 35 MB) via the media upload endpoint."""
+    async def upload_send(self, raw_message: bytes, *, thread_id: str | None = None) -> httpx.Response:
+        """Send a full RFC 822 message (up to 35 MB). With a thread id, a multipart upload adds it to that thread."""
         token = await self._token()
+        headers = {"Authorization": f"Bearer {token}"}
+        if thread_id:
+            boundary = f"ms{uuid.uuid4().hex}"
+            metadata = json.dumps({"threadId": thread_id}).encode()
+            content = (f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".encode() + metadata
+                       + f"\r\n--{boundary}\r\nContent-Type: message/rfc822\r\n\r\n".encode() + raw_message
+                       + f"\r\n--{boundary}--".encode())
+            params = {"uploadType": "multipart"}
+            headers["Content-Type"] = f"multipart/related; boundary={boundary}"
+        else:
+            content, params = raw_message, {"uploadType": "media"}
+            headers["Content-Type"] = "message/rfc822"
         try:
-            resp = await get_http().post(
-                f"{UPLOAD_API}/messages/send", params={"uploadType": "media"}, content=raw_message,
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "message/rfc822"}, timeout=120.0,
-            )
+            resp = await get_http().post(f"{UPLOAD_API}/messages/send", params=params, content=content,
+                                         headers=headers, timeout=120.0)
         except httpx.HTTPError as exc:
             raise ProviderError(f"Gmail upload failed: {type(exc).__name__}") from exc
         if resp.status_code == 401:
@@ -188,11 +203,11 @@ class GmailSession:
         return resp.json()
 
     async def watch(self) -> dict[str, Any] | None:
-        s = self._settings
-        if not s.google_project_id:
+        g = await google_config()
+        if not g.push_ready:
             return None
         resp = await self.request("POST", "/watch", json={
-            "topicName": f"projects/{s.google_project_id}/topics/{s.google_pubsub_topic}",
+            "topicName": f"projects/{g.project_id}/topics/{g.pubsub_topic}",
             "labelIds": ["INBOX"],
             "labelFilterBehavior": "INCLUDE",
         })

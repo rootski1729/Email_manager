@@ -21,6 +21,13 @@ export const qk = {
   outbound: (status?: string) => ["outbound-emails", "list", status ?? "all"] as const,
   outboundAll: ["outbound-emails"] as const,
   outboundEmail: (id: string) => ["outbound-emails", "detail", id] as const,
+  events: (filters: { status?: string[]; from?: string; to?: string } = {}) => ["events", "list", filters] as const,
+  eventsAll: ["events"] as const,
+  eventLists: ["events", "list"] as const,
+  calendarFeed: ["events", "calendar-feed"] as const,
+  rulePacks: ["rules", "packs"] as const,
+  ruleSuggestions: (mailboxId: string) => ["rule-suggestions", mailboxId] as const,
+  onboarding: ["onboarding"] as const,
   adminWaha: ["admin", "waha"] as const,
   adminQueues: ["admin", "queues"] as const,
 };

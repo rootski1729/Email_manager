@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink, Paperclip, SearchX, Trash2 } from "lucide-react";
+import { ExternalLink, MoreHorizontal, Paperclip, SearchX, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -10,15 +10,26 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
+import { PageHeader } from "@/components/common/page-header";
+import { RefBadge } from "@/components/common/ref-badge";
 import { RelativeTime } from "@/components/common/relative-time";
-import { NotificationCard } from "@/components/deliveries/notification-card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
 import { destinationsQuery, messageQuery, useDeleteMessage } from "@/lib/api/queries";
-import { absoluteTime } from "@/lib/format";
+import { absoluteTime, initials } from "@/lib/format";
+import { DetectedDates } from "./detected-dates";
+import { MuteMenu } from "./mute-menu";
+import { RemindMenu } from "./remind-menu";
+import { WhatsAppDeliveries } from "./whatsapp-deliveries";
+
+const BACK = { href: "/messages", label: "Important mail" };
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -37,20 +48,13 @@ export function MessageDetailView({ id }: { id: string }) {
   const [deleting, setDeleting] = useState(false);
   const destMap = useMemo(() => new Map((destinations.data ?? []).map((d) => [d.id, d])), [destinations.data]);
 
-  const back = (
-    <Button asChild variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
-      <Link href="/messages">
-        <ArrowLeft /> Matched mail
-      </Link>
-    </Button>
-  );
-
   if (message.isPending) {
     return (
       <div className="space-y-4">
-        {back}
+        <Skeleton className="h-5 w-32" />
         <Skeleton className="h-9 w-3/4" />
-        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-48 rounded-2xl" />
+        <Skeleton className="h-24 rounded-2xl" />
       </div>
     );
   }
@@ -58,7 +62,7 @@ export function MessageDetailView({ id }: { id: string }) {
     const status = message.error instanceof ApiError ? message.error.status : 0;
     return (
       <div className="space-y-4">
-        {back}
+        <PageHeader title="Email" back={BACK} className="pb-2" />
         {status === 404 || status === 422 ? (
           <EmptyState icon={SearchX} title="Email not found" description="It may have been deleted, or it belongs to another account." />
         ) : (
@@ -69,117 +73,138 @@ export function MessageDetailView({ id }: { id: string }) {
   }
 
   const m = message.data;
+  const from = m.from_name || m.from_address;
+  const provider = m.web_url?.includes("mail.google.com") ? "Gmail" : "your mail";
+
   return (
     <div className="space-y-6">
-      <div>
-        {back}
-        <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance break-words">{m.subject || "(no subject)"}</h1>
-          <div className="flex shrink-0 gap-2">
-            {m.web_url ? (
-              <Button asChild>
-                <a href={m.web_url} target="_blank" rel="noreferrer noopener">
-                  Open in {m.web_url.includes("mail.google.com") ? "Gmail" : "mail"} <ExternalLink />
-                </a>
-              </Button>
-            ) : null}
-            <Button variant="outline" size="icon" aria-label="Delete from history" onClick={() => setDeleting(true)}>
-              <Trash2 />
+      <PageHeader title={m.subject || "(no subject)"} back={BACK} className="pb-0">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{from}</span>
+          <span aria-hidden>·</span>
+          <RelativeTime iso={m.received_at} />
+          <RefBadge value={m.ref} />
+        </div>
+      </PageHeader>
+
+      <div className="flex flex-wrap gap-2">
+        {m.web_url ? (
+          <Button asChild>
+            <a href={m.web_url} target="_blank" rel="noreferrer noopener">
+              Open in {provider} <ExternalLink />
+            </a>
+          </Button>
+        ) : null}
+        <RemindMenu messageId={m.id} />
+        <MuteMenu messageId={m.id} fromAddress={m.from_address} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="More actions">
+              <MoreHorizontal />
             </Button>
-          </div>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {m.matches.map((match) => (
-            <Badge key={`${match.rule_id}-${match.matched_at}`} variant="secondary" className="bg-primary/10 text-primary" asChild={Boolean(match.rule_id)}>
-              {match.rule_id ? <Link href={`/rules/${match.rule_id}`}>{match.rule_name}</Link> : <span>{match.rule_name}</span>}
-            </Badge>
-          ))}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(true)}>
+              <Trash2 /> Remove from MailSentinel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[1fr_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Email</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="divide-y">
-              <Row label="From">
-                {m.from_name ? <span className="font-medium">{m.from_name} </span> : null}
-                <span className="text-muted-foreground">&lt;{m.from_address}&gt;</span>
-              </Row>
-              <Row label="To">{m.to_addresses.length ? m.to_addresses.join(", ") : "—"}</Row>
-              <Row label="Received">
-                <RelativeTime iso={m.received_at} /> <span className="text-muted-foreground">· {absoluteTime(m.received_at)}</span>
-              </Row>
-              <Row label="Mailbox">{m.mailbox_address ?? "—"}</Row>
-              {m.list_id ? (
-                <Row label="List">
-                  <span className="font-mono text-xs">{m.list_id}</span>
-                </Row>
-              ) : null}
-              {m.has_attachments ? (
-                <Row label="Attachments">
-                  <span className="inline-flex items-center gap-1">
-                    <Paperclip className="size-3.5" /> Yes
-                  </span>
-                </Row>
-              ) : null}
-            </dl>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-6">
+          <article className="rounded-2xl border bg-card p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-secondary-foreground"
+              >
+                {initials(from)}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate font-medium">{from}</div>
+                <div className="truncate text-sm text-muted-foreground">{m.from_address}</div>
+              </div>
+            </div>
             {m.snippet ? (
-              <blockquote className="mt-4 rounded-lg border-l-4 border-primary/40 bg-muted/40 px-4 py-3 text-sm text-pretty text-muted-foreground">
+              <blockquote className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-[0.95rem] leading-relaxed text-pretty">
                 {m.snippet}
+                {m.web_url ? (
+                  <span className="mt-2 block text-sm text-muted-foreground">
+                    This is a preview.{" "}
+                    <a href={m.web_url} target="_blank" rel="noreferrer noopener" className="font-medium text-brand-ink underline-offset-2 hover:underline">
+                      Read the full email in {provider}
+                    </a>
+                    .
+                  </span>
+                ) : null}
               </blockquote>
             ) : null}
-          </CardContent>
-        </Card>
+            <details className="group mt-4 text-sm">
+              <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+                More details
+              </summary>
+              <dl className="mt-2 divide-y">
+                <Row label="To">{m.to_addresses.length ? m.to_addresses.join(", ") : "—"}</Row>
+                <Row label="Received">{absoluteTime(m.received_at)}</Row>
+                <Row label="Mailbox">{m.mailbox_address ?? "—"}</Row>
+                {m.has_attachments ? (
+                  <Row label="Attachments">
+                    <span className="inline-flex items-center gap-1">
+                      <Paperclip className="size-3.5" /> Yes
+                    </span>
+                  </Row>
+                ) : null}
+                {m.list_id ? (
+                  <Row label="Mailing list">
+                    <span className="font-mono text-xs">{m.list_id}</span>
+                  </Row>
+                ) : null}
+              </dl>
+            </details>
+          </article>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Matched by</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="relative space-y-4 border-l pl-5">
+          <WhatsAppDeliveries notifications={m.notifications} destinations={destMap} />
+        </div>
+
+        <div className="min-w-0 space-y-6">
+          <DetectedDates messageId={m.id} events={m.events ?? []} />
+          <div className="rounded-2xl border bg-card p-4">
+            <h2 className="text-base font-semibold tracking-tight">Why it&apos;s important</h2>
+            <p className="text-sm text-muted-foreground">It matched {m.matches.length === 1 ? "this" : "these"}:</p>
+            <ul className="mt-3 flex flex-wrap gap-2">
               {m.matches.map((match) => (
-                <li key={`${match.rule_id}-${match.matched_at}`} className="relative">
-                  <span aria-hidden className="absolute top-1.5 -left-[25px] size-2.5 rounded-full border-2 border-card bg-primary" />
-                  <div className="text-sm font-medium">{match.rule_name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Matched <RelativeTime iso={match.matched_at} />
-                    {match.rule_id ? null : " · rule since deleted"}
-                  </div>
+                <li key={`${match.rule_id}-${match.matched_at}`}>
+                  {match.rule_id ? (
+                    <Link
+                      href={`/rules/${match.rule_id}`}
+                      className="inline-flex h-8 items-center rounded-full bg-secondary px-3 text-sm font-medium text-secondary-foreground outline-none hover:bg-brand/30 focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      {match.rule_name}
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-8 items-center rounded-full bg-muted px-3 text-sm text-muted-foreground">
+                      {match.rule_name} (removed)
+                    </span>
+                  )}
                 </li>
               ))}
-            </ol>
-          </CardContent>
-        </Card>
+            </ul>
+          </div>
+        </div>
       </div>
-
-      <section>
-        <h2 className="mb-3 text-lg font-semibold tracking-tight">WhatsApp deliveries</h2>
-        {m.notifications.length === 0 ? (
-          <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-            No alerts were sent for this email — it may be waiting for your digest, or delivery was turned off.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {m.notifications.map((n) => (
-              <NotificationCard key={n.id} n={n} destinations={destMap} showMessageLink={false} />
-            ))}
-          </ul>
-        )}
-      </section>
 
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}
-        title="Delete this email from history?"
-        description="Removes the stored snippet, headers and match record from MailSentinel. The original email in your mailbox is not touched."
+        title="Remove this email from MailSentinel?"
+        description="We'll forget the preview and details we saved. The real email in your mailbox stays exactly where it is."
+        confirmLabel="Remove"
         pending={remove.isPending}
         onConfirm={() =>
           remove.mutate(m.id, {
             onSuccess: () => {
-              toast.success("Removed from history");
+              toast.success("Removed");
               router.replace("/messages");
             },
           })

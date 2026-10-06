@@ -45,9 +45,9 @@ export function smtpFromPreset(current: SmtpValue, preset: ImapPreset | undefine
 /** Returns an error message, or null when the SMTP section is valid (or switched off). */
 export function validateSmtp(v: SmtpValue): string | null {
   if (!v.enabled) return null;
-  if (!v.host.trim()) return "Enter the SMTP server host, or turn sending off.";
+  if (!v.host.trim()) return "Enter the outgoing mail server, or switch sending off.";
   const port = Number(v.port);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) return "SMTP port must be 1–65535.";
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return "The sending port must be 1–65535.";
   return null;
 }
 
@@ -90,11 +90,11 @@ export function SmtpSection({
         <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
           <Send className="size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0">
-            <span className="block font-medium">Sending (SMTP) – optional</span>
+            <span className="block font-medium">Also send email from this address (optional)</span>
             <span className="block truncate text-xs text-muted-foreground">
               {value.enabled && value.host
                 ? `${value.host}:${value.port} · ${value.security === "starttls" ? "STARTTLS" : value.security === "ssl" ? "SSL/TLS" : "plain"}`
-                : "Lets you send email from WhatsApp with /email"}
+                : "Write emails on WhatsApp and send them from here"}
             </span>
           </span>
           <ChevronDown className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
@@ -113,7 +113,7 @@ export function SmtpSection({
           {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
           <div className="grid gap-4 sm:grid-cols-[1fr_6.5rem]">
             <Field data-invalid={Boolean(error) || undefined}>
-              <FieldLabel htmlFor={`${idPrefix}-smtp-host`}>SMTP server</FieldLabel>
+              <FieldLabel htmlFor={`${idPrefix}-smtp-host`}>Outgoing mail server (SMTP)</FieldLabel>
               <Input
                 id={`${idPrefix}-smtp-host`}
                 placeholder="smtp.example.com"
@@ -157,23 +157,23 @@ export function SmtpSection({
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor={`${idPrefix}-smtp-user`}>SMTP username</FieldLabel>
+              <FieldLabel htmlFor={`${idPrefix}-smtp-user`}>Username for sending</FieldLabel>
               <Input
                 id={`${idPrefix}-smtp-user`}
                 autoComplete="off"
-                placeholder="Same as IMAP"
+                placeholder="Same as above"
                 value={value.username}
                 disabled={!value.enabled}
                 onChange={(e) => set({ username: e.target.value })}
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor={`${idPrefix}-smtp-pass`}>SMTP password</FieldLabel>
+              <FieldLabel htmlFor={`${idPrefix}-smtp-pass`}>Password for sending</FieldLabel>
               <Input
                 id={`${idPrefix}-smtp-pass`}
                 type="password"
                 autoComplete="new-password"
-                placeholder="Same as IMAP"
+                placeholder="Same as above"
                 value={value.password}
                 disabled={!value.enabled}
                 onChange={(e) => set({ password: e.target.value })}
@@ -185,7 +185,7 @@ export function SmtpSection({
               {error}
             </p>
           ) : (
-            <FieldDescription>We test the SMTP login when you save. Your app password usually works for both.</FieldDescription>
+            <FieldDescription>We test this when you save. Your app password usually works for both.</FieldDescription>
           )}
         </div>
       </CollapsibleContent>

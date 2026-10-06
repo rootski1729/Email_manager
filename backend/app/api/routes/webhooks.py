@@ -20,7 +20,8 @@ from app.core.db import uuid7
 from app.core.errors import Forbidden, Unauthorized
 from app.core.logging import log
 from app.core.redis import Keys, get_redis
-from app.models import Destination, DestinationKind, Notification, NotificationStatus, Role, User
+from app.core.runtime import GoogleConfig, google_config
+from app.models import Destination, DestinationKind, Notification, NotificationStatus
 from app.notify.direct import send_now
 from app.notify.waha import WahaError
 from app.services import events
@@ -32,13 +33,12 @@ GROUP_CODE = re.compile(r"\bMS-[A-Z2-9]{6}\b")
 ACK_STATUS = {2: NotificationStatus.delivered, 3: NotificationStatus.read, 4: NotificationStatus.read}
 
 
-def _verify_pubsub_jwt(token: str) -> dict[str, Any]:
+def _verify_pubsub_jwt(token: str, config: GoogleConfig) -> dict[str, Any]:
     from google.auth.transport import requests as google_requests
     from google.oauth2 import id_token
 
-    settings = get_settings()
-    claims = id_token.verify_oauth2_token(token, google_requests.Request(), audience=settings.gmail_push_audience)
-    if settings.gmail_push_service_account and claims.get("email") != settings.gmail_push_service_account:
+    claims = id_token.verify_oauth2_token(token, google_requests.Request(), audience=config.push_audience)
+    if config.push_service_account and claims.get("email") != config.push_service_account:
         raise ValueError("unexpected service account")
     if not claims.get("email_verified"):
         raise ValueError("email not verified")
@@ -47,14 +47,14 @@ def _verify_pubsub_jwt(token: str) -> dict[str, Any]:
 
 @router.post("/gmail")
 async def gmail_push(request: Request) -> Response:
-    settings = get_settings()
-    if settings.gmail_push_mode != "push":
+    config = await google_config()
+    if config.push_mode != "push":
         raise Forbidden("Push mode is disabled")
     auth = request.headers.get("authorization", "")
     if not auth.startswith("Bearer "):
         raise Unauthorized("Missing Pub/Sub token")
     try:
-        await asyncio.to_thread(_verify_pubsub_jwt, auth.removeprefix("Bearer "))
+        await asyncio.to_thread(_verify_pubsub_jwt, auth.removeprefix("Bearer "), config)
     except ValueError as exc:
         log.warning("gmail_push_rejected", error=str(exc))
         raise Unauthorized("Invalid Pub/Sub token") from exc
@@ -90,7 +90,7 @@ async def waha_event(request: Request, db: DB) -> Response:
             await _on_message(db, payload)
         else:
             # Commands are handled off the request path; the task dedupes message.any vs message.
-            fields = ("id", "from", "to", "fromMe", "body", "hasMedia", "media", "timestamp")
+            fields = ("id", "from", "to", "fromMe", "body", "hasMedia", "media", "timestamp", "replyTo")
             await handle_whatsapp_message.kiq({k: payload.get(k) for k in fields})
     return Response(status_code=204)
 
@@ -117,9 +117,6 @@ async def _on_session_status(db: DB, payload: dict[str, Any]) -> None:
     current = json.loads(await redis.get(Keys.WAHA_HEALTH) or "{}")
     current.update(status=status, checked_at=datetime.now(UTC).isoformat())
     await redis.set(Keys.WAHA_HEALTH, json.dumps(current), ex=120)
-    admins = (await db.scalars(select(User.id).where(User.role == Role.admin))).all()
-    for admin_id in admins:
-        await events.publish(admin_id, "system", {"waha_status": status})
     log.info("waha_session_status", status=status)
 
 

@@ -13,16 +13,12 @@ async def test_sign_up_creates_user_settings_and_self_destination(client, sent):
     assert settings["plan_limits"]["mailboxes"] == 3
 
 
-async def test_admin_phones_get_admin_role(client, sent):
+async def test_phone_sign_in_never_grants_admin(client, sent):
+    """Admins are separate accounts; a client token (even the old admin number) can't open the admin API."""
     headers = await sign_in(client, sent, phone="+14155550100")
-    assert (await client.get("/api/v1/me", headers=headers)).json()["role"] == "admin"
-    assert (await client.get("/api/v1/admin/queues", headers=headers)).status_code == 200
-
-
-async def test_non_admin_is_forbidden_from_admin(client, sent):
-    headers = await sign_in(client, sent)
-    resp = await client.get("/api/v1/admin/queues", headers=headers)
-    assert resp.status_code == 403
+    assert (await client.get("/api/v1/me", headers=headers)).json()["role"] == "user"
+    resp = await client.get("/api/v1/admin/overview", headers=headers)
+    assert resp.status_code == 401
     assert resp.headers["content-type"].startswith("application/problem+json")
 
 

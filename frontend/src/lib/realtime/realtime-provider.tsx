@@ -82,9 +82,12 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
           void qc.invalidateQueries({ queryKey: qk.messagesAll });
           void qc.invalidateQueries({ queryKey: qk.overview });
           void qc.invalidateQueries({ queryKey: qk.rules });
-          toast(m.subject || "(no subject)", {
+          // New important mail may carry dates for the deadline radar, and completes onboarding steps.
+          void qc.invalidateQueries({ queryKey: qk.eventLists });
+          void qc.invalidateQueries({ queryKey: qk.onboarding });
+          toast(`${m.urgent ? "Urgent: " : ""}${m.subject || "(no subject)"}`, {
             id: `match-${m.message_id}`,
-            description: `${m.from_name || m.from_address}${m.rules?.length ? ` · ${m.rules.join(", ")}` : ""}`,
+            description: `${m.ref ? `#${m.ref} · ` : ""}${m.from_name || m.from_address}${m.rules?.length ? ` · ${m.rules.join(", ")}` : ""}`,
             action: { label: "Open", onClick: () => router.push(`/messages/${m.message_id}`) },
           });
           break;

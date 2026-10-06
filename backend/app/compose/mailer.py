@@ -27,7 +27,7 @@ class OutgoingFile:
 
 def build_message(
     *, from_address: str, from_name: str | None, to: list[str], cc: list[str], subject: str, body: str,
-    files: list[OutgoingFile],
+    files: list[OutgoingFile], in_reply_to: str | None = None, references: str | None = None,
 ) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = formataddr((from_name or "", from_address))
@@ -38,6 +38,9 @@ def build_message(
     msg["Date"] = formatdate(localtime=False, usegmt=True)
     msg["Message-ID"] = make_msgid(domain=from_address.rsplit("@", 1)[-1])
     msg["X-Mailer"] = "MailSentinel"
+    if in_reply_to:
+        msg["In-Reply-To"] = in_reply_to
+        msg["References"] = references or in_reply_to
     msg.set_content(body or " ")
     for f in files:
         maintype, _, subtype = (f.mime_type or "application/octet-stream").partition("/")
@@ -46,11 +49,11 @@ def build_message(
     return msg
 
 
-async def send_gmail(session: GmailSession, msg: EmailMessage, bcc: list[str]) -> str:
-    """Upload endpoint (media) supports messages up to 35 MB. Gmail strips the Bcc header itself."""
+async def send_gmail(session: GmailSession, msg: EmailMessage, bcc: list[str], thread_id: str | None = None) -> str:
+    """Upload endpoint supports messages up to 35 MB. Gmail strips the Bcc header itself."""
     if bcc:
         msg["Bcc"] = ", ".join(bcc)
-    resp = await session.upload_send(msg.as_bytes())
+    resp = await session.upload_send(msg.as_bytes(), thread_id=thread_id)
     if resp.status_code in (200, 201):
         return str(resp.json().get("id", ""))
     retryable = resp.status_code == 429 or resp.status_code >= 500

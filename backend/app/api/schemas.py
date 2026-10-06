@@ -5,10 +5,12 @@ from typing import Any, Literal
 from uuid import UUID
 
 from email_validator import EmailNotValidError, validate_email
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models import (
     DestinationKind,
+    EventKind,
+    EventStatus,
     MailboxStatus,
     NotificationKind,
     NotificationStatus,
@@ -94,6 +96,9 @@ class SettingsOut(BaseModel):
     digest: DigestSettings
     daily_cap: int | None
     compose_enabled: bool = Field(description="Allow sending email from WhatsApp with /email")
+    muted_senders: list[str] = Field(description="Addresses or domains that never trigger WhatsApp alerts")
+    weekly_recap: bool = Field(description="Sunday-evening summary on WhatsApp")
+    deadlines_enabled: bool = Field(description="Find exam dates, interviews and due dates and remind before them")
     plan_limits: dict[str, int] = Field(description="mailboxes, rules, daily_alerts, daily_emails, templates")
 
 
@@ -102,6 +107,25 @@ class SettingsUpdate(BaseModel):
     digest: DigestSettings | None = None
     daily_cap: int | None = Field(default=None, ge=1, le=10_000)
     compose_enabled: bool | None = None
+    muted_senders: list[str] | None = Field(default=None, max_length=200)
+    weekly_recap: bool | None = None
+    deadlines_enabled: bool | None = None
+
+    @field_validator("muted_senders")
+    @classmethod
+    def _muted(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return None
+        out: list[str] = []
+        for raw in v:
+            item = raw.strip().lower().strip("<>").removeprefix("@")
+            if not item:
+                continue
+            if "." not in item.rsplit("@", 1)[-1] or " " in item or len(item) > 320:
+                raise ValueError(f"'{raw}' is not an email address or domain")
+            if item not in out:
+                out.append(item)
+        return out
 
 
 # ---- destinations ----
@@ -235,6 +259,7 @@ class RuleOut(ORM):
     last_matched_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    source: str | None = None
 
 
 class RuleOrder(BaseModel):
@@ -300,6 +325,7 @@ class MessageOut(ORM):
     received_at: datetime
     has_attachments: bool
     web_url: str | None
+    ref: str | None = Field(default=None, description="Short code used in WhatsApp, e.g. K7 for /open K7")
     rules: list[str] = Field(default_factory=list)
 
 
@@ -327,6 +353,7 @@ class MessageDetail(MessageOut):
     thread_id: str | None
     matches: list[MatchOut]
     notifications: list[NotificationOut]
+    events: list["EventOut"] = Field(default_factory=list)
 
 
 # ---- stats & admin ----
@@ -527,3 +554,136 @@ class OutboundEmailOut(ORM):
 class OutboundEmailDetail(OutboundEmailOut):
     body: str
     provider_message_id: str | None
+
+
+# ---- deadline radar ----
+class EventOut(ORM):
+    id: UUID
+    message_id: UUID | None
+    source: str = Field(description="ics (calendar invite), text (found in the email) or manual")
+    kind: EventKind
+    title: str
+    context: str | None = Field(description="The sentence the date was found in")
+    starts_at: datetime
+    ends_at: datetime | None
+    all_day: bool
+    location: str | None
+    confidence: float
+    status: EventStatus
+    message_subject: str | None = None
+    message_ref: str | None = None
+    created_at: datetime
+
+
+class EventCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    kind: EventKind = EventKind.other
+    starts_at: datetime
+    ends_at: datetime | None = None
+    all_day: bool = False
+    location: str | None = Field(default=None, max_length=300)
+    message_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def _order(self) -> "EventCreate":
+        if self.ends_at and self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
+
+
+class EventUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    kind: EventKind | None = None
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    all_day: bool | None = None
+    location: str | None = Field(default=None, max_length=300)
+    status: EventStatus | None = Field(default=None, description="suggested → upcoming confirms; dismissed hides")
+
+
+class CalendarFeedOut(BaseModel):
+    url: str = Field(description="Private iCalendar feed; subscribe to it in Google or Apple Calendar")
+    webcal_url: str
+
+
+class RemindRequest(BaseModel):
+    at: datetime | None = Field(default=None, description="Exact time; or use `when`")
+    when: str | None = Field(default=None, max_length=60, description="'2h', 'tomorrow 9am', 'mon 8:30'")
+
+
+class RemindOut(BaseModel):
+    at: datetime
+    description: str
+
+
+class MuteRequest(BaseModel):
+    scope: Literal["address", "domain"] = "address"
+
+
+class MuteOut(BaseModel):
+    muted: str
+    muted_senders: list[str]
+
+
+# ---- starter packs, suggestions, onboarding ----
+class RulePackOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    icon: str
+    urgent: bool
+    condition: dict[str, Any]
+    installed: bool = Field(description="A rule created from this pack already exists")
+
+
+class PackSuggestion(BaseModel):
+    pack: RulePackOut
+    count: int = Field(description="Recent emails this pack would have caught")
+    examples: list[str]
+
+
+class SenderSuggestionOut(BaseModel):
+    domain: str
+    count: int
+    examples: list[str]
+    names: list[str]
+
+
+class SuggestionsOut(BaseModel):
+    mailbox_id: UUID
+    scanned: int
+    packs: list[PackSuggestion]
+    senders: list[SenderSuggestionOut]
+
+
+class InstallPack(BaseModel):
+    mailbox_ids: list[UUID] | None = None
+
+
+class SenderRuleCreate(BaseModel):
+    domain: str = Field(min_length=3, max_length=253)
+    name: str | None = Field(default=None, max_length=120)
+    urgent: bool = False
+
+
+class OnboardingStep(BaseModel):
+    id: str
+    title: str
+    description: str
+    done: bool
+    href: str
+
+
+class OnboardingOut(BaseModel):
+    steps: list[OnboardingStep]
+    completed: int
+    total: int
+    dismissed: bool
+
+
+class TestAlertOut(BaseModel):
+    queued: bool
+    chat_id: str
+
+
+MessageDetail.model_rebuild()

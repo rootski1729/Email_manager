@@ -10,7 +10,6 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { CopyButton } from "@/components/common/copy-button";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
-import { PageHeader } from "@/components/common/page-header";
 import { ListSkeleton } from "@/components/common/stat";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +27,7 @@ import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ComposeBanners } from "./compose-banners";
 import { HowItWorksCard } from "./how-it-works-card";
+import { SendEmailHeader } from "./send-email-header";
 
 export function recipientsSummary(t: Pick<EmailTemplate, "to_addresses" | "cc_addresses" | "bcc_addresses">): string {
   const to = t.to_addresses;
@@ -42,18 +42,18 @@ function TemplateRow({ t, mailboxes, onDelete }: { t: EmailTemplate; mailboxes: 
   const from = t.mailbox_id ? mailboxes.find((m) => m.id === t.mailbox_id) : undefined;
   const command = `/email ${t.name}`;
   return (
-    <li className="group relative flex flex-col gap-3 rounded-xl border bg-card p-4 transition-shadow hover:shadow-sm sm:flex-row sm:items-center">
+    <li className="group relative flex flex-col gap-3 rounded-2xl border bg-card p-4 transition-shadow hover:shadow-sm sm:flex-row sm:items-center">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href={`/templates/${t.id}`}
-            className="font-mono text-sm font-semibold outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:underline"
+            className="font-mono text-sm font-semibold outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:underline"
           >
             {command}
           </Link>
           {t.is_default ? (
             <StatusBadge tone="brand">
-              Default
+              Used by /email
             </StatusBadge>
           ) : null}
         </div>
@@ -88,7 +88,7 @@ function TemplateRow({ t, mailboxes, onDelete }: { t: EmailTemplate; mailboxes: 
                   )
                 }
               >
-                <Star className={cn(t.is_default && "fill-amber-400 text-amber-500")} />
+                <Star className={cn(t.is_default && "fill-warning text-warning")} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t.is_default ? "Used by a plain /email" : "Use for a plain /email"}</TooltipContent>
@@ -133,12 +133,7 @@ export function TemplatesView() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Email templates"
-        description="Send email from WhatsApp. Templates pre-fill the form the bot sends you — recipients, subject and body — so a leave request or a weekly update takes seconds."
-        actions={newButton}
-        className="pb-0"
-      />
+      <SendEmailHeader active="templates" actions={newButton} />
       <ComposeBanners />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0">
@@ -149,12 +144,11 @@ export function TemplatesView() {
           ) : templates.data.length === 0 ? (
             <EmptyState
               icon={FileText}
-              title="Send email without leaving WhatsApp"
+              title="No templates yet"
               description={
                 <>
-                  Send <code className="font-mono">/email</code> to the MailSentinel bot and it replies with a form to fill in.
-                  Templates pre-fill that form for emails you send often, like{" "}
-                  <code className="font-mono">/email leave</code>.
+                  A template fills in the usual To, subject and text for emails you send often. Then{" "}
+                  <code className="font-mono">/email leave</code> on WhatsApp gives you a ready form.
                 </>
               }
             >

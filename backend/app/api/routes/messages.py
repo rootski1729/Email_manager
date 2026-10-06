@@ -6,11 +6,36 @@ from fastapi import APIRouter, Query
 from sqlalchemy import Select, and_, or_, select, update
 
 from app.api.deps import DB, CurrentUser
-from app.api.schemas import MatchOut, MessageDetail, MessageOut, NotificationOut, Page
+from app.api.schemas import (
+    EventOut,
+    MatchOut,
+    MessageDetail,
+    MessageOut,
+    MuteOut,
+    MuteRequest,
+    NotificationOut,
+    Page,
+    RemindOut,
+    RemindRequest,
+)
+from app.compose.when import describe, parse_when
 from app.core.errors import AppError, NotFound
-from app.models import Mailbox, Message, Notification, NotificationStatus, RuleMatch
+from app.models import (
+    Event,
+    Mailbox,
+    Message,
+    Notification,
+    NotificationKind,
+    NotificationStatus,
+    RuleMatch,
+    UserSettings,
+)
 from app.notify.templates import render_payload
+from app.rules.envelope import domain_of
+from app.services import alert_actions as actions
+from app.services import outbox
 from app.services.events import wake_dispatcher
+from app.services.schedule import tz
 
 router = APIRouter(tags=["messages"])
 
@@ -90,7 +115,57 @@ async def get_message(message_id: UUID, user: CurrentUser, db: DB) -> MessageDet
         to_addresses=message.to_addresses, list_id=message.list_id, thread_id=message.thread_id,
         matches=[MatchOut.model_validate(m) for m in matches],
         notifications=[notification_out(n) for n in notes],
+        events=[EventOut.model_validate(e).model_copy(update={"message_subject": message.subject,
+                                                              "message_ref": message.ref})
+                for e in (await db.scalars(select(Event).where(Event.message_id == message.id)
+                                           .order_by(Event.starts_at))).all()],
     )
+
+
+@router.post("/messages/{message_id}/remind", response_model=RemindOut, status_code=201)
+async def remind_message(message_id: UUID, body: RemindRequest, user: CurrentUser, db: DB) -> RemindOut:
+    """Bring this email back on WhatsApp later (same as /remind K7 on WhatsApp)."""
+    message = await db.get(Message, message_id)
+    if message is None or message.user_id != user.id:
+        raise NotFound("Message not found")
+    zone, now = tz(user.timezone), datetime.now(UTC)
+    at = body.at or (parse_when(body.when, now=now, zone=zone) if body.when else None)
+    if at is None:
+        raise AppError("Give a time: `at`, or `when` like '2h', 'tomorrow 9am'", code="invalid_time", status=422)
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=zone)
+    if at <= now:
+        raise AppError("The reminder time must be in the future", code="invalid_time", status=422)
+    destination = await outbox.default_destination(db, user.id)
+    if destination is None:
+        raise AppError("Add a verified WhatsApp destination first", code="no_destination", status=422)
+    await outbox.enqueue(db, user_id=user.id, destination=destination, kind=NotificationKind.reminder,
+                         payload=await actions.message_payload(db, message, user),
+                         dedupe=f"remind:{message.id}:{at.isoformat()}", message_id=message.id,
+                         at=at)
+    await db.commit()
+    return RemindOut(at=at, description=describe(at, now=now, zone=zone))
+
+
+@router.post("/messages/{message_id}/mute", response_model=MuteOut)
+async def mute_sender(message_id: UUID, body: MuteRequest, user: CurrentUser, db: DB) -> MuteOut:
+    """Stop WhatsApp alerts from this email's sender (or its whole domain). Matches still show in the app."""
+    message = await db.get(Message, message_id)
+    if message is None or message.user_id != user.id:
+        raise NotFound("Message not found")
+    target = domain_of(message.from_address) if body.scope == "domain" else message.from_address.lower()
+    prefs = await db.get(UserSettings, user.id)
+    if prefs is None:
+        prefs = UserSettings(user_id=user.id, quiet_hours={}, digest={})
+        db.add(prefs)
+    muted = list(prefs.muted_senders or [])
+    if target not in muted:
+        if len(muted) >= actions.MAX_MUTED:
+            raise AppError(f"You've muted {actions.MAX_MUTED} senders already; remove some in Settings",
+                           code="mute_limit", status=422)
+        prefs.muted_senders = [*muted, target]
+    await db.commit()
+    return MuteOut(muted=target, muted_senders=list(prefs.muted_senders))
 
 
 @router.delete("/messages/{message_id}", status_code=204)

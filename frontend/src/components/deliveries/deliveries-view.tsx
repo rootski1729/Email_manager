@@ -1,23 +1,30 @@
 "use client";
 
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { BellOff } from "lucide-react";
+import { BellOff, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
+import { TestAlertButton } from "@/components/dashboard/test-alert-button";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { PageHeader } from "@/components/common/page-header";
 import { ListSkeleton } from "@/components/common/stat";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { destinationsQuery, notificationsQuery } from "@/lib/api/queries";
 import { NOTIFICATION_STATUSES, type NotificationStatus } from "@/lib/api/types";
-import { NOTIFICATION_STATUS } from "@/lib/status";
+import { ALERT_STATUS } from "@/lib/status";
 import { NotificationCard } from "./notification-card";
 
 const ALL = "all";
+/** The only filters most people need. Any other ?status= still works (and can be cleared). */
+const SIMPLE: { value: string; label: string }[] = [
+  { value: ALL, label: "Everything" },
+  { value: "queued", label: "Waiting" },
+  { value: "dead", label: "Failed" },
+];
 
 export function DeliveriesView() {
   const params = useSearchParams();
@@ -29,29 +36,36 @@ export function DeliveriesView() {
   const destinations = useQuery(destinationsQuery);
   const destMap = useMemo(() => new Map((destinations.data ?? []).map((d) => [d.id, d])), [destinations.data]);
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
+  const isSimple = !status || SIMPLE.some((f) => f.value === status);
+  const setStatus = (v: string) => router.replace(v === ALL ? pathname : `${pathname}?status=${v}`, { scroll: false });
 
   return (
     <div>
       <PageHeader
-        title="Deliveries"
-        description="Every WhatsApp message MailSentinel has queued, with its delivery status. Updates arrive live."
+        title="WhatsApp activity"
+        back={{ href: "/settings", label: "Settings" }}
+        description="Every WhatsApp message we've sent you, and whether it arrived. This page updates by itself."
       />
-      <Tabs
-        value={status ?? ALL}
-        onValueChange={(v) => router.replace(v === ALL ? pathname : `${pathname}?status=${v}`, { scroll: false })}
-        className="mb-4"
-      >
-        <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
-          <TabsList className="w-max">
-            <TabsTrigger value={ALL}>All</TabsTrigger>
-            {NOTIFICATION_STATUSES.map((s) => (
-              <TabsTrigger key={s} value={s}>
-                {NOTIFICATION_STATUS[s].label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-      </Tabs>
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          value={isSimple ? (status ?? ALL) : ""}
+          onValueChange={(v) => v && setStatus(v)}
+          aria-label="Show"
+        >
+          {SIMPLE.map((f) => (
+            <ToggleGroupItem key={f.value} value={f.value} className="px-4">
+              {f.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        {!isSimple && status ? (
+          <Button variant="secondary" size="sm" onClick={() => setStatus(ALL)}>
+            Showing: {ALERT_STATUS[status].label} <X />
+          </Button>
+        ) : null}
+      </div>
 
       {list.isPending ? (
         <ListSkeleton rows={5} />
@@ -60,13 +74,17 @@ export function DeliveriesView() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={BellOff}
-          title={status ? `No ${NOTIFICATION_STATUS[status].label.toLowerCase()} deliveries` : "No deliveries yet"}
+          title={status === "dead" ? "Nothing failed" : status ? "Nothing here" : "No WhatsApp messages yet"}
           description={
-            status
-              ? NOTIFICATION_STATUS[status].hint
-              : "When a rule matches, the WhatsApp alert and its delivery status appear here."
+            status === "dead"
+              ? "Every message reached WhatsApp. Nice."
+              : status
+                ? "Nothing in this list right now."
+                : "When an important email arrives, the WhatsApp alert shows up here."
           }
-        />
+        >
+          {!status ? <TestAlertButton size="default" /> : null}
+        </EmptyState>
       ) : (
         <>
           <ul className="space-y-3">
@@ -78,7 +96,7 @@ export function DeliveriesView() {
             {list.hasNextPage ? (
               <Button variant="outline" onClick={() => void list.fetchNextPage()} disabled={list.isFetchingNextPage}>
                 {list.isFetchingNextPage ? <Spinner /> : null}
-                Load more
+                Show older
               </Button>
             ) : (
               <p className="text-xs text-muted-foreground">That&apos;s everything.</p>

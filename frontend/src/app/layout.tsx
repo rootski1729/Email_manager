@@ -8,15 +8,14 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: `${APP_NAME} — important email, straight to WhatsApp`, template: `%s · ${APP_NAME}` },
-  description:
-    "Watch every mailbox, match the emails that matter with precise rules, and get them on WhatsApp in seconds.",
+  description: "MailSentinel watches your inboxes and sends the emails that matter straight to your WhatsApp.",
   applicationName: APP_NAME,
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fcfcfe" },
-    { media: "(prefers-color-scheme: dark)", color: "#121320" },
+    { media: "(prefers-color-scheme: light)", color: "#faf5ec" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b242a" },
   ],
 };
 

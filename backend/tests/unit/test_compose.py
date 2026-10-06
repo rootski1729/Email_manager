@@ -138,3 +138,22 @@ async def test_gmail_send_uses_upload_endpoint_and_keeps_bcc_for_gmail():
         with pytest.raises(ReauthRequired):
             await send_gmail(session, build_message(from_address="me@gmail.com", from_name=None, to=["a@b.com"],
                                                     cc=[], subject="x", body="y", files=[]), [])
+
+
+def test_alert_commands_and_quoted_alerts():
+    from app.compose.commands import Kind, encode_ref, normalize_ref, parse_command, refs_in
+
+    assert [encode_ref(n) for n in (1, 2, 31)] == ["32", "33", "3Z"] and len(encode_ref(5000)) == 3
+    assert normalize_ref("#k7") == "K7" and normalize_ref("I1") is None  # no look-alike characters
+    assert refs_in("📬 *Important email*  #K7 … #K7") == ["K7"]
+    quoted = "📬 *Important email*  #K7"
+    cases = {
+        "remind 2h": "/remind K7 2h", "remind K7 2h": "/remind K7 2h", "snooze tomorrow": "/remind K7 tomorrow",
+        "remind #AB 2h": "/remind #AB 2h", "open": "/open K7", "/mute domain": "/mute K7 domain", "reply": "/reply K7",
+    }
+    for text, expected in cases.items():
+        assert parse_command(text, quoted=quoted).raw == expected, text
+    assert parse_command("thanks!", quoted=quoted).kind == Kind.text
+    assert parse_command("remind 2h", quoted="#AB and #CD").kind == Kind.text  # ambiguous batch: no guess
+    assert parse_command("/upcoming").kind == Kind.upcoming and parse_command("/deadlines").kind == Kind.upcoming
+    assert parse_command("/open K7").arg == "K7"

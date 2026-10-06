@@ -5,12 +5,13 @@ import { useRealtime } from "@/lib/realtime/realtime-provider";
 import { cn } from "@/lib/utils";
 
 const COPY = {
-  open: { label: "Live", hint: "Receiving updates in real time.", dot: "bg-emerald-500" },
-  connecting: { label: "Connecting", hint: "Opening the live update stream…", dot: "bg-sky-500" },
-  reconnecting: { label: "Reconnecting", hint: "Live updates paused; retrying with backoff.", dot: "bg-amber-500" },
-  offline: { label: "Offline", hint: "Live updates are unavailable. Data refreshes when you return.", dot: "bg-muted-foreground" },
+  open: { label: "Live", hint: "This page updates by itself as new emails arrive.", dot: "bg-success" },
+  connecting: { label: "Connecting", hint: "Connecting for live updates…", dot: "bg-info" },
+  reconnecting: { label: "Reconnecting", hint: "Live updates paused for a moment. Retrying…", dot: "bg-warning" },
+  offline: { label: "Offline", hint: "Live updates are off. The page refreshes when you come back.", dot: "bg-muted-foreground" },
 } as const;
 
+/** Small "Live" pill: reassures that the page updates itself, and says so plainly when it can't. */
 export function ConnectionIndicator() {
   const { connection } = useRealtime();
   const c = COPY[connection];
@@ -18,16 +19,13 @@ export function ConnectionIndicator() {
     <Tooltip>
       <TooltipTrigger asChild>
         <span
-          className="inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs text-muted-foreground"
+          tabIndex={0}
+          className="inline-flex h-7 items-center gap-1.5 rounded-full border bg-card px-2.5 text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           role="status"
           aria-live="polite"
         >
           <span
-            className={cn(
-              "size-1.5 rounded-full",
-              c.dot,
-              connection === "open" && "animate-ping-soft text-emerald-500",
-            )}
+            className={cn("size-1.5 rounded-full", c.dot, connection === "open" && "animate-ping-soft text-success")}
           />
           <span className="hidden sm:inline">{c.label}</span>
           <span className="sr-only sm:hidden">{c.label}</span>

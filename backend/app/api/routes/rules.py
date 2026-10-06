@@ -4,24 +4,30 @@ import json
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from sqlalchemy import func, select
 
 from app.api.deps import DB, CurrentUser
 from app.api.schemas import (
     FieldInfo,
+    InstallPack,
+    PackSuggestion,
     RuleCreate,
     RuleOrder,
     RuleOut,
+    RulePackOut,
     RuleTest,
     RuleTestHit,
     RuleTestOut,
     RuleUpdate,
+    SenderRuleCreate,
+    SenderSuggestionOut,
+    SuggestionsOut,
     dump_condition,
 )
 from app.core.config import PLANS
 from app.core.db import uuid7
-from app.core.errors import AppError, LimitReached, NotFound, UpstreamError
+from app.core.errors import AppError, Conflict, LimitReached, NotFound, UpstreamError
 from app.core.redis import Keys, get_redis
 from app.core.security import vault
 from app.models import Destination, Mailbox, Rule
@@ -29,11 +35,13 @@ from app.providers import get_provider
 from app.providers.base import ProviderError
 from app.rules.engine import compile_condition
 from app.rules.envelope import Attachment, Envelope
-from app.rules.schema import FULL_MESSAGE_FIELDS, Op
-from app.services.rulesets import bump_version
+from app.rules.packs import PACKS, PACKS_BY_ID, Pack, pack_hits, personal_senders, sender_rule
+from app.rules.schema import FULL_MESSAGE_FIELDS, Actions, NotifyAction, Op
+from app.services.rulesets import bump_version, load_ruleset
 
 router = APIRouter(prefix="/rules", tags=["rules"])
 PREVIEW_TTL_S = 300
+SUGGEST_TTL_S = 600
 _TEXT = [Op.equals, Op.contains, Op.contains_all, Op.starts_with, Op.ends_with, Op.regex, Op.exists]
 _ADDR = [Op.domain_matches, *_TEXT]
 FIELDS: list[tuple[str, str, list[Op]]] = [
@@ -79,6 +87,115 @@ async def _check_refs(db: DB, user_id: UUID, mailbox_ids: list[UUID] | None, des
 async def rule_fields() -> list[FieldInfo]:
     return [FieldInfo(field=f, label=label, ops=[o.value for o in ops], needs_full_message=f in FULL_MESSAGE_FIELDS)
             for f, label, ops in FIELDS]
+
+
+async def _new_rule(
+    db: DB, user: CurrentUser, *, name: str, condition: dict, source: str, urgent: bool = False,
+    mailbox_ids: list[UUID] | None = None, description: str | None = None,
+) -> Rule:
+    count = await db.scalar(select(func.count()).select_from(Rule).where(Rule.user_id == user.id)) or 0
+    limit = PLANS.get(user.plan, PLANS["free"]).rules
+    if count >= limit:
+        raise LimitReached(f"Your plan allows {limit} rules")
+    await _check_refs(db, user.id, mailbox_ids, [])
+    position = (await db.scalar(select(func.max(Rule.position)).where(Rule.user_id == user.id)) or 0) + 1
+    rule = Rule(id=uuid7(), user_id=user.id, position=position, name=name[:120], description=description,
+                enabled=True, stop_processing=False, mailbox_ids=mailbox_ids, condition=condition, source=source,
+                actions=Actions(notify=NotifyAction(urgent=urgent)).model_dump(mode="json"))
+    db.add(rule)
+    await db.commit()
+    await db.refresh(rule)
+    await bump_version(user.id)
+    return rule
+
+
+async def _installed(db: DB, user_id: UUID) -> set[str]:
+    sources = (await db.scalars(select(Rule.source).where(Rule.user_id == user_id, Rule.source.is_not(None)))).all()
+    return {str(s) for s in sources}
+
+
+def _pack_out(pack: Pack, installed: set[str]) -> RulePackOut:
+    return RulePackOut(id=pack.id, name=pack.name, description=pack.description, icon=pack.icon, urgent=pack.urgent,
+                       condition=pack.condition, installed=f"pack:{pack.id}" in installed)
+
+
+@router.get("/packs", response_model=list[RulePackOut])
+async def list_packs(user: CurrentUser, db: DB) -> list[RulePackOut]:
+    """Ready-made rules for common important email: exams, interviews, bank alerts, deliveries..."""
+    installed = await _installed(db, user.id)
+    return [_pack_out(p, installed) for p in PACKS]
+
+
+@router.post("/packs/{pack_id}/install", response_model=RuleOut, status_code=201)
+async def install_pack(pack_id: str, user: CurrentUser, db: DB, body: InstallPack | None = None) -> Rule:
+    pack = PACKS_BY_ID.get(pack_id)
+    if pack is None:
+        raise NotFound("Unknown starter pack")
+    if f"pack:{pack.id}" in await _installed(db, user.id):
+        raise Conflict(f"You already have the '{pack.name}' rule")
+    return await _new_rule(db, user, name=pack.name, condition=pack.condition, source=f"pack:{pack.id}",
+                           urgent=pack.urgent, mailbox_ids=body.mailbox_ids if body else None,
+                           description=pack.description)
+
+
+@router.post("/from-sender", response_model=RuleOut, status_code=201)
+async def rule_from_sender(body: SenderRuleCreate, user: CurrentUser, db: DB) -> Rule:
+    """One-tap rule from a suggestion: everything from this domain and its subdomains."""
+    domain = body.domain.strip().lower().lstrip("@.")
+    if "." not in domain or " " in domain:
+        raise AppError("Enter a domain like univ.edu", code="invalid_domain", status=422)
+    if f"sender:{domain}" in await _installed(db, user.id):
+        raise Conflict(f"You already watch {domain}")
+    return await _new_rule(db, user, name=body.name or f"Everything from {domain}", condition=sender_rule(domain),
+                           source=f"sender:{domain}", urgent=body.urgent)
+
+
+async def _recent_headers(mailbox: Mailbox, limit: int) -> list[Envelope]:
+    """Headers (and Gmail snippets) of recent mail, cached for 10 minutes. Nothing is stored in the database."""
+    redis = get_redis()
+    key = Keys.suggestions(mailbox.id)
+    if cached := await redis.get(key):
+        return [_from_json(e) for e in json.loads(cached)]
+    creds = vault().decrypt_json(mailbox.credentials)
+    async with get_provider(mailbox.provider).open(mailbox.id, mailbox.address, creds) as session:
+        refs = await session.recent(limit)
+        if mailbox.provider.value == "gmail":
+            sem = asyncio.Semaphore(8)
+
+            async def load(ref: str) -> Envelope | None:
+                async with sem:
+                    return await session.load(ref, full=False)
+
+            loaded = await asyncio.gather(*(load(r) for r in refs))
+        else:
+            loaded = [await session.load(r, full=False) for r in refs]
+    envs = [e for e in loaded if e is not None]
+    await redis.set(key, json.dumps([_to_json(e) for e in envs]), ex=SUGGEST_TTL_S)
+    return envs
+
+
+@router.get("/suggestions", response_model=SuggestionsOut)
+async def suggestions(
+    mailbox_id: UUID, user: CurrentUser, db: DB, limit: int = Query(80, ge=10, le=150),
+) -> SuggestionsOut:
+    """Look at recent mail and suggest rules: packs that would have caught something, and senders who write
+    to you personally (a college, an employer)."""
+    mailbox = await db.get(Mailbox, mailbox_id)
+    if mailbox is None or mailbox.user_id != user.id:
+        raise NotFound("Mailbox not found")
+    try:
+        envelopes = await _recent_headers(mailbox, limit)
+    except ProviderError as exc:
+        raise UpstreamError(f"Could not read recent mail: {exc}") from exc
+    installed = await _installed(db, user.id)
+    # Senders your rules already catch don't need a suggestion.
+    ruleset = await load_ruleset(db, user.id)
+    uncovered = [e for e in envelopes if not ruleset.evaluate(e)]
+    packs = [PackSuggestion(pack=_pack_out(h.pack, installed), count=h.count, examples=h.examples)
+             for h in pack_hits(envelopes) if f"pack:{h.pack.id}" not in installed]
+    senders = [SenderSuggestionOut(domain=s.domain, count=s.count, examples=s.examples, names=s.names)
+               for s in personal_senders(uncovered) if f"sender:{s.domain}" not in installed]
+    return SuggestionsOut(mailbox_id=mailbox.id, scanned=len(envelopes), packs=packs, senders=senders)
 
 
 @router.get("", response_model=list[RuleOut])
@@ -162,6 +279,7 @@ def _sample_envelope(sample, mailbox_id: UUID) -> Envelope:
 
 def _to_json(env: Envelope) -> dict:
     data = dataclasses.asdict(env)
+    data.pop("calendars", None)
     data["mailbox_id"] = str(env.mailbox_id)
     data["received_at"] = env.received_at.isoformat()
     return data

@@ -46,7 +46,7 @@ async def resolve_destinations(db: AsyncSession, user_id: UUID, ids: set[UUID]) 
 async def enqueue(
     db: AsyncSession, *, user_id: UUID, destination: Destination, kind: NotificationKind,
     payload: dict[str, Any], dedupe: str, message_id: UUID | None = None, hold_for_digest: bool = False,
-    delay_s: float = 0,
+    delay_s: float = 0, at: datetime | None = None,
 ) -> bool:
     """Insert one outbox row; returns False when an identical notification already exists."""
     status = NotificationStatus.held if hold_for_digest else NotificationStatus.queued
@@ -54,7 +54,7 @@ async def enqueue(
         id=uuid7(), user_id=user_id, destination_id=destination.id, chat_id=destination.chat_id,
         message_id=message_id, kind=kind, payload=payload, status=status,
         held_reason="digest" if hold_for_digest else None,
-        next_attempt_at=datetime.now(UTC) + timedelta(seconds=delay_s),
+        next_attempt_at=at or datetime.now(UTC) + timedelta(seconds=delay_s),
         dedupe_key=sha256(f"{dedupe}:{destination.chat_id}"),
     ).on_conflict_do_nothing(index_elements=["dedupe_key"])
     result = await db.execute(stmt)

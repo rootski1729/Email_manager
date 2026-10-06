@@ -17,18 +17,18 @@ export function ComposeSettingsCard({ settings }: { settings: Settings }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Send className="size-4 text-muted-foreground" /> Email from WhatsApp
+          <Send className="size-4 text-muted-foreground" aria-hidden /> Send email from WhatsApp
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Field orientation="horizontal">
           <FieldContent>
-            <FieldLabel htmlFor="compose-enabled">Send email from WhatsApp (/email)</FieldLabel>
+            <FieldLabel htmlFor="compose-enabled">Allow /email on WhatsApp</FieldLabel>
             <FieldDescription>
-              Compose an email on WhatsApp and send it from one of your mailboxes after replying YES. Only your own
-              number can use it{perDay ? `, up to ${perDay} emails a day` : ""}.{" "}
+              Write an email on WhatsApp and send it from one of your mailboxes once you reply YES. Only your own
+              number can do this{perDay ? `, up to ${perDay} emails a day` : ""}.{" "}
               <Link href="/templates" className="underline underline-offset-2">
-                Manage templates
+                Templates and sent emails
               </Link>
             </FieldDescription>
           </FieldContent>

@@ -1,19 +1,19 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { FileText, Send } from "lucide-react";
+import { Send, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
-import { PageHeader } from "@/components/common/page-header";
+import { SendEmailHeader } from "@/components/templates/send-email-header";
 import { RelativeTime } from "@/components/common/relative-time";
 import { ListSkeleton } from "@/components/common/stat";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { outboundQuery } from "@/lib/api/queries";
 import { OUTBOUND_STATUSES, type OutboundEmail, type OutboundStatus } from "@/lib/api/types";
 import { OUTBOUND_STATUS } from "@/lib/status";
@@ -22,6 +22,12 @@ import { OutboundDetailSheet } from "./outbound-detail-sheet";
 import { AttachmentChip, FromTo, OutboundStatusBadge } from "./outbound-parts";
 
 const ALL = "all";
+const SIMPLE: { value: string; label: string }[] = [
+  { value: ALL, label: "Everything" },
+  { value: "awaiting_confirmation", label: "Waiting for YES" },
+  { value: "sent", label: "Sent" },
+  { value: "failed", label: "Failed" },
+];
 
 function Row({ e, href }: { e: OutboundEmail; href: string }) {
   return (
@@ -30,9 +36,9 @@ function Row({ e, href }: { e: OutboundEmail; href: string }) {
         href={href}
         scroll={false}
         className={cn(
-          "flex w-full flex-col gap-2 rounded-xl border bg-card p-4 text-left transition-shadow outline-none hover:shadow-sm focus-visible:ring-3 focus-visible:ring-ring/50",
-          e.status === "awaiting_confirmation" && "border-amber-500/40",
-          e.status === "failed" && "border-rose-500/40",
+          "flex w-full flex-col gap-2 rounded-2xl border bg-card p-4 text-left transition-shadow outline-none hover:shadow-sm focus-visible:ring-3 focus-visible:ring-ring/50",
+          e.status === "awaiting_confirmation" && "border-warning/40",
+          e.status === "failed" && "border-destructive/40",
         )}
       >
         <div className="flex w-full flex-wrap items-center gap-2">
@@ -59,7 +65,7 @@ function Row({ e, href }: { e: OutboundEmail; href: string }) {
           </div>
         ) : null}
         {e.error ? (
-          <p className="line-clamp-2 w-full rounded-md bg-rose-500/8 px-2 py-1.5 font-mono text-xs break-words text-rose-800 dark:text-rose-200">
+          <p className="line-clamp-2 w-full rounded-md bg-destructive/8 px-2 py-1.5 font-mono text-xs break-words text-destructive">
             {e.error}
           </p>
         ) : null}
@@ -75,6 +81,7 @@ export function SentView() {
   const raw = params.get("status");
   const status = raw && (OUTBOUND_STATUSES as string[]).includes(raw) ? (raw as OutboundStatus) : undefined;
   const openId = params.get("email");
+  const isSimple = !status || SIMPLE.some((f) => f.value === status);
   const list = useInfiniteQuery(outboundQuery(status));
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -93,30 +100,29 @@ export function SentView() {
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Sent emails"
-        description="Emails you sent from WhatsApp with /email, from draft to delivery. Updates arrive live."
-        actions={
-          <Button asChild variant="outline">
-            <Link href="/templates">
-              <FileText /> Templates
-            </Link>
+    <div className="space-y-5">
+      <SendEmailHeader active="sent" />
+      <div className="flex flex-wrap items-center gap-2">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          value={isSimple ? (status ?? ALL) : ""}
+          onValueChange={(v) => v && setParams({ status: v === ALL ? null : v })}
+          aria-label="Show"
+          className="flex-wrap"
+        >
+          {SIMPLE.map((f) => (
+            <ToggleGroupItem key={f.value} value={f.value} className="px-3 sm:px-4">
+              {f.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        {!isSimple && status ? (
+          <Button variant="secondary" size="sm" onClick={() => setParams({ status: null })}>
+            Showing: {OUTBOUND_STATUS[status].label} <X />
           </Button>
-        }
-      />
-      <Tabs value={status ?? ALL} onValueChange={(v) => setParams({ status: v === ALL ? null : v })} className="mb-4">
-        <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
-          <TabsList className="w-max">
-            <TabsTrigger value={ALL}>All</TabsTrigger>
-            {OUTBOUND_STATUSES.map((s) => (
-              <TabsTrigger key={s} value={s}>
-                {OUTBOUND_STATUS[s].label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-      </Tabs>
+        ) : null}
+      </div>
 
       {list.isPending ? (
         <ListSkeleton rows={4} />
@@ -128,11 +134,11 @@ export function SentView() {
         ) : (
           <EmptyState
             icon={Send}
-            title="No emails sent from WhatsApp yet"
+            title="Nothing sent yet"
             description={
               <>
-                Send <code className="font-mono">/email</code> to the MailSentinel bot on WhatsApp, fill in the form it replies with,
-                and confirm with YES. Every email you send shows up here.
+                Send <code className="font-mono">/email</code> to the MailSentinel chat on WhatsApp, fill in the form and reply
+                YES. Everything you send shows up here.
               </>
             }
           >

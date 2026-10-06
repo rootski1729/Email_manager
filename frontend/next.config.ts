@@ -28,6 +28,17 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_ORIGIN}/api/:path*` }];
   },
+  async redirects() {
+    // Plain-language aliases for the client sections (the real URLs are unchanged, so old links keep working).
+    return [
+      { source: "/home", destination: "/dashboard", permanent: false },
+      { source: "/important", destination: "/messages", permanent: false },
+      { source: "/watch", destination: "/rules", permanent: false },
+      { source: "/send-email", destination: "/templates", permanent: false },
+      { source: "/whatsapp", destination: "/destinations", permanent: false },
+      { source: "/activity", destination: "/deliveries", permanent: false },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

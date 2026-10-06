@@ -17,7 +17,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
     settings = get_settings()
     response.set_cookie(
         REFRESH_COOKIE, token, max_age=settings.refresh_token_ttl_s, httponly=True,
-        secure=settings.is_production, samesite="lax", path=COOKIE_PATH,
+        secure=settings.cookie_secure, samesite="lax", path=COOKIE_PATH,
     )
 
 

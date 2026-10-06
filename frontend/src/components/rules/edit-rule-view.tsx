@@ -29,9 +29,9 @@ export function EditRuleView({ id }: { id: string }) {
     const status = rule.error instanceof ApiError ? rule.error.status : 0;
     if (status === 404 || status === 422) {
       return (
-        <EmptyState icon={SearchX} title="Rule not found" description="It may have been deleted.">
+        <EmptyState icon={SearchX} title="Not found" description="It may have been deleted.">
           <Button asChild variant="outline">
-            <Link href="/rules">Back to rules</Link>
+            <Link href="/rules">Back to What to watch</Link>
           </Button>
         </EmptyState>
       );

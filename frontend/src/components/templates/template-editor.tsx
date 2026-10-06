@@ -243,7 +243,7 @@ export function TemplateEditor({ template }: { template?: EmailTemplate }) {
         <div className="min-w-0">
           <Button asChild variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
             <Link href="/templates">
-              <ArrowLeft /> Email templates
+              <ArrowLeft /> Send email
             </Link>
           </Button>
           <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight">

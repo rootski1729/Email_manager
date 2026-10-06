@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { PageHeader } from "@/components/common/page-header";
-import { RelativeTime } from "@/components/common/relative-time";
+import { WhatsAppCommandsCard } from "@/components/common/whatsapp-commands-card";
 import { ListSkeleton } from "@/components/common/stat";
 import { StatusBadge } from "@/components/common/status-badge";
 import { RenameDialog } from "@/components/mailboxes/rename-dialog";
@@ -31,8 +31,8 @@ import { GroupLinkDialog } from "./group-link-dialog";
 import { VerifyDialog } from "./verify-dialog";
 
 const KIND: Record<DestinationKind, { label: string; icon: typeof Phone }> = {
-  whatsapp_self: { label: "Your number", icon: UserRound },
-  whatsapp_number: { label: "Number", icon: Phone },
+  whatsapp_self: { label: "You", icon: UserRound },
+  whatsapp_number: { label: "Another number", icon: Phone },
   whatsapp_group: { label: "Group", icon: Users },
 };
 
@@ -51,11 +51,11 @@ function DestinationRow({
   const kind = KIND[d.kind];
   const verified = Boolean(d.verified_at);
   return (
-    <li className="flex items-center gap-3 rounded-xl border bg-card p-4">
+    <li className="flex items-center gap-3 rounded-2xl border bg-card p-4">
       <span
         className={cn(
           "flex size-10 shrink-0 items-center justify-center rounded-xl",
-          d.kind === "whatsapp_group" ? "bg-sky-500/10 text-sky-700 dark:text-sky-300" : "bg-wa/12 text-wa",
+          d.kind === "whatsapp_group" ? "bg-brand/20 text-brand-ink" : "bg-wa/12 text-wa",
         )}
       >
         <kind.icon className="size-5" />
@@ -63,22 +63,22 @@ function DestinationRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="truncate font-medium">{d.label}</span>
-          {d.is_default ? <StatusBadge tone="brand">Default</StatusBadge> : null}
+          {d.is_default ? <StatusBadge tone="brand">Gets all alerts</StatusBadge> : null}
         </div>
         <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
           <span>{kind.label}</span>
           <span aria-hidden>·</span>
           <span className="tabular">{chatIdToDisplay(d.chat_id)}</span>
           {verified ? (
-            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
-              <BadgeCheck className="size-3.5" /> verified <RelativeTime iso={d.verified_at} />
+            <span className="inline-flex items-center gap-1 text-success">
+              <BadgeCheck className="size-3.5" aria-hidden /> confirmed
             </span>
           ) : null}
         </div>
       </div>
       {!verified ? (
         <Button size="sm" onClick={onVerify}>
-          Verify
+          Confirm
         </Button>
       ) : (
         <Tooltip>
@@ -87,16 +87,16 @@ function DestinationRow({
               variant="ghost"
               size="icon-sm"
               aria-pressed={d.is_default}
-              aria-label={d.is_default ? "Default destination" : "Make default"}
+              aria-label={d.is_default ? "Gets all alerts" : "Send all alerts here"}
               disabled={d.is_default || update.isPending}
               onClick={() =>
-                update.mutate({ id: d.id, is_default: true }, { onSuccess: () => toast.success(`${d.label} is now the default`) })
+                update.mutate({ id: d.id, is_default: true }, { onSuccess: () => toast.success(`Alerts now go to ${d.label}`) })
               }
             >
-              <Star className={cn(d.is_default && "fill-amber-400 text-amber-500")} />
+              <Star className={cn(d.is_default && "fill-warning text-warning")} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{d.is_default ? "Default for rules without a destination" : "Make default"}</TooltipContent>
+          <TooltipContent>{d.is_default ? "Alerts go here unless a rule says otherwise" : "Send alerts here by default"}</TooltipContent>
         </Tooltip>
       )}
       <DropdownMenu>
@@ -130,8 +130,9 @@ export function DestinationsView() {
   return (
     <div>
       <PageHeader
-        title="WhatsApp destinations"
-        description="Where alerts are delivered. Rules without a specific destination use your default. New numbers must confirm a code first."
+        title="WhatsApp"
+        back={{ href: "/settings", label: "Settings" }}
+        description="Who gets your alerts. Your own number is set up already; you can add someone else or a group."
         actions={
           <>
             <GroupLinkDialog />
@@ -146,8 +147,8 @@ export function DestinationsView() {
       ) : destinations.data.length === 0 ? (
         <EmptyState
           icon={MessageCircle}
-          title="No destinations yet"
-          description="Alerts go to the number you signed in with. Add another number or link a group to send them elsewhere."
+          title="Alerts go to your own number"
+          description="Add another number or a group if someone else should get them too."
         />
       ) : (
         <ul className="space-y-2">
@@ -163,12 +164,14 @@ export function DestinationsView() {
         </ul>
       )}
 
+      <WhatsAppCommandsCard className="mt-8" />
+
       <VerifyDialog key={verifying?.id ?? "none"} destination={verifying} onOpenChange={(o) => !o && setVerifying(null)} />
       <RenameDialog
         key={renaming?.id ?? "rename-none"}
         open={Boolean(renaming)}
         onOpenChange={(o) => !o && setRenaming(null)}
-        title="Rename destination"
+        title="Rename"
         label="Label"
         initial={renaming?.label ?? ""}
         pending={update.isPending}
@@ -180,14 +183,14 @@ export function DestinationsView() {
         open={Boolean(deleting)}
         onOpenChange={(o) => !o && setDeleting(null)}
         title={`Remove ${deleting?.label ?? "destination"}?`}
-        description="Rules that send here will fall back to your default destination."
+        description="Alerts meant for them will go to your usual number instead."
         confirmLabel="Remove"
         pending={remove.isPending}
         onConfirm={() => {
           if (!deleting) return;
           remove.mutate(deleting.id, {
             onSuccess: () => {
-              toast.success("Destination removed");
+              toast.success("Removed");
               setDeleting(null);
             },
           });

@@ -30,6 +30,8 @@ class Envelope:
     attachments: list[Attachment] = field(default_factory=list)
     thread_id: str | None = None
     web_url: str | None = None
+    # Raw text/calendar parts (meeting and interview invites); only loaded with the full message.
+    calendars: list[bytes] = field(default_factory=list, repr=False)
 
     @property
     def from_domain(self) -> str:

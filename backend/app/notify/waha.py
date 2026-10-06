@@ -71,6 +71,10 @@ class WahaClient:
         if not self.dry_run:
             await self._call("POST", f"/api/sessions/{self.session}/restart")
 
+    async def stop_session(self) -> None:
+        if not self.dry_run:
+            await self._call("POST", f"/api/sessions/{self.session}/stop")
+
     async def logout_session(self) -> None:
         if not self.dry_run:
             await self._call("POST", f"/api/sessions/{self.session}/logout")

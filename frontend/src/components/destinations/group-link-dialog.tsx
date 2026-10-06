@@ -66,7 +66,7 @@ export function GroupLinkDialog() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Link2 className="size-4 text-primary" /> Link a WhatsApp group
+            <Link2 className="size-4 text-brand-ink" /> Link a WhatsApp group
           </DialogTitle>
           <DialogDescription>Send alerts to a group — handy for a family or a team.</DialogDescription>
         </DialogHeader>
@@ -85,7 +85,7 @@ export function GroupLinkDialog() {
           <div className="space-y-4">
             <ol className="space-y-2 text-sm">
               <li className="flex gap-2">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">1</span>
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">1</span>
                 <span>
                   Add{" "}
                   {link.bot_number ? (
@@ -97,7 +97,7 @@ export function GroupLinkDialog() {
                 </span>
               </li>
               <li className="flex gap-2">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">2</span>
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">2</span>
                 <span>Send this code as a message in the group:</span>
               </li>
             </ol>

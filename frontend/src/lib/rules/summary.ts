@@ -65,3 +65,57 @@ export function summarizeCondition(json: unknown, nested = false): string {
   if ("field" in c) return summarizePredicate(c);
   return "No conditions";
 }
+
+/* -------------------------------------------------------- plain English */
+
+function words(v: unknown, joiner = " or "): string {
+  const list = Array.isArray(v) ? v.map(String) : v == null ? [] : [String(v)];
+  const shown = list.slice(0, 3).map(quote);
+  const more = list.length > 3 ? ` (+${list.length - 3} more)` : "";
+  return shown.join(joiner) + more;
+}
+
+function plainPredicate(p: PredicateJson, negated: boolean): string {
+  const not = negated ? "not " : "";
+  const any = (v: unknown) => words(v, p.op === "contains_all" ? " and " : " or ");
+  switch (`${p.field}|${p.op}`) {
+    case "from.domain|domain_matches":
+      return `${not}from ${words(p.value, " or ").replace(/“|”/g, "")}`;
+    case "from.address|equals":
+      return `${not}from ${words(p.value, " or ").replace(/“|”/g, "")}`;
+    case "from.name|contains":
+      return `the sender's name ${negated ? "doesn't mention" : "mentions"} ${any(p.value)}`;
+    case "subject|contains":
+    case "subject|contains_all":
+      return `the subject ${negated ? "doesn't mention" : "mentions"} ${any(p.value)}`;
+    case "body|contains":
+    case "body|contains_all":
+      return `the text ${negated ? "doesn't mention" : "mentions"} ${any(p.value)}`;
+    case "anywhere|contains":
+    case "anywhere|contains_all":
+      return `it ${negated ? "doesn't mention" : "mentions"} ${any(p.value)}`;
+    case "has_attachment|is":
+      return Boolean(p.value) !== negated ? "it has an attachment" : "it has no attachment";
+    default:
+      return summarizePredicate(p, negated);
+  }
+}
+
+/** Friendlier one-liner for people, e.g. "from univ.edu and the subject mentions “admit card”". */
+export function plainSummary(json: unknown, nested = false): string {
+  if (!json || typeof json !== "object") return "anything";
+  const c = json as ConditionJson;
+  if ("not" in c) {
+    const inner = c.not;
+    if (inner && typeof inner === "object" && "field" in inner) return plainPredicate(inner, true);
+    return `not (${plainSummary(inner)})`;
+  }
+  if ("all" in c || "any" in c) {
+    const list = "all" in c ? c.all : c.any;
+    if (!Array.isArray(list) || list.length === 0) return "anything";
+    const text = list.map((x) => plainSummary(x, true)).join("all" in c ? " and " : " or ");
+    return nested && list.length > 1 ? `(${text})` : text;
+  }
+  if ("field" in c) return plainPredicate(c, false);
+  return "anything";
+}

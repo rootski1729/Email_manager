@@ -8,7 +8,7 @@ export function ProviderIcon({ provider, className }: { provider: Provider; clas
     return (
       <span
         className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 ring-1 ring-inset ring-rose-500/20 dark:text-rose-300",
+          "flex size-10 shrink-0 items-center justify-center rounded-xl bg-chart-5/12 text-chart-5 ring-1 ring-inset ring-chart-5/25",
           className,
         )}
         aria-label="Gmail"
@@ -20,10 +20,10 @@ export function ProviderIcon({ provider, className }: { provider: Provider; clas
   return (
     <span
       className={cn(
-        "flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700 ring-1 ring-inset ring-sky-500/20 dark:text-sky-300",
+        "flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/20 text-brand-ink ring-1 ring-inset ring-brand/35",
         className,
       )}
-      aria-label="IMAP"
+      aria-label="Email account"
     >
       <Server className="size-5" />
     </span>

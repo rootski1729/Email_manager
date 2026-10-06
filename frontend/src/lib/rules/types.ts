@@ -21,6 +21,8 @@ export type ConditionJson = S["Predicate"] | S["AllOf-Input"] | S["AnyOf-Input"]
 export interface NotifyActionJson {
   destinations: string[];
   mode: "instant" | "digest";
+  /** Deliver even during quiet hours and skip the digest. */
+  urgent?: boolean;
 }
 
 export interface ActionsJson {

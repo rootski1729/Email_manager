@@ -1,9 +1,27 @@
-{$API_DOMAIN} {
+# One public address for everything. SITE_ADDRESS is a domain (automatic HTTPS) or ":80" (plain HTTP).
+{$SITE_ADDRESS} {
 	encode zstd gzip
-	# The WAHA webhook is internal only; never expose it publicly.
-	@internal path /api/v1/webhooks/waha /metrics
-	respond @internal 404
-	reverse_proxy api:8000 {
-		flush_interval -1
+
+	# API (including the live-updates stream, so no response buffering).
+	handle /api/* {
+		# Internal endpoints are never public: WAHA calls the API directly inside Docker.
+		@internal path /api/v1/webhooks/waha /api/docs* /api/openapi.json
+		respond @internal 404
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+
+	# Everything else is the web app.
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		-Server
 	}
 }
