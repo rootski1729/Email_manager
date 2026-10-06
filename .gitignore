@@ -22,6 +22,8 @@ deploy/secrets/
 deploy/backups/
 *.pem
 *service-account*.json
+# Google service-account keys are named <project>-<12 hex>.json; never commit any of them
+*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
 gcp-*.json
 
 # OS / editors
