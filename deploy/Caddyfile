@@ -2,6 +2,20 @@
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
+	# Access log (JSON to stdout: `./mailsentinel.sh logs caddy`). One-time OAuth codes and credentials are scrubbed.
+	log {
+		output stdout
+		format filter {
+			request>uri query {
+				replace code REDACTED
+				replace state REDACTED
+			}
+			request>headers>Authorization delete
+			request>headers>Cookie delete
+			resp_headers>Set-Cookie delete
+		}
+	}
+
 	# API (including the live-updates stream, so no response buffering).
 	handle /api/* {
 		# Internal endpoints are never public: WAHA calls the API directly inside Docker.
@@ -9,12 +23,18 @@
 		respond @internal 404
 		reverse_proxy api:8000 {
 			flush_interval -1
+			# During a deploy the API restarts for a few seconds: hold requests instead of returning 502.
+			lb_try_duration 45s
+			lb_try_interval 500ms
 		}
 	}
 
 	# Everything else is the web app.
 	handle {
-		reverse_proxy web:3000
+		reverse_proxy web:3000 {
+			lb_try_duration 45s
+			lb_try_interval 500ms
+		}
 	}
 
 	header {
