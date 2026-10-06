@@ -137,7 +137,7 @@ cmd_deploy() {
   cmd_backup || info "Backup skipped (database not running yet)"
   compose up -d --build --remove-orphans || return 1
   wait_healthy || return 1
-  # The Caddyfile is bind-mounted, so edits don't recreate the container; reload it (no downtime).
+  # deploy/caddy/ is mounted as a folder, so a reload picks up Caddyfile changes without downtime.
   compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile </dev/null >/dev/null 2>&1 || true
   docker image prune -f >/dev/null 2>&1 || true
   ok "Deployed $(git -C "$DIR/.." rev-parse --short HEAD 2>/dev/null || echo)"

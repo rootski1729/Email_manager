@@ -157,3 +157,18 @@ def test_alert_commands_and_quoted_alerts():
     assert parse_command("remind 2h", quoted="#AB and #CD").kind == Kind.text  # ambiguous batch: no guess
     assert parse_command("/upcoming").kind == Kind.upcoming and parse_command("/deadlines").kind == Kind.upcoming
     assert parse_command("/open K7").arg == "K7"
+
+
+def test_google_errors_are_explained():
+    import httpx
+
+    from app.providers.gmail import google_error
+
+    disabled = httpx.Response(403, json={"error": {"code": 403, "status": "PERMISSION_DENIED",
+        "message": "Gmail API has not been used in project 123 before or it is disabled.",
+        "errors": [{"reason": "accessNotConfigured"}]}})
+    assert "Gmail API is turned off" in google_error(disabled, "Reading the Gmail profile")
+    mismatch = httpx.Response(400, json={"error": "redirect_uri_mismatch"})
+    assert "redirect URI isn't registered" in google_error(mismatch, "Google sign-in")
+    other = httpx.Response(403, json={"error": {"code": 403, "message": "Some new reason", "status": "X"}})
+    assert google_error(other, "Gmail watch") == "Gmail watch failed: Google said 403 – Some new reason"

@@ -28,7 +28,8 @@ services:
       # A domain (mail.example.com) gets a free Let's Encrypt certificate; ":80" serves plain HTTP on any address.
       SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env (your domain, or :80)}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # A folder, not a single file: git replaces files on update, which a file mount would never see.
+      - ./caddy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:

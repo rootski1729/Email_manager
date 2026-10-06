@@ -39,6 +39,38 @@ class _Retryable(Exception):
     pass
 
 
+def google_error(resp: httpx.Response, action: str) -> str:
+    """A readable sentence from a Google error response, with the fix for the common setup mistakes."""
+    try:
+        body = resp.json()
+    except ValueError:
+        body = {}
+    err = body.get("error")
+    if isinstance(err, dict):  # Gmail API: {"error": {"code", "message", "status", "errors": [{"reason"}]}}
+        reasons = {e.get("reason", "") for e in err.get("errors", [])} | {err.get("status", "")}
+        for detail in err.get("details", []):
+            reasons.add(detail.get("reason", ""))
+        message = str(err.get("message", ""))
+        if reasons & {"accessNotConfigured", "SERVICE_DISABLED"} or "has not been used in project" in message:
+            return ("The Gmail API is turned off in the Google Cloud project. An admin must enable it: "
+                    "Google Cloud console → APIs & Services → Library → Gmail API → Enable (then wait 2 minutes).")
+        if "insufficientPermissions" in reasons or "ACCESS_TOKEN_SCOPE_INSUFFICIENT" in reasons:
+            return "Google didn't grant Gmail access. Connect again and tick every Gmail permission box."
+        return f"{action} failed: Google said {resp.status_code} – {message[:200] or err.get('status', 'error')}"
+    code = str(err or "")  # OAuth token endpoint: {"error": "invalid_grant", "error_description": "..."}
+    hints = {
+        "invalid_client": "the Client ID or secret is wrong – fix it in the admin console → Gmail setup",
+        "redirect_uri_mismatch": "the redirect URI isn't registered in the Google OAuth client – copy it from "
+                                 "the admin console → Gmail setup",
+        "invalid_grant": "the sign-in expired or was already used – try connecting again",
+        "unauthorized_client": "this OAuth client can't be used for web sign-in – create a 'Web application' client",
+    }
+    if code in hints:
+        return f"{action} failed: {hints[code]}."
+    description = body.get("error_description") if isinstance(body, dict) else None
+    return f"{action} failed: Google said {resp.status_code} – {description or code or resp.text[:200]}"
+
+
 def pkce_pair(verifier: str) -> str:
     digest = hashlib.sha256(verifier.encode()).digest()
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
@@ -76,11 +108,12 @@ async def exchange_code(code: str, code_verifier: str) -> dict[str, Any]:
         "code_verifier": code_verifier,
     })
     if resp.status_code != 200:
-        raise ProviderError(f"Google token exchange failed ({resp.status_code})")
+        raise ProviderError(google_error(resp, "Google sign-in"))
     data = resp.json()
     granted = set(data.get("scope", "").split())
     if not set(SCOPES) <= granted:
-        raise ProviderError("Gmail read permission was not granted")
+        raise ProviderError("Gmail read access wasn't granted. Connect again and tick the 'Read your email' box "
+                            "on Google's permission screen.")
     return {
         "access_token": data["access_token"],
         "refresh_token": data.get("refresh_token"),
@@ -136,7 +169,7 @@ class GmailSession:
         if resp.status_code in (400, 401) and "invalid_grant" in resp.text:
             raise ReauthRequired("Google access was revoked or expired")
         if resp.status_code != 200:
-            raise ProviderError(f"Token refresh failed ({resp.status_code})")
+            raise ProviderError(google_error(resp, "Token refresh"))
         data = resp.json()
         self._creds["access_token"] = data["access_token"]
         self._creds["expires_at"] = time.time() + int(data.get("expires_in", 3600))
@@ -168,6 +201,8 @@ class GmailSession:
             raise ReauthRequired("Gmail rejected the credentials")
         if resp.status_code == 403 and "insufficientPermissions" in resp.text:
             raise ReauthRequired("Gmail permission missing; reconnect the mailbox")
+        if resp.status_code == 403:
+            raise ProviderError(google_error(resp, f"Gmail {path.strip('/').split('/')[0] or 'request'}"))
         return resp
 
     async def upload_send(self, raw_message: bytes, *, thread_id: str | None = None) -> httpx.Response:
@@ -199,18 +234,25 @@ class GmailSession:
     async def profile(self) -> dict[str, Any]:
         resp = await self.request("GET", "/profile")
         if resp.status_code != 200:
-            raise ProviderError(f"Gmail profile failed ({resp.status_code})")
+            raise ProviderError(google_error(resp, "Reading the Gmail profile"))
         return resp.json()
 
     async def watch(self) -> dict[str, Any] | None:
         g = await google_config()
         if not g.push_ready:
             return None
-        resp = await self.request("POST", "/watch", json={
-            "topicName": f"projects/{g.project_id}/topics/{g.pubsub_topic}",
-            "labelIds": ["INBOX"],
-            "labelFilterBehavior": "INCLUDE",
-        })
+        try:
+            resp = await self.request("POST", "/watch", json={
+                "topicName": f"projects/{g.project_id}/topics/{g.pubsub_topic}",
+                "labelIds": ["INBOX"],
+                "labelFilterBehavior": "INCLUDE",
+            })
+        except ReauthRequired:
+            raise
+        except ProviderError as exc:
+            # Instant updates are optional: without a watch the mailbox is still checked every 5 minutes.
+            log.warning("gmail_watch_failed", error=str(exc))
+            return None
         if resp.status_code != 200:
             log.warning("gmail_watch_failed", status=resp.status_code, body=resp.text[:300])
             return None
@@ -241,7 +283,7 @@ class GmailSession:
                 log.warning("gmail_history_expired", mailbox_id=str(self.mailbox_id))
                 return await self._recover()
             if resp.status_code != 200:
-                raise ProviderError(f"Gmail history failed ({resp.status_code})")
+                raise ProviderError(google_error(resp, "Gmail history"))
             data = resp.json()
             latest = str(data.get("historyId", latest))
             for record in data.get("history", []):
@@ -266,7 +308,7 @@ class GmailSession:
     async def _list(self, query: str, limit: int) -> list[str]:
         resp = await self.request("GET", "/messages", params={"q": query, "maxResults": min(limit, 500)})
         if resp.status_code != 200:
-            raise ProviderError(f"Gmail list failed ({resp.status_code})")
+            raise ProviderError(google_error(resp, "Gmail list"))
         return [m["id"] for m in resp.json().get("messages", [])][:limit]
 
     async def recent(self, limit: int) -> list[str]:
@@ -278,7 +320,7 @@ class GmailSession:
         if resp.status_code == 404:
             return None
         if resp.status_code != 200:
-            raise ProviderError(f"Gmail get failed ({resp.status_code})")
+            raise ProviderError(google_error(resp, "Gmail get"))
         data = resp.json()
         received = datetime.fromtimestamp(int(data.get("internalDate", 0)) / 1000, UTC)
         message_id = str(data["id"])
