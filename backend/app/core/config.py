@@ -1,105 +1,112 @@
-from typing import List
-from pydantic_settings import BaseSettings
-from pydantic import PostgresDsn, RedisDsn, validator
+from functools import lru_cache
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+class PlanLimits(BaseModel):
+    mailboxes: int
+    rules: int
+    daily_alerts: int
+    daily_emails: int
+    templates: int
+
+
+PLANS: dict[str, PlanLimits] = {
+    "free": PlanLimits(mailboxes=3, rules=10, daily_alerts=50, daily_emails=20, templates=10),
+    "pro": PlanLimits(mailboxes=20, rules=200, daily_alerts=500, daily_emails=200, templates=100),
+}
 
 
 class Settings(BaseSettings):
-    # App
-    APP_NAME: str = "EmailFilter Pro"
-    APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
-    ENVIRONMENT: str = "development"
-    SECRET_KEY: str
-    
-    # Database
-    DATABASE_URL: str
-    DATABASE_POOL_SIZE: int = 20
-    DATABASE_MAX_OVERFLOW: int = 0
-    
-    # Redis
-    REDIS_URL: str
-    REDIS_SESSION_DB: int = 1  #for user session
-    REDIS_CACHE_DB: int = 2
-    REDIS_CELERY_DB: int = 3
-    
-    # JWT
-    JWT_SECRET_KEY: str
-    JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    
-    # Encryption
-    ENCRYPTION_KEY: str
-    
-    # Google OAuth
-    GOOGLE_CLIENT_ID: str
-    GOOGLE_CLIENT_SECRET: str
-    GOOGLE_REDIRECT_URI: str
-    GOOGLE_PROJECT_ID: str
-    GOOGLE_PUBSUB_TOPIC: str
-    
-    # WAHA (WhatsApp HTTP API) - replaces Twilio
-    WAHA_API_URL: str = "http://localhost:3000/api"
-    WAHA_API_KEY: str = ""
-    WAHA_SESSION_NAME: str = "default"
-    
-    # Legacy Twilio (deprecated - kept for backward compatibility)
-    TWILIO_ACCOUNT_SID: str = ""
-    TWILIO_AUTH_TOKEN: str = ""
-    TWILIO_WHATSAPP_FROM: str = "whatsapp:+14155238886"  # Twilio sandbox number
-    
-    # Email
-    SMTP_HOST: str
-    SMTP_PORT: int = 587
-    SMTP_USER: str
-    SMTP_PASSWORD: str
-    EMAILS_FROM_EMAIL: str
-    
-    # Celery
-    CELERY_BROKER_URL: str
-    CELERY_RESULT_BACKEND: str
-    
-    # Rate Limiting
-    RATE_LIMIT_PER_MINUTE: int = 60
-    WEBHOOK_RATE_LIMIT: int = 1000
-    
-    # Razorpay Payment
-    RAZORPAY_KEY_ID: str = ""
-    RAZORPAY_KEY_SECRET: str = ""
-    RAZORPAY_WEBHOOK_SECRET: str = ""
-    
-    # Cloudflare Turnstile (CAPTCHA)
-    TURNSTILE_SECRET_KEY: str = ""
-    TURNSTILE_ENABLED: bool = True  # Set to False to disable in development
-    
-    # CORS
-    BACKEND_CORS_ORIGINS: List[str] = []
-    
-    #DOCS
-    IS_DOCS: bool = False
-    
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    environment: Literal["development", "test", "production"] = "development"
+    log_level: str = "INFO"
+    log_json: bool = True
+
+    # Public URLs: the web app (for links in WhatsApp messages) and the API (for OAuth/webhooks).
+    public_web_url: str = "http://localhost:3000"
+    public_api_url: str = "http://localhost:8000"
+    cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["http://localhost:3000"])
+
+    database_url: str = "postgresql+asyncpg://mailsentinel:mailsentinel@localhost:5432/mailsentinel"
+    database_pool_size: int = 10
+    redis_url: str = "redis://localhost:6379/0"
+
+    # Auth
+    jwt_secret: SecretStr = SecretStr("dev-only-change-me-dev-only-change-me")
+    access_token_ttl_s: int = 15 * 60
+    refresh_token_ttl_s: int = 30 * 24 * 3600
+    otp_ttl_s: int = 300
+    otp_max_attempts: int = 5
+    otp_requests_per_window: int = 3
+    otp_request_window_s: int = 15 * 60
+    turnstile_secret: SecretStr | None = None
+    admin_phones: Annotated[list[str], NoDecode] = Field(default_factory=list)
+
+    # Comma separated Fernet keys; first one encrypts, all of them decrypt (rotation).
+    encryption_keys: Annotated[list[str], NoDecode] = Field(default_factory=list)
+
+    # Google / Gmail
+    google_client_id: str = ""
+    google_client_secret: SecretStr = SecretStr("")
+    google_project_id: str = ""
+    google_pubsub_topic: str = "gmail-notifications"
+    google_pubsub_subscription: str = "gmail-notifications-sub"
+    gmail_push_mode: Literal["pull", "push"] = "pull"
+    gmail_push_audience: str = ""
+    gmail_push_service_account: str = ""
+
+    # IMAP
+    imap_allow_insecure: bool = False
+    imap_timeout_s: int = 30
+
+    # WAHA
+    waha_url: str = "http://localhost:3000"
+    waha_api_key: SecretStr = SecretStr("")
+    waha_session: str = "default"
+    waha_webhook_hmac_key: SecretStr = SecretStr("")
+    # Log messages instead of sending them (local development without a paired phone).
+    waha_dry_run: bool = False
+
+    # Delivery limits
+    rate_global_per_min: int = 20
+    rate_global_burst: int = 5
+    rate_destination_per_min: int = 6
+    coalesce_window_s: int = 8
+    max_delivery_attempts: int = 6
+    send_jitter_ms: tuple[int, int] = (800, 2500)
+
+    snippet_chars: int = 300
+
+    # Sending email from WhatsApp (/email)
+    compose_session_ttl_s: int = 30 * 60
+    compose_confirm_ttl_s: int = 10 * 60
+    compose_max_recipients: int = 50
+    compose_max_attachments: int = 10
+    compose_max_file_bytes: int = 16 * 1024 * 1024
+    # Raw bytes; base64 adds ~33%, keeping the message under Gmail's 25 MB limit.
+    compose_max_total_bytes: int = 18 * 1024 * 1024
+    smtp_timeout_s: int = 30
+
+    @field_validator("cors_origins", "admin_phones", "encryption_keys", mode="before")
+    @classmethod
+    def _split_csv(cls, v: object) -> object:
         if isinstance(v, str):
-            return [i.strip() for i in v.split(",")]
+            return [item.strip() for item in v.split(",") if item.strip()]
         return v
-    
-    # Sentry
-    SENTRY_DSN: str = ""
-    
-    # Feature Flags
-    ENABLE_WHATSAPP_NOTIFICATIONS: bool = False
-    ENABLE_EMAIL_DIGESTS: bool = True
-    ENABLE_SIGNUP: bool = True
-    
-    # WhatsApp OTP Authentication
-    WHATSAPP_OTP_ENABLED: bool = True  # Set to False to disable WhatsApp OTP
-    WHATSAPP_OTP_EXPIRY_MINUTES: int = 2  # OTP expires in 2 minutes
-    WHATSAPP_OTP_LENGTH: int = 6  # 6-digit OTP
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
+
+    @property
+    def google_oauth_redirect_uri(self) -> str:
+        return f"{self.public_api_url.rstrip('/')}/api/v1/oauth/google/callback"
 
 
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

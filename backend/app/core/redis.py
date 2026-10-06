@@ -1,69 +1,112 @@
-import redis.asyncio as aioredis
-from typing import Optional
-import logging
-from app.core.config import settings
+from redis.asyncio import Redis
 
-logger = logging.getLogger(__name__)
+from app.core.config import get_settings
 
-
-class RedisManager:
-    def __init__(self):
-        self._cache_client: Optional[aioredis.Redis] = None
-        self._session_client: Optional[aioredis.Redis] = None
-    
-    async def get_cache_client(self) -> aioredis.Redis:
-        if self._cache_client is None:
-            try:
-                self._cache_client = await aioredis.from_url(
-                    settings.REDIS_URL,
-                    db=settings.REDIS_CACHE_DB,
-                    encoding="utf-8",
-                    decode_responses=True,
-                    socket_connect_timeout=5,  # 5 second timeout
-                    socket_timeout=5
-                )
-                # Test connection
-                await self._cache_client.ping()
-                logger.info("Redis cache client connected successfully")
-            except Exception as e:
-                logger.error(f"Failed to connect to Redis: {str(e)}")
-                logger.warning("Application will continue without Redis caching")
-                raise
-        return self._cache_client
-    
-    async def get_session_client(self) -> aioredis.Redis:
-        if self._session_client is None:
-            try:
-                self._session_client = await aioredis.from_url(
-                    settings.REDIS_URL,
-                    db=settings.REDIS_SESSION_DB,
-                    encoding="utf-8",
-                    decode_responses=True,
-                    socket_connect_timeout=5,
-                    socket_timeout=5
-                )
-                # Test connection
-                await self._session_client.ping()
-                logger.info("Redis session client connected successfully")
-            except Exception as e:
-                logger.error(f"Failed to connect to Redis: {str(e)}")
-                logger.warning("Application will continue without Redis sessions")
-                raise
-        return self._session_client
-    
-    async def close(self):
-        if self._cache_client:
-            await self._cache_client.close()
-        if self._session_client:
-            await self._session_client.close()
+_client: Redis | None = None
 
 
-redis_manager = RedisManager()
+def get_redis() -> Redis:
+    """Process-wide Redis client (one connection pool). Keys are namespaced by prefix, not DB number."""
+    global _client
+    if _client is None:
+        _client = Redis.from_url(get_settings().redis_url, decode_responses=True, health_check_interval=30)
+    return _client
 
 
-async def get_redis() -> Optional[aioredis.Redis]:
-    try:
-        return await redis_manager.get_cache_client()
-    except Exception as e:
-        logger.warning(f"Redis unavailable, returning None: {e}")
-        return None
+async def close_redis() -> None:
+    global _client
+    if _client is not None:
+        await _client.aclose()
+    _client = None
+
+
+class Keys:
+    """Every Redis key the app uses, in one place (see docs/DESIGN.md §9)."""
+
+    @staticmethod
+    def sync_pending(mailbox_id: object) -> str:
+        return f"sync:pending:{mailbox_id}"
+
+    @staticmethod
+    def mailbox_lock(mailbox_id: object) -> str:
+        return f"lock:mailbox:{mailbox_id}"
+
+    @staticmethod
+    def seen(mailbox_id: object, message_id: str) -> str:
+        return f"seen:{mailbox_id}:{message_id}"
+
+    @staticmethod
+    def rules_version(user_id: object) -> str:
+        return f"rules:ver:{user_id}"
+
+    @staticmethod
+    def otp(phone: str) -> str:
+        return f"otp:{phone}"
+
+    @staticmethod
+    def otp_requests(phone: str) -> str:
+        return f"rl:otp:{phone}"
+
+    @staticmethod
+    def ip_requests(ip: str) -> str:
+        return f"rl:ip:{ip}"
+
+    @staticmethod
+    def oauth_state(state: str) -> str:
+        return f"oauth:state:{state}"
+
+    @staticmethod
+    def events(user_id: object) -> str:
+        return f"events:{user_id}"
+
+    @staticmethod
+    def stats(user_id: object, day: str) -> str:
+        return f"stats:{user_id}:{day}"
+
+    @staticmethod
+    def preview(mailbox_id: object) -> str:
+        return f"preview:{mailbox_id}"
+
+    @staticmethod
+    def dest_verify(destination_id: object) -> str:
+        return f"verify:dest:{destination_id}"
+
+    RATE_GLOBAL = "rl:waha:global"
+
+    @staticmethod
+    def rate_destination(destination_id: object) -> str:
+        return f"rl:dest:{destination_id}"
+
+    @staticmethod
+    def rate_daily(user_id: object, day: str) -> str:
+        return f"rl:daily:{user_id}:{day}"
+
+    @staticmethod
+    def compose_session(user_id: object) -> str:
+        return f"compose:{user_id}"
+
+    @staticmethod
+    def inbound_seen(message_id: str) -> str:
+        return f"wa:in:{message_id}"
+
+    @staticmethod
+    def outbound_text(digest: str) -> str:
+        return f"wa:outhash:{digest}"
+
+    @staticmethod
+    def outbound_id(message_id: str) -> str:
+        return f"wa:sent:{message_id}"
+
+    @staticmethod
+    def lid(lid: str) -> str:
+        return f"wa:lid:{lid}"
+
+    @staticmethod
+    def rate_email(user_id: object, day: str) -> str:
+        return f"rl:email:{user_id}:{day}"
+
+    DISPATCHER_LEADER = "dispatcher:leader"
+    DISPATCHER_WAKE = "dispatcher:wake"
+    WAHA_HEALTH = "waha:health"
+    WORKER_HEARTBEAT = "heartbeat:worker"
+    LISTENER_HEARTBEAT = "heartbeat:gmail-listener"

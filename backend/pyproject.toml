@@ -1,0 +1,71 @@
+[project]
+name = "mailsentinel"
+version = "0.1.0"
+description = "Watch many mailboxes, match rules, alert on WhatsApp via WAHA"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.142",
+    "uvicorn[standard]>=0.37",
+    "pydantic>=2.13",
+    "pydantic-settings>=2.11",
+    "sqlalchemy[asyncio]>=2.1",
+    "asyncpg>=0.31",
+    "alembic>=1.20",
+    "redis[hiredis]>=8.0",
+    "taskiq>=0.13",
+    "taskiq-redis>=1.2",
+    "httpx>=0.28",
+    "stamina>=26.1",
+    "structlog>=26.1",
+    "pyjwt>=2.15",
+    "cryptography>=46",
+    "phonenumbers>=9.0",
+    "google-re2>=1.1",
+    "aioimaplib>=2.0",
+    "google-auth>=2.40",
+    "google-cloud-pubsub>=2.42",
+    "sse-starlette>=3.5",
+    "prometheus-client>=0.26",
+    "uuid-utils>=1.0",
+    "email-validator>=2.3",
+    "aiosmtplib>=4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.2",
+    "respx>=0.22",
+    "testcontainers[postgres,redis]>=4.15",
+    "ruff>=0.14",
+    "pyright>=1.1.406",
+    "asgi-lifespan>=2.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "SIM", "RUF"]
+ignore = ["S101", "S105", "S106", "B008", "RUF012", "S311", "S110", "SIM105", "RUF001"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "ASYNC"]
+"migrations/**" = ["E501"]
+
+[tool.pyright]
+include = ["app"]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+markers = ["integration: needs Docker (testcontainers)"]

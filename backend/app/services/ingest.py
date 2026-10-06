@@ -1,0 +1,222 @@
+"""Mailbox sync: fetch new mail, run rules, record matches and queue alerts in one transaction."""
+
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any
+from uuid import UUID
+
+from redis.exceptions import LockError
+from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.db import session_factory, uuid7
+from app.core.logging import log
+from app.core.redis import Keys, get_redis
+from app.core.security import vault
+from app.models import Mailbox, MailboxStatus, Message, NotificationKind, Rule, RuleMatch
+from app.providers import get_provider
+from app.providers.base import ProviderError, ReauthRequired
+from app.rules.engine import CompiledRule
+from app.rules.envelope import Envelope
+from app.services import events, outbox
+from app.services.rulesets import load_ruleset
+
+SEEN_TTL_S = 7 * 24 * 3600
+PENDING_TTL_S = 300
+LOCK_TTL_S = 300
+ERRORS_BEFORE_ERROR_STATUS = 10
+
+# Set by the worker module so that services don't import task definitions.
+kick_sync: Callable[[str], Awaitable[None]] | None = None
+
+
+async def request_sync(mailbox_id: UUID | str) -> bool:
+    """Ask for a sync. Bursts collapse into one queued job per mailbox."""
+    redis = get_redis()
+    if not await redis.set(Keys.sync_pending(mailbox_id), "1", nx=True, ex=PENDING_TTL_S):
+        return False
+    if kick_sync is None:
+        raise RuntimeError("task queue is not configured in this process")
+    await kick_sync(str(mailbox_id))
+    return True
+
+
+def alert_payload(mailbox: Mailbox, env: Envelope, rules: list[CompiledRule], message_id: UUID) -> dict:
+    return {
+        "message_id": str(message_id),
+        "mailbox_address": mailbox.address,
+        "from_name": env.from_name,
+        "from_address": env.from_address,
+        "subject": env.subject,
+        "snippet": env.snippet,
+        "rules": [r.name for r in rules],
+        "web_url": env.web_url,
+        "received_at": env.received_at.isoformat(),
+    }
+
+
+async def record_match(
+    db: AsyncSession, mailbox: Mailbox, env: Envelope, matched: list[CompiledRule]
+) -> dict[str, Any] | None:
+    """Insert the message, its rule matches and outbox rows. Idempotent per (mailbox, message)."""
+    settings = get_settings()
+    message_id = uuid7()
+    inserted = await db.scalar(
+        insert(Message).values(
+            id=message_id, user_id=mailbox.user_id, mailbox_id=mailbox.id,
+            provider_message_id=env.provider_message_id, thread_id=env.thread_id,
+            from_address=env.from_address[:320], from_name=(env.from_name or None) and env.from_name[:320],
+            to_addresses=[*env.to, *env.cc][:50], subject=env.subject,
+            snippet=env.snippet[: settings.snippet_chars] if env.snippet else None,
+            received_at=env.received_at, list_id=(env.list_id or None) and env.list_id[:320],
+            has_attachments=bool(env.attachments), web_url=env.web_url,
+            headers={k: v for k, v in env.headers.items() if k in KEPT_HEADERS},
+        ).on_conflict_do_nothing(index_elements=["mailbox_id", "provider_message_id"]).returning(Message.id)
+    )
+    if inserted is None:
+        return None
+
+    live_rules = set((await db.scalars(
+        select(Rule.id).where(Rule.id.in_([r.id for r in matched]))
+    )).all())
+    now = datetime.now(UTC)
+    for rule in matched:
+        db.add(RuleMatch(id=uuid7(), message_id=message_id, rule_id=rule.id if rule.id in live_rules else None,
+                         rule_name=rule.name))
+    if live_rules:
+        await db.execute(
+            update(Rule).where(Rule.id.in_(live_rules))
+            .values(match_count=Rule.match_count + 1, last_matched_at=now)
+        )
+
+    destination_ids: set[UUID] = set()
+    instant = False
+    notify_rules = [r for r in matched if (r.actions or {}).get("notify", {}) is not None]
+    for rule in notify_rules:
+        notify = (rule.actions or {}).get("notify") or {}
+        destination_ids |= {UUID(str(d)) for d in notify.get("destinations", [])}
+        instant |= notify.get("mode", "instant") == "instant"
+    payload = alert_payload(mailbox, env, matched, message_id)
+    if notify_rules:
+        for destination in await outbox.resolve_destinations(db, mailbox.user_id, destination_ids):
+            await outbox.enqueue(
+                db, user_id=mailbox.user_id, destination=destination, kind=NotificationKind.alert,
+                payload=payload, dedupe=f"alert:{mailbox.id}:{env.provider_message_id}",
+                message_id=message_id, hold_for_digest=not instant, delay_s=settings.coalesce_window_s,
+            )
+    return payload
+
+
+KEPT_HEADERS = {"from", "to", "cc", "reply-to", "subject", "date", "list-id", "message-id"}
+
+
+async def _mark_failure(mailbox_id: UUID, exc: Exception) -> None:
+    async with session_factory()() as db:
+        mailbox = await db.get(Mailbox, mailbox_id)
+        if mailbox is None:
+            return
+        mailbox.last_error = str(exc)[:500]
+        mailbox.error_count += 1
+        if isinstance(exc, ReauthRequired):
+            mailbox.status = MailboxStatus.reauth_required
+            await outbox.enqueue_system(
+                db, mailbox.user_id,
+                f"⚠️ MailSentinel can no longer read {mailbox.address}. Reconnect it in the app: "
+                f"{get_settings().public_web_url.rstrip('/')}/mailboxes",
+                dedupe=f"reauth:{mailbox.id}:{datetime.now(UTC):%Y%m%d}",
+            )
+        elif mailbox.error_count >= ERRORS_BEFORE_ERROR_STATUS:
+            mailbox.status = MailboxStatus.error
+        await db.commit()
+        await events.publish(mailbox.user_id, "mailbox.updated", {
+            "id": str(mailbox.id), "status": mailbox.status, "last_error": mailbox.last_error,
+        })
+    await events.wake_dispatcher()
+
+
+async def sync_mailbox(mailbox_id: UUID) -> dict[str, Any]:
+    redis = get_redis()
+    lock = redis.lock(Keys.mailbox_lock(mailbox_id), timeout=LOCK_TTL_S, blocking=False)
+    if not await lock.acquire():
+        # Another worker is syncing; it will re-run because the pending flag stays set.
+        return {"status": "locked"}
+    try:
+        await redis.delete(Keys.sync_pending(mailbox_id))
+        result = await _sync_locked(mailbox_id)
+    except (ProviderError, OSError, TimeoutError) as exc:
+        log.warning("sync_failed", mailbox_id=str(mailbox_id), error=str(exc))
+        await _mark_failure(mailbox_id, exc if isinstance(exc, ProviderError) else ProviderError(str(exc)))
+        result = {"status": "error", "error": str(exc)}
+    finally:
+        try:
+            await lock.release()
+        except LockError:
+            log.warning("sync_lock_expired", mailbox_id=str(mailbox_id))
+    if await redis.exists(Keys.sync_pending(mailbox_id)) and kick_sync is not None:
+        await kick_sync(str(mailbox_id))
+    return result
+
+
+async def _sync_locked(mailbox_id: UUID) -> dict[str, Any]:
+    redis = get_redis()
+    async with session_factory()() as db:
+        mailbox = await db.get(Mailbox, mailbox_id)
+        if mailbox is None or mailbox.status in (MailboxStatus.paused, MailboxStatus.reauth_required):
+            return {"status": "skipped"}
+        credentials = vault().decrypt_json(mailbox.credentials)
+        ruleset = await load_ruleset(db, mailbox.user_id)
+        matched_payloads: list[dict[str, Any]] = []
+        new_refs: list[str] = []
+
+        async with get_provider(mailbox.provider).open(mailbox.id, mailbox.address, credentials) as session:
+            refs, cursor = await session.fetch_new(mailbox.sync_cursor or {})
+            if refs:
+                pipe = redis.pipeline(transaction=False)
+                for ref in refs:
+                    pipe.exists(Keys.seen(mailbox.id, ref))
+                seen = await pipe.execute()
+                new_refs = [ref for ref, was_seen in zip(refs, seen, strict=True) if not was_seen]
+            needs_full = ruleset.needs_full(mailbox.id)
+            for ref in new_refs if len(ruleset) else []:
+                env = await session.load(ref, full=needs_full)
+                if env is None:
+                    continue
+                matched = ruleset.evaluate(env)
+                if not matched:
+                    continue
+                if not env.snippet and not env.is_full:
+                    env = await session.load(ref, full=True) or env
+                payload = await record_match(db, mailbox, env, matched)
+                if payload:
+                    matched_payloads.append(payload)
+            new_credentials = session.credentials
+
+        mailbox.sync_cursor = cursor
+        mailbox.last_synced_at = datetime.now(UTC)
+        mailbox.last_error = None
+        mailbox.error_count = 0
+        if mailbox.status == MailboxStatus.error:
+            mailbox.status = MailboxStatus.active
+        mailbox.messages_scanned += len(new_refs)
+        if new_credentials != credentials:
+            mailbox.credentials = vault().encrypt_json(new_credentials)
+        user_id = mailbox.user_id
+        await db.commit()
+
+    # Side effects only after the transaction is durable.
+    if new_refs:
+        pipe = redis.pipeline(transaction=False)
+        for ref in new_refs:
+            pipe.set(Keys.seen(mailbox_id, ref), "1", ex=SEEN_TTL_S)
+        await pipe.execute()
+    await events.bump(user_id, scanned=len(new_refs), matched=len(matched_payloads))
+    for payload in matched_payloads:
+        await events.publish(user_id, "message.matched", payload)
+    await events.publish(user_id, "mailbox.updated", {"id": str(mailbox_id), "status": "active",
+                                                      "last_synced_at": datetime.now(UTC).isoformat()})
+    if matched_payloads:
+        await events.wake_dispatcher()
+    log.info("sync_done", mailbox_id=str(mailbox_id), scanned=len(new_refs), matched=len(matched_payloads))
+    return {"status": "ok", "scanned": len(new_refs), "matched": len(matched_payloads)}

@@ -1,0 +1,117 @@
+# Base stack. Use with an override: compose.dev.yml (local) or compose.prod.yml (server).
+name: mailsentinel
+
+x-backend: &backend
+  image: mailsentinel-backend:${TAG:-local}
+  build:
+    context: ../backend
+  env_file: [.env]
+  environment: &backend-env
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mailsentinel}:${POSTGRES_PASSWORD:-mailsentinel}@postgres:5432/${POSTGRES_DB:-mailsentinel}
+    REDIS_URL: redis://redis:6379/0
+    WAHA_URL: http://waha:3000
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mailsentinel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mailsentinel}
+      POSTGRES_DB: ${POSTGRES_DB:-mailsentinel}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine
+    # The task stream and rate limits must never be evicted.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  waha:
+    image: devlikeapro/waha:gows-2026.9.2
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WAHA_API_KEY: ${WAHA_API_KEY:?set WAHA_API_KEY in deploy/.env}
+      WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USERNAME:-admin}
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD:?set WAHA_DASHBOARD_PASSWORD in deploy/.env}
+      WHATSAPP_SWAGGER_USERNAME: ${WAHA_DASHBOARD_USERNAME:-admin}
+      WHATSAPP_SWAGGER_PASSWORD: ${WAHA_DASHBOARD_PASSWORD}
+      WHATSAPP_START_SESSION: ${WAHA_SESSION:-default}
+      WHATSAPP_RESTART_ALL_SESSIONS: "True"
+      WHATSAPP_HOOK_URL: http://api:8000/api/v1/webhooks/waha
+      # message.any (not message) so commands typed in "Message yourself" also arrive; the API dedupes.
+      WHATSAPP_HOOK_EVENTS: message.any,message.ack,session.status
+      # Download received files so they can be attached to emails; links point at this container.
+      WAHA_EVENTS_DOWNLOAD_MEDIA: "true"
+      WAHA_BASE_URL: http://waha:3000
+      WHATSAPP_HOOK_HMAC_KEY: ${WAHA_WEBHOOK_HMAC_KEY:-}
+      WAHA_LOG_FORMAT: JSON
+    volumes: [waha-sessions:/app/.sessions]
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    healthcheck:
+      disable: true
+
+  api:
+    <<: *backend
+
+  worker:
+    <<: *backend
+    command: ["taskiq", "worker", "app.workers.broker:broker", "app.workers.tasks",
+              "--workers", "1", "--max-async-tasks", "50", "--no-configure-logging"]
+    healthcheck:
+      disable: true
+
+  scheduler:
+    <<: *backend
+    command: ["taskiq", "scheduler", "app.workers.broker:scheduler", "app.workers.tasks", "--skip-first-run"]
+    healthcheck:
+      disable: true
+
+  dispatcher:
+    <<: *backend
+    command: ["python", "-m", "app.notify.dispatcher"]
+    healthcheck:
+      disable: true
+
+  # Only needed for Gmail in pull mode. Mount a service-account key with Pub/Sub Subscriber role.
+  gmail-listener:
+    <<: *backend
+    command: ["python", "-m", "app.workers.gmail_listener"]
+    environment:
+      <<: *backend-env
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-pubsub.json
+    volumes:
+      - ${GCP_PUBSUB_KEY_FILE:-./secrets/gcp-pubsub.json}:/run/secrets/gcp-pubsub.json:ro
+    profiles: [gmail]
+    healthcheck:
+      disable: true
+
+volumes:
+  postgres-data:
+  redis-data:
+  waha-sessions:

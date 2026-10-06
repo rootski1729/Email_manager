@@ -1,0 +1,57 @@
+# Production: only Caddy is published (TLS via Let's Encrypt). The web app runs on Vercel.
+#   docker compose -f deploy/compose.yml -f deploy/compose.prod.yml up -d
+x-limits: &limits
+  deploy:
+    resources:
+      limits: {memory: 512m}
+  logging:
+    driver: json-file
+    options: {max-size: "20m", max-file: "5"}
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [api]
+    restart: unless-stopped
+
+  api:
+    <<: *limits
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      WAHA_URL: http://waha:3000
+      ENVIRONMENT: production
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2",
+              "--proxy-headers", "--forwarded-allow-ips", "*"]
+  worker: *limits
+  dispatcher: *limits
+  scheduler: *limits
+  waha:
+    deploy:
+      resources:
+        limits: {memory: 1g}
+
+  backup:
+    image: prodrigestivill/postgres-backup-local:17
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+    volumes: [./backups:/backups]
+    depends_on: [postgres]
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

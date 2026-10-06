@@ -1,0 +1,40 @@
+# Local development: hot reload, published ports, and a sandbox mail server for testing without Gmail.
+#   docker compose -f deploy/compose.yml -f deploy/compose.dev.yml up --build
+services:
+  postgres:
+    ports: ["5432:5432"]
+  redis:
+    ports: ["6379:6379"]
+  waha:
+    ports: ["3001:3000"]   # WAHA dashboard: http://localhost:3001/dashboard
+  api:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
+    volumes: ["../backend/app:/app/app:ro"]
+    ports: ["8000:8000"]
+    environment:
+      IMAP_ALLOW_INSECURE: "true"
+  worker:
+    volumes: ["../backend/app:/app/app:ro"]
+    environment:
+      IMAP_ALLOW_INSECURE: "true"
+  dispatcher:
+    ports: ["9100:9100"]   # dispatcher metrics
+
+  # Sandbox mailbox: connect it in the app as IMAP host "mail-sandbox", port 3143, security "plain",
+  # any username/password. Send test mail with SMTP to localhost:3025 (see `make send-test-mail`).
+  mail-sandbox:
+    image: greenmail/standalone:2.1.3
+    environment:
+      GREENMAIL_OPTS: -Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled
+    ports: ["3025:3025", "3143:3143"]
+
+  web:
+    build:
+      context: ../frontend
+      args:
+        API_ORIGIN: http://api:8000
+    environment:
+      API_ORIGIN: http://api:8000
+    ports: ["3000:3000"]
+    depends_on: [api]
+    profiles: [web]

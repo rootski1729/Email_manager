@@ -1,0 +1,9 @@
+{$API_DOMAIN} {
+	encode zstd gzip
+	# The WAHA webhook is internal only; never expose it publicly.
+	@internal path /api/v1/webhooks/waha /metrics
+	respond @internal 404
+	reverse_proxy api:8000 {
+		flush_interval -1
+	}
+}
