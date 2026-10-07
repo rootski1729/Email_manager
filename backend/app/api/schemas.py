@@ -99,6 +99,7 @@ class SettingsOut(BaseModel):
     muted_senders: list[str] = Field(description="Addresses or domains that never trigger WhatsApp alerts")
     weekly_recap: bool = Field(description="Sunday-evening summary on WhatsApp")
     deadlines_enabled: bool = Field(description="Find exam dates, interviews and due dates and remind before them")
+    ai_enabled: bool = Field(description="AI summaries in alerts, reply suggestions and drafting")
     plan_limits: dict[str, int] = Field(description="mailboxes, rules, daily_alerts, daily_emails, templates")
 
 
@@ -110,6 +111,7 @@ class SettingsUpdate(BaseModel):
     muted_senders: list[str] | None = Field(default=None, max_length=200)
     weekly_recap: bool | None = None
     deadlines_enabled: bool | None = None
+    ai_enabled: bool | None = None
 
     @field_validator("muted_senders")
     @classmethod
@@ -326,6 +328,8 @@ class MessageOut(ORM):
     has_attachments: bool
     web_url: str | None
     ref: str | None = Field(default=None, description="Short code used in WhatsApp, e.g. K7 for /open K7")
+    ai_summary: str | None = None
+    ai_action: str | None = None
     rules: list[str] = Field(default_factory=list)
 
 
@@ -687,3 +691,77 @@ class TestAlertOut(BaseModel):
 
 
 MessageDetail.model_rebuild()
+
+
+# ---- AI assistant ----
+class AIStatus(BaseModel):
+    available: bool = Field(description="AI is set up by the admin and switched on for you")
+    configured: bool = Field(description="The admin has set up AI for this installation")
+    enabled_for_me: bool
+
+
+class ReplyIdeaOut(BaseModel):
+    label: str
+    instruction: str
+
+
+class DraftRequest(BaseModel):
+    instructions: str = Field(min_length=1, max_length=2000, description="What the email should say")
+
+
+class ReviseRequest(BaseModel):
+    instructions: str = Field(min_length=1, max_length=2000)
+    to: list[str] = Field(default_factory=list, max_length=50)
+    cc: list[str] = Field(default_factory=list, max_length=50)
+    subject: str = Field(default="", max_length=500)
+    body: str = Field(default="", max_length=20_000)
+    reply_to_message_id: UUID | None = None
+
+
+class DraftOut(BaseModel):
+    mailbox_id: UUID
+    from_address: str
+    to: list[str]
+    cc: list[str]
+    subject: str
+    body: str
+    reply_to_message_id: UUID | None = None
+
+
+class RuleFromText(BaseModel):
+    description: str = Field(min_length=3, max_length=1000, description="e.g. 'anything from my college about exams'")
+
+
+class RuleIdeaOut(BaseModel):
+    name: str
+    condition: dict[str, Any]
+    explanation: str
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=500)
+
+
+class AskRef(BaseModel):
+    message_id: UUID
+    ref: str | None
+    subject: str
+
+
+class AskOut(BaseModel):
+    answer: str
+    refs: list[AskRef]
+
+
+class OutboundCreate(BaseModel):
+    """Send an email from the website (you already confirmed it by pressing Send)."""
+
+    mailbox_id: UUID
+    to: list[str] = Field(min_length=1, max_length=50)
+    cc: list[str] = Field(default_factory=list, max_length=50)
+    bcc: list[str] = Field(default_factory=list, max_length=50)
+    subject: str = Field(default="", max_length=500)
+    body: str = Field(min_length=1, max_length=50_000)
+    reply_to_message_id: UUID | None = None
+
+    _emails = field_validator("to", "cc", "bcc")(classmethod(lambda cls, v: normalize_emails(v)))

@@ -144,6 +144,8 @@ class UserSettings(TimestampMixin, Base):
     # Senders (addresses or domains) whose matches are kept in the app but never alerted on WhatsApp.
     muted_senders: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, server_default=text("'{}'"))
     weekly_recap: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    # AI summaries, reply suggestions and drafting (Azure AI Foundry). Email text is sent to the AI service.
+    ai_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     last_recap_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Detect dates in important emails and remind before them.
     deadlines_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
@@ -236,6 +238,8 @@ class Message(IdMixin, Base):
     web_url: Mapped[str | None] = mapped_column(Text)
     # Short code shown in WhatsApp alerts ("#K7") so the user can act on it: /open K7, /reply K7, ...
     ref: Mapped[str | None] = mapped_column(String(8))
+    ai_summary: Mapped[str | None] = mapped_column(Text)
+    ai_action: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

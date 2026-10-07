@@ -42,6 +42,10 @@ class Kind(StrEnum):
     muted = "muted"  # list muted senders
     recent = "recent"  # last alerts with their codes
     upcoming = "upcoming"  # dates found in your important email
+    write = "write"  # /write email prof@x.edu asking for leave  (AI drafts a new email)
+    edit = "edit"  # /edit make it shorter  (AI revises the draft waiting for YES)
+    ask = "ask"  # /ask when is my exam?  (AI answers from your important mail)
+    pick = "pick"  # 1 / 2 / 3: choose one of the suggested replies
     unknown_command = "unknown_command"  # any other /word
     text = "text"  # ordinary message
 
@@ -100,6 +104,8 @@ def parse_command(text: str | None, *, quoted: str | None = None) -> Command:
     lowered = first_line.lower()
     if lowered.startswith("/send"):
         return Command(Kind.send, raw=raw)
+    if raw in ("1", "2", "3", "4", "5"):
+        return Command(Kind.pick, arg=raw, raw=raw)
     if raw.lower() in CONFIRM_WORDS:
         return Command(Kind.confirm, raw=raw)
     if raw.lower() in CANCEL_WORDS:
@@ -130,6 +136,12 @@ def parse_command(text: str | None, *, quoted: str | None = None) -> Command:
             return Command(Kind.recent, raw=raw)
         case "/upcoming" | "/deadlines" | "/agenda" | "/calendar":
             return Command(Kind.upcoming, raw=raw)
+        case "/write" | "/draft":
+            return Command(Kind.write, arg=raw.partition(" ")[2].strip(), raw=raw)
+        case "/edit" | "/change" | "/rewrite":
+            return Command(Kind.edit, arg=raw.partition(" ")[2].strip(), raw=raw)
+        case "/ask" | "/find" | "/search":
+            return Command(Kind.ask, arg=raw.partition(" ")[2].strip(), raw=raw)
     return Command(Kind.unknown_command, arg=word, raw=raw)
 
 
@@ -261,6 +273,10 @@ INSTRUCTIONS = (
 
 HELP = (
     "🤖 *MailSentinel commands*\n\n"
+    "*AI assistant:*\n"
+    "*/reply K7* – suggested replies (pick 1, 2 or 3) · */reply K7 say I'll attend* – write it for me\n"
+    "*/write email prof@x.edu asking for leave tomorrow* – a new email\n"
+    "*/edit make it shorter* – change the draft · */ask when is my exam?*\n\n"
     "*Act on an alert* (use the code, e.g. #K7, or just quote the alert):\n"
     "*/open K7* – read the full email\n"
     "*/reply K7* – reply to the sender\n"

@@ -139,3 +139,40 @@ def envelope_from_bytes(
         if not env.snippet:
             env.snippet = make_snippet(env.body_text, snippet_chars)
     return env
+
+
+_NOISE = re.compile(
+    r"(unsubscribe|view (this|it) in (your|a) browser|manage (your )?preferences|this (e-?mail|message) was sent"
+    r"|you (are )?receiv(ed|ing) this|privacy policy|all rights reserved|^\s*©|do not reply to this)",
+    re.I,
+)
+_GREETING = re.compile(r"^(dear|hi|hello|hey|greetings|good (morning|afternoon|evening))\b.{0,60}$", re.I)
+_SIGNOFF = re.compile(r"^(--\s*|(best |kind |warm )?regards|thanks( and regards)?|thank you|sincerely|cheers)"
+                      r"[,.!]?\s*$", re.I)
+_URL_ONLY = re.compile(r"^\s*(<?https?://\S+>?|\[[^\]]*\]\(https?://\S+\))\s*$")
+
+
+def readable_preview(body: str, limit: int = 600) -> str:
+    """The part of an email a person would actually read: no greeting, quoted history, footer or signature."""
+    from app.events.extract import strip_quoted  # local import: events imports providers indirectly
+
+    lines: list[str] = []
+    for raw in strip_quoted(body or "").replace("\r", "").split("\n"):
+        line = " ".join(raw.split())
+        if not line:
+            if lines and lines[-1]:
+                lines.append("")
+            continue
+        if _SIGNOFF.match(line) and lines:
+            break
+        if _URL_ONLY.match(line) or _NOISE.search(line):
+            continue
+        if not any(lines) and _GREETING.match(line):
+            continue
+        lines.append(line)
+    text = "\n".join(lines).strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    cut = cut[: cut.rfind(" ")] if " " in cut[limit // 2:] else cut
+    return cut.rstrip(" ,;:-") + "…"

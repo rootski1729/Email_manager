@@ -84,6 +84,14 @@ class Settings(BaseSettings):
     send_jitter_ms: tuple[int, int] = (800, 2500)
 
     snippet_chars: int = 300
+    alert_preview_chars: int = 600
+
+    # AI (Azure AI Foundry / Azure OpenAI, OpenAI-compatible v1 API). Usually set in the admin console instead.
+    ai_endpoint: str = ""
+    ai_api_key: SecretStr = SecretStr("")
+    ai_model: str = ""
+    ai_enabled: bool = True
+    ai_timeout_s: float = 25.0
 
     # Sending email from WhatsApp (/email)
     compose_session_ttl_s: int = 30 * 60

@@ -160,7 +160,7 @@ async def test_urgent_rules_skip_quiet_hours(client, ready, infra):
     await ingest.sync_mailbox(mailbox_id)
     waha = FakeWaha()
     await Dispatcher(waha=waha, sleep=False).tick()  # type: ignore[arg-type]
-    assert len(waha.sent) == 1 and "Urgent email" in waha.sent[0][1] and "Interview tomorrow" in waha.sent[0][1]
+    assert len(waha.sent) == 1 and "🚨 *Urgent*" in waha.sent[0][1] and "Interview tomorrow" in waha.sent[0][1]
     held = [n for n in await notes(NotificationKind.alert) if n.status == NotificationStatus.held]
     assert len(held) == 1
 

@@ -68,6 +68,7 @@ def _out(pref: UserSettings, plan: str) -> SettingsOut:
         muted_senders=list(pref.muted_senders or []),
         weekly_recap=pref.weekly_recap if pref.weekly_recap is not None else True,
         deadlines_enabled=pref.deadlines_enabled if pref.deadlines_enabled is not None else True,
+        ai_enabled=pref.ai_enabled if pref.ai_enabled is not None else True,
         plan_limits=PLANS.get(plan, PLANS["free"]).model_dump(),
     )
 
@@ -89,7 +90,7 @@ async def put_settings(body: SettingsUpdate, user: CurrentUser, db: DB) -> Setti
         pref.digest = data["digest"]
     if "daily_cap" in data:
         pref.daily_cap = data["daily_cap"]
-    for key in ("compose_enabled", "muted_senders", "weekly_recap", "deadlines_enabled"):
+    for key in ("compose_enabled", "muted_senders", "weekly_recap", "deadlines_enabled", "ai_enabled"):
         if data.get(key) is not None:
             setattr(pref, key, data[key])
     await db.commit()

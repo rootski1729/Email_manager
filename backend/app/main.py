@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from app.api import admin as admin_api
 from app.api.routes import (
+    assistant,
     auth,
     destinations,
     events,
@@ -88,7 +89,7 @@ def create_app() -> FastAPI:
 
     problem = {"model": Problem, "content": {"application/problem+json": {}}}
     api = APIRouter(prefix="/api/v1", responses={code: problem for code in (400, 401, 403, 404, 409, 429, 502)})
-    for module in (auth, me, destinations, mailboxes, rules, messages, events, templates, outbound, stats,
+    for module in (auth, me, destinations, mailboxes, rules, messages, events, templates, outbound, assistant, stats,
                    webhooks):
         api.include_router(module.router)
     api.include_router(mailboxes.oauth_router)

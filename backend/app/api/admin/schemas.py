@@ -297,3 +297,19 @@ class AuditRow(ORM):
     details: dict[str, Any]
     ip: str | None
     created_at: datetime
+
+
+class AIConfigOut(BaseModel):
+    endpoint: str
+    model: str
+    enabled: bool
+    api_key_set: bool
+    ready: bool
+    source: Literal["database", "environment"]
+
+
+class AIConfigIn(BaseModel):
+    endpoint: str = Field(default="", max_length=500, description="Azure AI Foundry / Azure OpenAI endpoint URL")
+    model: str = Field(default="", max_length=200, description="The deployment name, e.g. gpt-4.1-mini")
+    enabled: bool = True
+    api_key: str | None = Field(default=None, max_length=500, description="null or empty keeps the saved key")

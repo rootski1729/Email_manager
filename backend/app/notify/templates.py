@@ -40,19 +40,21 @@ def when_text(event: dict[str, Any], timezone: str | None) -> str:
 
 
 def render_alert(p: dict[str, Any]) -> str:
-    rules = ", ".join(p.get("rules", [])) or "—"
+    """Subject first, then what it's about (AI summary or the readable part of the email), dates, actions."""
+    rules = ", ".join(p.get("rules", []))
     ref = p.get("ref")
-    head = "🚨 *Urgent email*" if p.get("urgent") else "📬 *Important email*"
-    lines = [
-        f"{head}  #{ref}" if ref else head,
-        f"*Rule:* {_plain(rules)}",
-        f"*Inbox:* {p.get('mailbox_address', '')}",
-        f"*From:* {_sender(p)}",
-        f"*Subject:* {_plain(_clip(p.get('subject'), MAX_SUBJECT)) or '(no subject)'}",
-    ]
-    snippet = _clip(p.get("snippet"), get_settings().snippet_chars)
-    if snippet:
-        lines += ["", f"> {_plain(snippet)}"]
+    subject = _plain(_clip(p.get("subject"), MAX_SUBJECT)) or "(no subject)"
+    lines = ["🚨 *Urgent*"] if p.get("urgent") else []
+    lines += [f"📬 *{subject}*" + (f"  #{ref}" if ref else ""),
+              f"From {_sender(p)}" + (f" · to {p['mailbox_address']}" if p.get("mailbox_address") else "")]
+    ai = p.get("ai") or {}
+    if ai.get("summary"):
+        lines += ["", f"📝 *In short:* {_plain(ai['summary'])}"]
+        if ai.get("action"):
+            lines.append(f"✅ *To do:* {_plain(ai['action'])}")
+    excerpt = quote_block(p.get("snippet"), 350 if ai.get("summary") else get_settings().alert_preview_chars)
+    if excerpt:
+        lines += ["", excerpt]
     events = p.get("events") or []
     if events:
         lines.append("")
@@ -60,13 +62,27 @@ def render_alert(p: dict[str, Any]) -> str:
             icon = EVENT_ICONS.get(e.get("kind", "other"), "📅")
             note = " – I'll remind you" if e.get("reminders") else " – confirm in the app"
             lines.append(f"{icon} *{when_text(e, p.get('timezone'))}*{note}")
+    footer = [f"🏷️ {_plain(rules)}"] if rules else []
     if p.get("web_url"):
-        lines += ["", f"Open in mail: {p['web_url']}"]
-    if link := message_link(p):
-        lines += [f"Details: {link}"]
+        footer.append(f"Open in mail: {p['web_url']}")
+    elif link := message_link(p):
+        footer.append(f"Details: {link}")
+    if footer:
+        lines += ["", *footer]
     if ref:
         lines += ["", f"_Reply_ */open {ref}* · */reply {ref}* · */remind {ref} 2h* · */mute {ref}*"]
     return "\n".join(lines)
+
+
+def quote_block(text: str | None, limit: int) -> str:
+    """A WhatsApp quote that keeps the email's line breaks: '> line' per line, at most `limit` characters."""
+    text = (text or "").strip()
+    if not text:
+        return ""
+    if len(text) > limit:
+        text = text[: limit - 1].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
+    quoted = [f"> {_plain(line)}" if line.strip() else ">" for line in text.splitlines()[:10]]
+    return "\n".join(quoted)
 
 
 def render_batch(items: list[dict[str, Any]], title: str) -> str:

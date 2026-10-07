@@ -97,6 +97,58 @@ async def _load() -> GoogleConfig:
 
 
 async def invalidate() -> None:
-    global _cache
+    global _cache, _ai_cache
     _cache = None
+    _ai_cache = None
     await get_redis().incr(VERSION_KEY)
+
+
+# ---------------------------------------------------------------- AI (Azure AI Foundry / Azure OpenAI)
+
+AI_KEY = "ai"
+
+
+@dataclass(frozen=True, slots=True)
+class AIConfig:
+    endpoint: str  # e.g. https://<resource>.openai.azure.com/openai/v1
+    api_key: str
+    model: str  # the deployment name
+    enabled: bool
+    source: Literal["database", "environment"]
+
+    @property
+    def ready(self) -> bool:
+        return bool(self.enabled and self.endpoint and self.api_key and self.model)
+
+
+def _ai_from_env() -> AIConfig:
+    s = get_settings()
+    return AIConfig(endpoint=s.ai_endpoint, api_key=s.ai_api_key.get_secret_value(), model=s.ai_model,
+                    enabled=s.ai_enabled, source="environment")
+
+
+_ai_cache: tuple[str, float, AIConfig] | None = None
+
+
+async def ai_config() -> AIConfig:
+    global _ai_cache
+    now = time.monotonic()
+    if _ai_cache and now - _ai_cache[1] < CHECK_EVERY_S:
+        return _ai_cache[2]
+    version = str(await get_redis().get(VERSION_KEY) or "0")
+    if _ai_cache and _ai_cache[0] == version:
+        _ai_cache = (version, now, _ai_cache[2])
+        return _ai_cache[2]
+    from app.models import AppSetting
+
+    base = _ai_from_env()
+    async with session_factory()() as db:
+        row = await db.scalar(select(AppSetting).where(AppSetting.key == AI_KEY))
+    if row is not None:
+        value: dict[str, Any] = row.value or {}
+        key = vault().decrypt_json(row.secret).get("api_key", "") if row.secret else ""
+        base = replace(base, endpoint=value.get("endpoint") or base.endpoint, api_key=key or base.api_key,
+                       model=value.get("model") or base.model, enabled=bool(value.get("enabled", base.enabled)),
+                       source="database")
+    _ai_cache = (version, now, base)
+    return base

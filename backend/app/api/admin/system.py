@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.core.db import get_engine
 from app.core.errors import AppError, NotFound, UpstreamError
 from app.core.redis import Keys, get_redis
-from app.core.runtime import google_config
+from app.core.runtime import ai_config, google_config
 from app.models import (
     AdminAudit,
     Event,
@@ -73,6 +73,9 @@ async def health_items() -> list[HealthItem]:
     dispatcher = await redis.exists(Keys.DISPATCHER_LEADER)
     items.append(HealthItem(key="dispatcher", label="WhatsApp sender process", ok=bool(dispatcher),
                             detail="Running" if dispatcher else "Not running"))
+    ai = await ai_config()
+    items.append(HealthItem(key="ai", label="AI assistant", ok=ai.ready,
+                            detail="Configured" if ai.ready else ("Switched off" if not ai.enabled else "Not set up")))
     google = await google_config()
     if not google.oauth_ready:
         items.append(HealthItem(key="google", label="Gmail sign-in", ok=False, detail="Not configured"))

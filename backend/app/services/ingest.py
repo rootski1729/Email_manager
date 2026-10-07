@@ -1,5 +1,6 @@
 """Mailbox sync: fetch new mail, run rules, record matches and queue alerts in one transaction."""
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -11,15 +12,19 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.client import AIUnavailable
+from app.ai.features import Summary, summarize
 from app.compose.commands import encode_ref
 from app.core.config import get_settings
 from app.core.db import session_factory, uuid7
 from app.core.logging import log
 from app.core.redis import Keys, get_redis
+from app.core.runtime import ai_config
 from app.core.security import vault
 from app.models import Mailbox, MailboxStatus, Message, NotificationKind, Rule, RuleMatch, User, UserSettings
 from app.providers import get_provider
 from app.providers.base import ProviderError, ReauthRequired
+from app.providers.mime import readable_preview
 from app.rules.engine import CompiledRule
 from app.rules.envelope import Envelope, domain_of
 from app.services import deadlines, events, outbox
@@ -52,6 +57,7 @@ class SyncContext:
     user: User
     muted: list[str]
     deadlines: bool
+    ai: bool
 
 
 async def load_context(db: AsyncSession, user_id: UUID) -> SyncContext | None:
@@ -59,8 +65,22 @@ async def load_context(db: AsyncSession, user_id: UUID) -> SyncContext | None:
     if user is None:
         return None
     prefs = await db.get(UserSettings, user_id)
+    ai = (prefs.ai_enabled if prefs else True) and (await ai_config()).ready
     return SyncContext(user=user, muted=[m.lower() for m in (prefs.muted_senders if prefs else []) or []],
-                       deadlines=prefs.deadlines_enabled if prefs else True)
+                       deadlines=prefs.deadlines_enabled if prefs else True, ai=ai)
+
+
+async def summarize_safe(env: Envelope) -> Summary | None:
+    """AI summary for the alert; never blocks or breaks the alert itself."""
+    try:
+        return await asyncio.wait_for(summarize(
+            subject=env.subject, sender=f"{env.from_name} <{env.from_address}>".strip(),
+            body=env.body_text or env.snippet), timeout=30)
+    except (AIUnavailable, TimeoutError):
+        return None
+    except Exception:  # a bug in the AI path must never lose the alert
+        log.exception("ai_summary_failed")
+        return None
 
 
 def is_muted(address: str, muted: list[str]) -> bool:
@@ -103,20 +123,23 @@ def alert_payload(mailbox: Mailbox, env: Envelope, rules: list[CompiledRule], me
 
 async def record_match(
     db: AsyncSession, mailbox: Mailbox, env: Envelope, matched: list[CompiledRule],
-    ctx: SyncContext | None = None,
+    ctx: SyncContext | None = None, summary: Summary | None = None,
 ) -> dict[str, Any] | None:
     """Insert the message, its rule matches, detected dates and outbox rows. Idempotent per (mailbox, message)."""
     settings = get_settings()
     ctx = ctx or await load_context(db, mailbox.user_id)
     message_id = uuid7()
     ref = await next_ref(db, mailbox.user_id)
+    preview = (readable_preview(env.body_text, settings.alert_preview_chars) if env.body_text else "") or \
+        (env.snippet or "")[: settings.alert_preview_chars]
     inserted = await db.scalar(
         insert(Message).values(
             id=message_id, user_id=mailbox.user_id, mailbox_id=mailbox.id,
             provider_message_id=env.provider_message_id, thread_id=env.thread_id,
             from_address=env.from_address[:320], from_name=(env.from_name or None) and env.from_name[:320],
             to_addresses=[*env.to, *env.cc][:50], subject=env.subject,
-            snippet=env.snippet[: settings.snippet_chars] if env.snippet else None,
+            snippet=preview or None, ai_summary=summary.summary if summary else None,
+            ai_action=summary.action if summary else None,
             received_at=env.received_at, list_id=(env.list_id or None) and env.list_id[:320],
             has_attachments=bool(env.attachments), web_url=env.web_url, ref=ref,
             headers={k: v for k, v in env.headers.items() if k in KEPT_HEADERS},
@@ -147,6 +170,9 @@ async def record_match(
         urgent |= bool(notify.get("urgent"))
         instant |= notify.get("mode", "instant") == "instant" or bool(notify.get("urgent"))
     payload = alert_payload(mailbox, env, matched, message_id)
+    payload["snippet"] = preview
+    if summary:
+        payload["ai"] = {"summary": summary.summary, "action": summary.action, "importance": summary.importance}
     payload["ref"] = ref
     payload["urgent"] = urgent
     if ctx is not None:
@@ -253,7 +279,9 @@ async def _sync_locked(mailbox_id: UUID) -> dict[str, Any]:
                 # Matched mail is read in full once: for the snippet and to find exam dates and invites.
                 if not env.is_full and (not env.snippet or (ctx and ctx.deadlines)):
                     env = await session.load(ref, full=True) or env
-                payload = await record_match(db, mailbox, env, matched, ctx)
+                summary = await summarize_safe(env) if ctx and ctx.ai and not is_muted(env.from_address, ctx.muted) \
+                    else None
+                payload = await record_match(db, mailbox, env, matched, ctx, summary)
                 if payload:
                     matched_payloads.append(payload)
             new_credentials = session.credentials
