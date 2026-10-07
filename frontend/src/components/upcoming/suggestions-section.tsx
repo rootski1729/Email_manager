@@ -11,7 +11,7 @@ export function SuggestionsSection({ events }: { events: EventItem[] }) {
   return (
     <section
       aria-labelledby="needs-confirmation"
-      className="rounded-2xl border border-warning/30 bg-gradient-to-br from-warning/8 via-card to-card p-4 sm:p-5"
+      className="rounded-xl border border-warning/30 bg-card p-4 sm:p-5"
     >
       <div className="mb-3 flex items-start gap-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">

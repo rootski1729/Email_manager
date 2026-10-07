@@ -66,7 +66,7 @@ function GuardedShell({ defaultOpen, children }: { defaultOpen: boolean; childre
       </a>
       <AdminSidebar />
       <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur-md md:px-4">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3 md:px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">

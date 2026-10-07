@@ -19,7 +19,7 @@ export function Timeline({ events, nextId }: { events: EventItem[]; nextId?: str
     <div className="space-y-8">
       {groups.map((g) => (
         <section key={g.id} aria-labelledby={`tl-${g.id}`} className="relative">
-          <div className="sticky top-14 z-10 -mx-1 mb-3 flex items-center gap-2 bg-background/85 px-1 py-1.5 backdrop-blur-sm">
+          <div className="sticky top-14 z-10 -mx-1 mb-3 flex items-center gap-2 bg-background px-1 py-1.5">
             <h2 id={`tl-${g.id}`} className="text-sm font-semibold tracking-tight">
               {g.label}
             </h2>

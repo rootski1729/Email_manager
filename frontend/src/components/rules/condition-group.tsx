@@ -53,10 +53,10 @@ export function ConditionGroup({ node, depth, isRoot = false }: { node: GroupNod
           onValueChange={(v) => v && patch({ mode: v as "all" | "any" })}
           aria-label="Group logic"
         >
-          <ToggleGroupItem value="all" className="px-3 data-[state=on]:bg-brand/20 data-[state=on]:text-brand-ink">
+          <ToggleGroupItem value="all" className="px-3 data-[state=on]:bg-brand/15 data-[state=on]:text-brand-ink">
             ALL
           </ToggleGroupItem>
-          <ToggleGroupItem value="any" className="px-3 data-[state=on]:bg-brand/20 data-[state=on]:text-brand-ink">
+          <ToggleGroupItem value="any" className="px-3 data-[state=on]:bg-brand/15 data-[state=on]:text-brand-ink">
             ANY
           </ToggleGroupItem>
         </ToggleGroup>

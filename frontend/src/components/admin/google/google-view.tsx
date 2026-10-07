@@ -270,7 +270,7 @@ function GoogleForm({ config }: { config: GoogleConfigOut }) {
         </Card>
       </Collapsible>
 
-      <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-2 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur">
+      <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-md">
         <Button type="submit" form="google-config" disabled={!dirty || save.isPending}>
           {save.isPending ? <Spinner /> : <Save />} Save
         </Button>

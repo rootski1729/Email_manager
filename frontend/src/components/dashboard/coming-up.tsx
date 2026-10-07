@@ -35,7 +35,7 @@ export function ComingUp({ className }: { className?: string }) {
           <p className="px-3 py-4 text-sm text-destructive">{errorMessage(events.error)}</p>
         ) : upcoming.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-            <span className="flex size-11 items-center justify-center rounded-2xl bg-secondary text-secondary-foreground">
+            <span className="flex size-11 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
               <CalendarClock className="size-5" aria-hidden />
             </span>
             <p className="max-w-xs text-sm text-muted-foreground text-pretty">

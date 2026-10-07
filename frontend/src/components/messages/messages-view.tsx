@@ -205,7 +205,7 @@ export function MessagesView() {
               <h2 className="mb-2 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                 {dayLabel(g.key, today)}
               </h2>
-              <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
+              <ul className="divide-y overflow-hidden rounded-xl border bg-card">
                 {g.items.map((m) => (
                   <MessageRow key={m.id} m={m} />
                 ))}

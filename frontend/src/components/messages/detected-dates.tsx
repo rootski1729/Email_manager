@@ -17,7 +17,7 @@ export function DetectedDates({ messageId, events }: { messageId: string; events
   const dismissed = events.length - visible.length;
 
   return (
-    <Card className="rounded-2xl">
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarClock className="size-4 text-brand-ink" /> Dates in this email

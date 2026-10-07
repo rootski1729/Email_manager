@@ -84,7 +84,7 @@ export function EventCard({
       className={cn(
         "group/event relative scroll-mt-24 overflow-hidden rounded-xl border bg-card transition-shadow before:absolute before:inset-y-0 before:left-0 before:w-1",
         meta.accent,
-        next && "shadow-md ring-1 ring-brand",
+        next && "ring-1 ring-brand",
         suggested && "border-dashed bg-card/70",
         compact ? "p-3 pl-4" : "p-4 pl-5",
       )}

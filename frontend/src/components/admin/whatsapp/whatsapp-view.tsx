@@ -52,7 +52,7 @@ function Hero({
   }[tone];
   return (
     <div className="flex flex-col items-center gap-3 py-4 text-center sm:flex-row sm:items-start sm:text-left">
-      <span className={`flex size-14 shrink-0 items-center justify-center rounded-2xl ${ring}`}>
+      <span className={`flex size-14 shrink-0 items-center justify-center rounded-xl ${ring}`}>
         <Icon className="size-7" />
       </span>
       <div className="min-w-0 space-y-1">

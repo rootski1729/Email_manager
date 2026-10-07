@@ -26,7 +26,7 @@ import { ADMIN_NAV, isAdminNavActive } from "./nav";
 
 const ITEM_CLASSES = cn(
   "relative text-sidebar-foreground/85",
-  // Moonstone indicator bar on the active item.
+  // Denim indicator bar on the active item.
   "data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground",
   "data-[active=true]:before:absolute data-[active=true]:before:inset-y-1.5 data-[active=true]:before:left-0 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-sidebar-primary",
   "data-[active=true]:[&>svg]:text-sidebar-primary",
@@ -62,7 +62,7 @@ export function AdminSidebar() {
       <SidebarContent>
         {ADMIN_NAV.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel className="text-sidebar-foreground/55">{group.label}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-sidebar-foreground/70">{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
@@ -89,7 +89,7 @@ export function AdminSidebar() {
                       </SidebarMenuButton>
                       {badge ? (
                         <SidebarMenuBadge
-                          className="bg-sidebar-primary text-sidebar-primary-foreground"
+                          className="bg-brand-ink text-brand-foreground"
                           aria-label="Needs attention"
                         >
                           {badge}
@@ -104,7 +104,7 @@ export function AdminSidebar() {
         ))}
       </SidebarContent>
       <SidebarFooter>
-        <p className="px-2 pb-1 text-xs text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
+        <p className="px-2 pb-1 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
           Changes here affect every client.
         </p>
       </SidebarFooter>

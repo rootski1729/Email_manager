@@ -28,7 +28,7 @@ export function StatusLine() {
   const mailboxes = useQuery(mailboxesQuery);
   const events = useQuery(eventsQuery());
 
-  if (overview.isPending || mailboxes.isPending) return <Skeleton className="h-[76px] rounded-2xl" />;
+  if (overview.isPending || mailboxes.isPending) return <Skeleton className="h-[76px] rounded-xl" />;
   if (overview.isError || mailboxes.isError) return null;
 
   const o = overview.data;
@@ -88,7 +88,7 @@ export function StatusLine() {
     <section
       aria-live="polite"
       className={cn(
-        "rounded-2xl border p-4 sm:p-5",
+        "rounded-xl border p-4 sm:p-5",
         allGood ? "border-success/25 bg-success/8" : needsYou ? "border-warning/30 bg-warning/8" : "bg-card",
       )}
     >

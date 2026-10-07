@@ -17,14 +17,11 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <Empty className={cn("rounded-2xl border border-dashed bg-card/60 py-12", className)}>
+    <Empty className={cn("rounded-xl border border-dashed bg-card/60 py-12", className)}>
       <EmptyHeader>
         <EmptyMedia>
-          <div className="relative">
-            <div aria-hidden className="absolute inset-0 -m-3 rounded-full bg-brand/25 blur-xl" />
-            <div className="relative flex size-14 items-center justify-center rounded-2xl border bg-card text-brand-ink shadow-sm">
-              <Icon className="size-6" />
-            </div>
+          <div className="flex size-14 items-center justify-center rounded-xl border bg-card text-brand-ink">
+            <Icon className="size-6" />
           </div>
         </EmptyMedia>
         <EmptyTitle className="text-lg">{title}</EmptyTitle>

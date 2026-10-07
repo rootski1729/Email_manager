@@ -43,8 +43,8 @@ function PackCard({ pack, rule }: { pack: RulePack; rule?: Rule }) {
   return (
     <li
       className={cn(
-        "relative flex flex-col gap-3 rounded-2xl border bg-card p-4 transition-[border-color,box-shadow]",
-        on ? "border-brand shadow-[0_0_0_1px_var(--brand)]" : "hover:border-brand/50",
+        "relative flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors",
+        on ? "border-brand ring-1 ring-brand" : "hover:border-brand/50",
       )}
     >
       <div className="flex items-start gap-3">
@@ -93,7 +93,7 @@ export function StarterPacks() {
     return (
       <div className="grid gap-3 sm:grid-cols-2">
         {Array.from({ length: 4 }, (_, i) => (
-          <Skeleton key={i} className="h-32 rounded-2xl" />
+          <Skeleton key={i} className="h-32 rounded-xl" />
         ))}
       </div>
     );

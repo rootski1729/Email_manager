@@ -176,7 +176,7 @@ export function SuggestionsPanel() {
   const mailboxId = picked ?? list.find((m) => m.status === "active")?.id ?? list[0]?.id ?? null;
 
   return (
-    <Card className="rounded-2xl">
+    <Card className="rounded-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <ScanSearch className="size-4 text-brand-ink" /> Suggested for you

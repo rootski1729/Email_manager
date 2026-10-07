@@ -44,7 +44,7 @@ function EmailRow({ r }: { r: Row }) {
           aria-hidden
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-            r.fresh ? "bg-brand text-brand-foreground" : "bg-secondary text-secondary-foreground",
+            r.fresh ? "bg-brand-ink text-brand-foreground" : "bg-secondary text-secondary-foreground",
           )}
         >
           {initials(r.from)}
@@ -136,7 +136,7 @@ export function ImportantToday() {
           </div>
         ) : shown.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-            <span className="flex size-11 items-center justify-center rounded-2xl bg-brand/20 text-brand-ink">
+            <span className="flex size-11 items-center justify-center rounded-xl bg-brand/15 text-brand-ink">
               <MailCheck className="size-5" aria-hidden />
             </span>
             <p className="max-w-xs text-sm text-muted-foreground text-pretty">

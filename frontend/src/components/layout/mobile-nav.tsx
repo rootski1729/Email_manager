@@ -18,7 +18,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       {NAV_MOBILE.map((n) => {
         const active = isActive(pathname, n);
@@ -29,7 +29,7 @@ export function MobileNav() {
             aria-current={active ? "page" : undefined}
             className={cn(item, active ? "text-foreground" : "text-muted-foreground")}
           >
-            <span className={cn(pill, active && "bg-brand/25 text-brand-ink")}>
+            <span className={cn(pill, active && "bg-brand/15 text-brand-ink")}>
               <n.icon className="size-5" />
             </span>
             <span className="max-w-full truncate px-1">{n.short ?? n.label}</span>
@@ -41,7 +41,7 @@ export function MobileNav() {
         onClick={() => setOpenMobile(true)}
         className={cn(item, inMore ? "text-foreground" : "text-muted-foreground")}
       >
-        <span className={cn(pill, inMore && "bg-brand/25 text-brand-ink")}>
+        <span className={cn(pill, inMore && "bg-brand/15 text-brand-ink")}>
           <Menu className="size-5" />
         </span>
         More

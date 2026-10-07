@@ -46,7 +46,7 @@ function RuleCard({ rule }: { rule: Rule }) {
   return (
     <li
       className={cn(
-        "relative flex items-start gap-4 rounded-2xl border bg-card p-4 transition-colors hover:border-brand/50 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50",
+        "relative flex items-start gap-4 rounded-xl border bg-card p-4 transition-colors hover:border-brand/50 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50",
         !rule.enabled && "bg-muted/40",
       )}
     >
@@ -55,7 +55,7 @@ function RuleCard({ rule }: { rule: Rule }) {
           <Link
             href={`/rules/${rule.id}`}
             className={cn(
-              "truncate font-medium outline-none after:absolute after:inset-0 after:rounded-2xl",
+              "truncate font-medium outline-none after:absolute after:inset-0 after:rounded-xl",
               !rule.enabled && "text-muted-foreground",
             )}
           >
@@ -220,7 +220,7 @@ export function RulesList() {
             <ReorderList rules={rules.data} />
           </div>
         ) : custom.length === 0 ? (
-          <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed bg-card/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed bg-card/60 p-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground text-pretty">
               Nothing yet. For example: anything from <span className="font-medium text-foreground">univ.edu</span> whose
               subject mentions <span className="font-medium text-foreground">admit card</span>.

@@ -36,7 +36,7 @@ function Row({ e, href }: { e: OutboundEmail; href: string }) {
         href={href}
         scroll={false}
         className={cn(
-          "flex w-full flex-col gap-2 rounded-2xl border bg-card p-4 text-left transition-shadow outline-none hover:shadow-sm focus-visible:ring-3 focus-visible:ring-ring/50",
+          "flex w-full flex-col gap-2 rounded-xl border bg-card p-4 text-left transition-colors outline-none hover:border-brand/50 focus-visible:ring-3 focus-visible:ring-ring/50",
           e.status === "awaiting_confirmation" && "border-warning/40",
           e.status === "failed" && "border-destructive/40",
         )}

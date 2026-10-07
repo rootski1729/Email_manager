@@ -23,7 +23,7 @@ export function ThemeToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={setTheme}>
+        <DropdownMenuRadioGroup value={theme ?? "light"} onValueChange={setTheme}>
           <DropdownMenuRadioItem value="light">
             <Sun /> Light
           </DropdownMenuRadioItem>

@@ -21,12 +21,12 @@ const ICONS: Record<string, { icon: LucideIcon; tile: string }> = {
   receipt: { icon: Receipt, tile: "bg-chart-2/16 text-chart-2" },
   "shield-alert": { icon: ShieldAlert, tile: "bg-destructive/12 text-destructive" },
   package: { icon: Package, tile: "bg-chart-5/14 text-chart-5" },
-  plane: { icon: Plane, tile: "bg-brand/25 text-brand-ink" },
+  plane: { icon: Plane, tile: "bg-brand/15 text-brand-ink" },
   "file-badge": { icon: FileBadge, tile: "bg-secondary text-secondary-foreground" },
 };
 
 export function PackIcon({ name, className }: { name: string; className?: string }) {
-  const entry = ICONS[name] ?? { icon: ListFilter, tile: "bg-brand/25 text-brand-ink" };
+  const entry = ICONS[name] ?? { icon: ListFilter, tile: "bg-brand/15 text-brand-ink" };
   const Icon = entry.icon;
   return (
     <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", entry.tile, className)}>

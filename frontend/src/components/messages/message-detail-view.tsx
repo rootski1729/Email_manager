@@ -53,8 +53,8 @@ export function MessageDetailView({ id }: { id: string }) {
       <div className="space-y-4">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-9 w-3/4" />
-        <Skeleton className="h-48 rounded-2xl" />
-        <Skeleton className="h-24 rounded-2xl" />
+        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
       </div>
     );
   }
@@ -113,7 +113,7 @@ export function MessageDetailView({ id }: { id: string }) {
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-6">
-          <article className="rounded-2xl border bg-card p-4 sm:p-5">
+          <article className="rounded-xl border bg-card p-4 sm:p-5">
             <div className="flex items-start gap-3">
               <span
                 aria-hidden
@@ -169,7 +169,7 @@ export function MessageDetailView({ id }: { id: string }) {
 
         <div className="min-w-0 space-y-6">
           <DetectedDates messageId={m.id} events={m.events ?? []} />
-          <div className="rounded-2xl border bg-card p-4">
+          <div className="rounded-xl border bg-card p-4">
             <h2 className="text-base font-semibold tracking-tight">Why it&apos;s important</h2>
             <p className="text-sm text-muted-foreground">It matched {m.matches.length === 1 ? "this" : "these"}:</p>
             <ul className="mt-3 flex flex-wrap gap-2">

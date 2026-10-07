@@ -20,7 +20,7 @@ export function ProviderIcon({ provider, className }: { provider: Provider; clas
   return (
     <span
       className={cn(
-        "flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/20 text-brand-ink ring-1 ring-inset ring-brand/35",
+        "flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand-ink ring-1 ring-inset ring-brand/35",
         className,
       )}
       aria-label="Email account"

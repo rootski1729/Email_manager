@@ -83,7 +83,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         {user ? (
-          <div className="truncate px-2 pb-1 text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
+          <div className="truncate px-2 pb-1 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
             Signed in as {user.display_name || maskPhone(user.phone_e164)}
           </div>
         ) : null}

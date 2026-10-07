@@ -11,7 +11,7 @@ export const TONE: Record<Tone, { badge: string; dot: string; text: string; soft
   warning: {
     badge: "bg-warning/15 text-foreground ring-warning/40",
     dot: "bg-warning",
-    text: "text-warning-foreground dark:text-warning",
+    text: "text-warning",
     soft: "bg-warning/15",
   },
   danger: {

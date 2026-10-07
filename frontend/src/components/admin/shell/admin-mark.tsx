@@ -3,7 +3,7 @@ import { ShieldCheck } from "lucide-react";
 import { APP_NAME } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
-/** The admin console's brand: a shield tile in the sidebar's accent colour. */
+/** The admin console's brand: a flat denim shield tile (the sidebar's primary colour). */
 export function AdminMark({ className }: { className?: string }) {
   return (
     <span

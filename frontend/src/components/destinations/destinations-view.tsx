@@ -51,11 +51,11 @@ function DestinationRow({
   const kind = KIND[d.kind];
   const verified = Boolean(d.verified_at);
   return (
-    <li className="flex items-center gap-3 rounded-2xl border bg-card p-4">
+    <li className="flex items-center gap-3 rounded-xl border bg-card p-4">
       <span
         className={cn(
           "flex size-10 shrink-0 items-center justify-center rounded-xl",
-          d.kind === "whatsapp_group" ? "bg-brand/20 text-brand-ink" : "bg-wa/12 text-wa",
+          d.kind === "whatsapp_group" ? "bg-brand/15 text-brand-ink" : "bg-wa/12 text-wa",
         )}
       >
         <kind.icon className="size-5" />

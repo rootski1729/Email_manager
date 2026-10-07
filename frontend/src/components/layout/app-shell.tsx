@@ -33,10 +33,10 @@ function ShellSkeleton() {
       <div className="flex-1 p-4 md:p-10">
         <Skeleton className="h-8 w-56" />
         <Skeleton className="mt-3 h-4 w-80 max-w-full" />
-        <Skeleton className="mt-8 h-24 rounded-2xl" />
+        <Skeleton className="mt-8 h-24 rounded-xl" />
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-24 rounded-2xl" />
+            <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
       </div>
@@ -69,7 +69,7 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
         </a>
         <AppSidebar />
         <SidebarInset className="min-w-0">
-          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background/85 px-3 backdrop-blur-md md:px-4">
+          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background px-3 md:px-4">
             <SidebarTrigger className="hidden md:inline-flex" />
             <Separator orientation="vertical" className="mr-1 hidden md:block data-vertical:h-4 data-vertical:self-center" />
             <Link href="/dashboard" aria-label="Home" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:hidden">

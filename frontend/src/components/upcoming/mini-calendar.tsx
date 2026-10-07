@@ -133,7 +133,7 @@ export function MiniCalendar({
                   !inMonth && "text-muted-foreground/40",
                   inMonth && items.length === 0 && "text-muted-foreground",
                   items.length > 0 && "font-semibold text-foreground hover:bg-muted",
-                  isToday && !isSelected && "bg-brand/25 text-brand-ink",
+                  isToday && !isSelected && "bg-brand/15 text-brand-ink",
                   isSelected && "bg-primary text-primary-foreground hover:bg-primary/90",
                 )}
               >

@@ -108,20 +108,19 @@ export function AdminLoginForm() {
 
 export function AdminLoginLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-svh items-center justify-center bg-sidebar px-4 py-10 text-sidebar-foreground">
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
-      <div className="relative w-full max-w-sm">
+    <div className="flex min-h-svh items-center justify-center bg-background px-4 py-10 text-foreground">
+      <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-lg">
+          <span className="flex size-12 items-center justify-center rounded-xl bg-brand text-brand-foreground">
             <ShieldCheck className="size-6" aria-hidden />
           </span>
           <h1 className="mt-4 text-xl font-semibold tracking-tight">{APP_NAME} admin console</h1>
-          <p className="mt-1 text-sm text-sidebar-foreground/70">For the team that runs {APP_NAME}.</p>
+          <p className="mt-1 text-sm text-muted-foreground">For the team that runs {APP_NAME}.</p>
         </div>
-        <div className="rounded-2xl border bg-card p-6 text-card-foreground shadow-xl">{children}</div>
-        <p className="mt-6 text-center text-xs text-sidebar-foreground/60">
+        <div className="rounded-xl border bg-card p-6 text-card-foreground shadow-sm">{children}</div>
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           Looking for your alerts?{" "}
-          <Link href="/login" className="underline underline-offset-4 hover:text-sidebar-foreground">
+          <Link href="/login" className="underline underline-offset-4 hover:text-foreground">
             Client sign-in
           </Link>
         </p>

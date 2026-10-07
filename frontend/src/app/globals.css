@@ -23,6 +23,7 @@
   --color-wa: var(--wa);
   --color-wa-bubble: var(--wa-bubble);
   --color-wa-canvas: var(--wa-canvas);
+  --color-scrim: var(--scrim);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -56,118 +57,133 @@
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-xl: calc(var(--radius) + 2px);
+  --radius-2xl: calc(var(--radius) + 4px);
+  --radius-3xl: calc(var(--radius) + 6px);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Matte elevation: soft, neutral, never coloured. */
+  --shadow-2xs: 0 1px 0 rgb(0 0 0 / 0.02);
+  --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.03);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 2px 6px -1px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 4px 12px -2px rgb(0 0 0 / 0.07);
+  --shadow-xl: 0 8px 20px -4px rgb(0 0 0 / 0.08);
+  --shadow-2xl: 0 12px 28px -6px rgb(0 0 0 / 0.1);
 }
 
 :root {
   /*
-   * "Interstellar" — Gunmetal #1B242A · Moonstone #7EACB5 · Champagne #F5E4C8.
-   * Light: champagne-tinted paper, gunmetal ink and buttons, moonstone highlights.
-   * Moonstone is too light for text on paper, so text/thin icons use --brand-ink (#3F6F79, 5.1:1).
+   * Obsidian #2A2A2A · Seashell #F9F5ED · Denim #5E83AE — modern, matte, light.
+   * Seashell page, white cards with warm hairlines, obsidian ink and buttons.
+   * Denim #5E83AE is a fill/icon colour (3.6:1 on seashell); text uses --brand-ink #44678F (5.4:1).
+   * Every text pair was computed to pass WCAG AA (4.5:1 text, 3:1 icons and control outlines).
    */
-  --background: #faf5ec;
-  --foreground: #1b242a;
-  --card: #fffdf8;
-  --card-foreground: #1b242a;
-  --popover: #fffdf8;
-  --popover-foreground: #1b242a;
-  --primary: #1b242a;
-  --primary-foreground: #faf3e6;
-  --secondary: #f5e4c8;
-  --secondary-foreground: #1b242a;
-  --muted: #f2eadc;
-  --muted-foreground: #5e676d;
-  --accent: #e3eef0;
-  --accent-foreground: #1b242a;
-  --destructive: #a83f37;
-  --border: #e5daca;
-  --input: #d9cdba;
-  /* Deeper moonstone so focus rings keep 3:1+ against champagne paper. */
-  --ring: #4f8591;
-  /* Moonstone as a fill (highlights, active states) and as readable ink. */
-  --brand: #7eacb5;
-  --brand-foreground: #1b242a;
-  --brand-ink: #3f6f79;
-  --brand-2: #3f6f79;
-  /* Status: semantic, desaturated to sit with the palette. Each passes AA as text on card/background. */
-  --success: #36704f;
-  --success-foreground: #fffdf8;
-  --warning: #8a5b12;
-  --warning-foreground: #fffdf8;
-  --info: #3f6f79;
-  --info-foreground: #fffdf8;
+  --background: #f9f5ed;
+  --foreground: #2a2a2a;
+  --card: #ffffff;
+  --card-foreground: #2a2a2a;
+  --popover: #ffffff;
+  --popover-foreground: #2a2a2a;
+  --primary: #2a2a2a;
+  --primary-foreground: #f9f5ed;
+  --secondary: #f1ece3;
+  --secondary-foreground: #2a2a2a;
+  --muted: #f3efe7;
+  /* Warm grey: 5.3:1 on seashell, 4.9:1 on muted. */
+  --muted-foreground: #6b655c;
+  /* Pale denim wash for hovered/selected menu rows. */
+  --accent: #eaf0f6;
+  --accent-foreground: #2a2a2a;
+  --destructive: #a13f36;
+  /* Hairline for surfaces; --input is the control outline and keeps 3:1 for form controls. */
+  --border: #e6e0d5;
+  --input: #928a7e;
+  --ring: #5e83ae;
+  /* Denim as a fill (highlights, active states) and as readable ink. */
+  --brand: #5e83ae;
+  --brand-foreground: #ffffff;
+  --brand-ink: #44678f;
+  --brand-2: #44678f;
+  /* Status: muted and matte; each passes AA as text on card, seashell and its own 10–15% tint. */
+  --success: #3d7155;
+  --success-foreground: #ffffff;
+  --warning: #855d14;
+  --warning-foreground: #ffffff;
+  --info: #44678f;
+  --info-foreground: #ffffff;
   /* WhatsApp mock-ups. */
-  --wa: #3d8a5f;
-  --wa-bubble: #dcefd6;
-  --wa-canvas: #efe6d6;
+  --wa: #357650;
+  --wa-bubble: #ddebd3;
+  --wa-canvas: #eee8dc;
+  /* Flat dimmer behind dialogs and sheets (no blur). */
+  --scrim: rgb(42 42 42 / 0.32);
   /* Chart series (validated: lightness band, chroma floor, CVD + normal-vision separation, 3:1 on card).
-     Moonstone · sand · slate · sage · rosewood. */
-  --chart-1: #1286a3;
-  --chart-2: #c47f36;
-  --chart-3: #4757a0;
-  --chart-4: #6e9a57;
-  --chart-5: #a85a6a;
-  --radius: 0.75rem;
-  /* Gunmetal sidebar in both modes: champagne text, moonstone active indicator. */
-  --sidebar: #1b242a;
-  --sidebar-foreground: #e9dcc4;
-  --sidebar-primary: #7eacb5;
-  --sidebar-primary-foreground: #1b242a;
-  --sidebar-accent: #27333b;
-  --sidebar-accent-foreground: #f5e4c8;
-  --sidebar-border: #2e3a42;
-  --sidebar-ring: #7eacb5;
+     Denim · ochre · pine · heather · clay. */
+  --chart-1: #4876b1;
+  --chart-2: #b07c32;
+  --chart-3: #047554;
+  --chart-4: #78569e;
+  --chart-5: #c46668;
+  --radius: 0.625rem;
+  /* Light sidebar: near-white, obsidian ink, denim active indicator. */
+  --sidebar: #fdfbf7;
+  --sidebar-foreground: #2a2a2a;
+  --sidebar-primary: #5e83ae;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1ece3;
+  --sidebar-accent-foreground: #2a2a2a;
+  --sidebar-border: #e6e0d5;
+  --sidebar-ring: #5e83ae;
 }
 
 .dark {
-  /* Gunmetal night: lifted card surfaces, champagne ink, moonstone primary. */
-  --background: #1b242a;
-  --foreground: #f5e4c8;
-  --card: #222d34;
-  --card-foreground: #f5e4c8;
-  --popover: #26323a;
-  --popover-foreground: #f5e4c8;
-  --primary: #7eacb5;
-  --primary-foreground: #1b242a;
-  --secondary: #2c3840;
-  --secondary-foreground: #f5e4c8;
-  --muted: #27323a;
-  --muted-foreground: #b3ac9f;
-  --accent: #383f40;
-  --accent-foreground: #f5e4c8;
-  --destructive: #e48a7e;
-  --border: #2e3a42;
-  --input: #3a4851;
-  --ring: #7eacb5;
-  --brand: #7eacb5;
-  --brand-foreground: #1b242a;
-  --brand-ink: #9cc3ca;
-  --brand-2: #f5e4c8;
-  --success: #86c29f;
-  --success-foreground: #1b242a;
-  --warning: #e2b866;
-  --warning-foreground: #1b242a;
-  --info: #9cc3ca;
-  --info-foreground: #1b242a;
+  /* Obsidian night: slightly lifted card surfaces, seashell ink, lightened denim accent. */
+  --background: #2a2a2a;
+  --foreground: #f9f5ed;
+  --card: #323232;
+  --card-foreground: #f9f5ed;
+  --popover: #363636;
+  --popover-foreground: #f9f5ed;
+  --primary: #f9f5ed;
+  --primary-foreground: #2a2a2a;
+  --secondary: #3a3936;
+  --secondary-foreground: #f9f5ed;
+  --muted: #353432;
+  --muted-foreground: #b3ada3;
+  --accent: #36404c;
+  --accent-foreground: #f9f5ed;
+  --destructive: #efa196;
+  --border: #41403d;
+  --input: #87827a;
+  --ring: #86a5cc;
+  --brand: #7d9dc4;
+  --brand-foreground: #2a2a2a;
+  --brand-ink: #9db8d9;
+  --brand-2: #9db8d9;
+  --success: #8dbf9f;
+  --success-foreground: #2a2a2a;
+  --warning: #d9b26f;
+  --warning-foreground: #2a2a2a;
+  --info: #9db8d9;
+  --info-foreground: #2a2a2a;
   --wa: #6fbf8e;
-  --wa-bubble: #24453d;
-  --wa-canvas: #151d22;
-  --chart-1: #2c9bb3;
-  --chart-2: #c08236;
-  --chart-3: #6676c4;
-  --chart-4: #5a8c4c;
-  --chart-5: #d07089;
-  --sidebar: #151c21;
-  --sidebar-foreground: #e9dcc4;
-  --sidebar-primary: #7eacb5;
-  --sidebar-primary-foreground: #1b242a;
-  --sidebar-accent: #24303a;
-  --sidebar-accent-foreground: #f5e4c8;
-  --sidebar-border: #263138;
-  --sidebar-ring: #7eacb5;
+  --wa-bubble: #2b4438;
+  --wa-canvas: #232323;
+  --scrim: rgb(0 0 0 / 0.55);
+  --chart-1: #6595d1;
+  --chart-2: #bf8941;
+  --chart-3: #2da088;
+  --chart-4: #9d78c6;
+  --chart-5: #d57573;
+  --sidebar: #242424;
+  --sidebar-foreground: #ede8df;
+  --sidebar-primary: #86a5cc;
+  --sidebar-primary-foreground: #2a2a2a;
+  --sidebar-accent: #353432;
+  --sidebar-accent-foreground: #f9f5ed;
+  --sidebar-border: #383735;
+  --sidebar-ring: #86a5cc;
 }
 
 @layer base {
@@ -178,7 +194,7 @@
     @apply bg-background text-foreground;
   }
   ::selection {
-    background: color-mix(in oklab, var(--brand) 40%, transparent);
+    background: color-mix(in oklab, var(--brand) 30%, transparent);
   }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;
@@ -191,13 +207,6 @@
   h1, h2, h3 {
     @apply tracking-tight;
   }
-}
-
-@utility bg-grid {
-  background-image:
-    linear-gradient(to right, color-mix(in oklch, var(--foreground) 6%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklch, var(--foreground) 6%, transparent) 1px, transparent 1px);
-  background-size: 32px 32px;
 }
 
 @utility tabular {

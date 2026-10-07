@@ -34,7 +34,7 @@ export default function LoginPage() {
           <p className="mt-2 mb-8 text-muted-foreground text-pretty">
             Sign in with your WhatsApp number. No password needed.
           </p>
-          <div className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+          <div className="rounded-xl border bg-card p-5 shadow-sm sm:p-6">
             <Suspense fallback={<Skeleton className="h-40 w-full" />}>
               <LoginForm />
             </Suspense>
@@ -44,13 +44,11 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-      <div className="relative hidden overflow-hidden bg-sidebar text-sidebar-foreground lg:flex lg:items-center lg:justify-center">
-        <div aria-hidden className="absolute -top-24 -right-24 size-96 rounded-full bg-sidebar-primary/25 blur-3xl" />
-        <div aria-hidden className="absolute -bottom-32 -left-16 size-96 rounded-full bg-secondary/15 blur-3xl" />
-        <div className="relative w-full max-w-md px-8">
-          <p className="mb-4 text-sm font-medium text-sidebar-foreground/70">What lands on your phone</p>
-          <WhatsAppBubble text={SAMPLE} time="09:41" className="rounded-2xl shadow-2xl" />
-          <p className="mt-8 text-2xl font-semibold tracking-tight text-balance text-sidebar-accent-foreground">
+      <div className="hidden border-l bg-accent text-accent-foreground lg:flex lg:items-center lg:justify-center">
+        <div className="w-full max-w-md px-8">
+          <p className="mb-4 text-sm font-medium text-muted-foreground">What lands on your phone</p>
+          <WhatsAppBubble text={SAMPLE} time="09:41" className="rounded-xl border shadow-sm" />
+          <p className="mt-8 text-2xl font-semibold tracking-tight text-balance">
             The emails that matter, on the app you actually check.
           </p>
         </div>

@@ -281,7 +281,7 @@ export function TemplateEditor({ template }: { template?: EmailTemplate }) {
             <CardContent className="space-y-4">
               <Field data-invalid={Boolean(errors.name) || undefined}>
                 <FieldLabel htmlFor="tpl-name">Name</FieldLabel>
-                <div className="flex items-center rounded-lg border border-input font-mono text-sm focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 has-[[aria-invalid=true]]:border-destructive dark:bg-input/30">
+                <div className="flex items-center rounded-lg border border-input font-mono text-sm focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 has-[[aria-invalid=true]]:border-destructive dark:bg-input/15">
                   <span className="pl-2.5 text-muted-foreground select-none">/email&nbsp;</span>
                   <Input
                     id="tpl-name"

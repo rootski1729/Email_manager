@@ -13,10 +13,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#faf5ec" },
-    { media: "(prefers-color-scheme: dark)", color: "#1b242a" },
-  ],
+  // Light is the default theme for everyone, so the browser chrome matches Seashell.
+  themeColor: "#f9f5ed",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

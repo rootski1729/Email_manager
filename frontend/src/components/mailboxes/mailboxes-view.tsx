@@ -57,7 +57,7 @@ export function MailboxesView() {
       {mailboxes.isPending ? (
         <div className="grid gap-4 md:grid-cols-2">
           {Array.from({ length: 2 }, (_, i) => (
-            <Skeleton key={i} className="h-44 rounded-2xl" />
+            <Skeleton key={i} className="h-44 rounded-xl" />
           ))}
         </div>
       ) : mailboxes.isError ? (

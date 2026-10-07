@@ -26,7 +26,7 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full" aria-label="Account menu">
           <Avatar className="size-7">
-            <AvatarFallback className="bg-brand/25 text-[11px] font-semibold text-brand-ink">
+            <AvatarFallback className="bg-brand/15 text-[11px] font-semibold text-brand-ink">
               {user?.display_name ? initials(user.display_name) : <UserRound className="size-3.5" />}
             </AvatarFallback>
           </Avatar>

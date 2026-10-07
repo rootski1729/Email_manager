@@ -75,7 +75,7 @@ export function PredicateRow({ node, canDelete }: { node: PredicateNode; canDele
             </SelectContent>
           </Select>
           {node.field === HEADER_PREFIX ? (
-            <div className="flex min-w-0 flex-1 basis-40 items-center rounded-lg border border-input font-mono text-[13px] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 @3xl:w-44 @3xl:flex-none dark:bg-input/30">
+            <div className="flex min-w-0 flex-1 basis-40 items-center rounded-lg border border-input font-mono text-[13px] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 @3xl:w-44 @3xl:flex-none dark:bg-input/15">
               <span className="pl-2 text-muted-foreground select-none">header:</span>
               <Input
                 value={node.header}

@@ -54,14 +54,6 @@ export function OverviewChart({ series }: { series: DayCount[] }) {
           <TabsContent value="mail">
             <ChartContainer config={mailConfig} className="aspect-auto h-64 w-full">
               <AreaChart data={data} margin={{ left: 0, right: 8, top: 8 }}>
-                <defs>
-                  {(["matched", "sent"] as const).map((k) => (
-                    <linearGradient key={k} id={`admin-fill-${k}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={`var(--color-${k})`} stopOpacity={0.22} />
-                      <stop offset="95%" stopColor={`var(--color-${k})`} stopOpacity={0.02} />
-                    </linearGradient>
-                  ))}
-                </defs>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
                 <YAxis tickLine={false} axisLine={false} width={32} allowDecimals={false} />
@@ -74,7 +66,8 @@ export function OverviewChart({ series }: { series: DayCount[] }) {
                     type="monotone"
                     stroke={`var(--color-${k})`}
                     strokeWidth={2}
-                    fill={`url(#admin-fill-${k})`}
+                    fill={`var(--color-${k})`}
+                    fillOpacity={0.08}
                     activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }}
                     isAnimationActive={false}
                   />

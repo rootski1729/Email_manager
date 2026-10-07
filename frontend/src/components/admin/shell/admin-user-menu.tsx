@@ -52,7 +52,7 @@ export function AdminUserMenu() {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Theme</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={setTheme}>
+          <DropdownMenuRadioGroup value={theme ?? "light"} onValueChange={setTheme}>
             <DropdownMenuRadioItem value="light">
               <Sun /> Light
             </DropdownMenuRadioItem>
