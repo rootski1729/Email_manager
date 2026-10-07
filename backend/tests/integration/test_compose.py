@@ -206,3 +206,27 @@ async def test_update_login_keeps_passwords_and_smtp_unless_changed(client, setu
     assert resp.json()["can_send"] is False
     assert (await client.get(f"/api/v1/mailboxes/{mailbox['id']}/connection", headers=headers)).json()[
         "smtp_host"] is None
+
+
+async def test_self_chat_with_engines_that_leave_to_empty(client, setup, monkeypatch):
+    """GOWS/NOWEB report the chat in `from` and no `to` (seen in production on 2026-10-07)."""
+    await get_redis().set(Keys.WAHA_HEALTH, json.dumps({"status": "WORKING", "me": USER_CHAT}))
+
+    async def lid_lookup(self, lid):
+        return USER_CHAT if lid == "777000111@lid" else None
+
+    monkeypatch.setattr("app.notify.waha.WahaClient.phone_for_lid", lid_lookup)
+    own = {"id": f"true_{USER_CHAT}_{next(counter):06d}", "from": USER_CHAT, "to": None, "fromMe": True,
+           "body": "/templates", "hasMedia": False}
+    assert await compose.handle_inbound(own) == "templates"
+    via_lid = {**own, "id": f"true_lid_{next(counter):06d}", "from": "777000111@lid", "body": "/help"}
+    assert await compose.handle_inbound(via_lid) == "help"
+    # The same command typed in a chat with a friend must never run.
+    to_friend = {**own, "id": f"true_friend_{next(counter):06d}", "from": "14155550177@c.us", "body": "/email"}
+    assert await compose.handle_inbound(to_friend) == "ignored"
+    # The bot's own reply echoed back into the self chat is not a command.
+    from app.notify import guard
+
+    await guard.remember_text(USER_CHAT, "/send\nTo: a@b.com\nBody:\nhi")
+    echo = {**own, "id": f"true_echo_{next(counter):06d}", "body": "/send\nTo: a@b.com\nBody:\nhi"}
+    assert await compose.handle_inbound(echo) == "ignored"

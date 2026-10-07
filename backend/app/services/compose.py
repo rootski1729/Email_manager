@@ -112,18 +112,20 @@ async def identify(payload: dict[str, Any], waha: WahaClient) -> Inbound | None:
         return None
     text = str(payload.get("body") or "")
     if payload.get("fromMe"):
-        # Only the "Message yourself" chat counts, and never our own replies.
+        # Commands typed on the bot's own phone count only in its "Message yourself" chat, never in chats
+        # with other people. Engines differ: `from` is the chat (GOWS/NOWEB) or `to` is (WEBJS).
         if await guard.is_own_id(message_id):
             return None
-        target = str(payload.get("to") or "")
-        if await guard.is_own_text(target, text):
-            return None
         me = await own_phone(waha)
-        if not me or await resolve_phone(target, waha) != me:
+        if not me:
             return None
+        chats = {c for c in (chat, str(payload.get("to") or "")) if c}
+        if not chats or any([await resolve_phone(c, waha) != me for c in chats]):
+            return None
+        for c in (*chats, phone_to_chat_id(me)):
+            if await guard.is_own_text(c, text):
+                return None  # the echo of something the bot itself sent
         sender = me
-        if await guard.is_own_text(phone_to_chat_id(me), text):
-            return None
     else:
         sender = await resolve_phone(chat, waha)
         if not sender:
