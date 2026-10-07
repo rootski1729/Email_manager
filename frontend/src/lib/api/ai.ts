@@ -20,12 +20,20 @@ export function useAiAvailable() {
   return status.data?.available ?? false;
 }
 
-/** Three reply ideas for a message. A POST, but loaded like a query so it runs once per open panel. */
-export const replyIdeasQuery = (messageId: string) =>
+/**
+ * Three reply ideas for a message, optionally steered by `guidance` ("politely decline").
+ * A POST, but loaded like a query so it runs once per open panel and per guidance.
+ */
+export const replyIdeasQuery = (messageId: string, guidance = "") =>
   queryOptions({
-    queryKey: qk.aiReplyIdeas(messageId),
+    queryKey: qk.aiReplyIdeas(messageId, guidance),
     queryFn: () =>
-      unwrap(api.POST("/api/v1/messages/{message_id}/ai/replies", { params: { path: { message_id: messageId } } })),
+      unwrap(
+        api.POST("/api/v1/messages/{message_id}/ai/replies", {
+          params: { path: { message_id: messageId } },
+          body: guidance ? { guidance } : undefined,
+        }),
+      ),
     staleTime: Infinity,
     gcTime: 60_000,
     retry: false,

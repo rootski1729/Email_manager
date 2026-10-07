@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, MoreHorizontal, Paperclip, SearchX, Sparkles, Trash2 } from "lucide-react";
+import { ExternalLink, MoreHorizontal, Reply, SearchX, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -24,27 +24,20 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAiAvailable } from "@/lib/api/ai";
 import { ApiError } from "@/lib/api/errors";
-import { destinationsQuery, messageQuery, useDeleteMessage } from "@/lib/api/queries";
-import { absoluteTime, initials } from "@/lib/format";
+import { destinationsQuery, messageContentQuery, messageQuery, useDeleteMessage } from "@/lib/api/queries";
+import { initials } from "@/lib/format";
 import { DetectedDates } from "./detected-dates";
+import { FullEmail } from "./full-email";
 import { MuteMenu } from "./mute-menu";
 import { RemindMenu } from "./remind-menu";
 import { WhatsAppDeliveries } from "./whatsapp-deliveries";
 
 const BACK = { href: "/messages", label: "Important mail" };
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[5.5rem_1fr] gap-3 py-2 text-sm sm:grid-cols-[7rem_1fr]">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 break-words">{children}</dd>
-    </div>
-  );
-}
-
 export function MessageDetailView({ id }: { id: string }) {
   const router = useRouter();
   const message = useQuery(messageQuery(id));
+  const content = useQuery({ ...messageContentQuery(id), enabled: message.isSuccess });
   const destinations = useQuery(destinationsQuery);
   const remove = useDeleteMessage();
   const [deleting, setDeleting] = useState(false);
@@ -79,6 +72,9 @@ export function MessageDetailView({ id }: { id: string }) {
   const m = message.data;
   const from = m.from_name || m.from_address;
   const provider = m.web_url?.includes("mail.google.com") ? "Gmail" : "your mail";
+  const to = content.data?.to ?? m.to_addresses;
+  const cc = content.data?.cc ?? [];
+  const recipients = [to.join(", "), cc.length ? `cc ${cc.join(", ")}` : ""].filter(Boolean).join(" · ");
 
   return (
     <div className="space-y-6">
@@ -122,7 +118,7 @@ export function MessageDetailView({ id }: { id: string }) {
 
       {aiAvailable && replying ? <ReplyWithAiPanel messageId={m.id} onClose={() => setReplying(false)} /> : null}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-6">
           <article className="rounded-xl border bg-card p-4 sm:p-6">
             <div className="flex items-start gap-3">
@@ -132,9 +128,21 @@ export function MessageDetailView({ id }: { id: string }) {
               >
                 {initials(from)}
               </span>
-              <div className="min-w-0">
-                <div className="truncate font-medium">{from}</div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <div className="min-w-0 truncate font-medium">{from}</div>
+                  {content.data?.kind === "reply" ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                      <Reply className="size-3.5" aria-hidden /> Reply in a thread
+                    </span>
+                  ) : null}
+                </div>
                 <div className="truncate text-sm text-muted-foreground">{m.from_address}</div>
+                {recipients ? (
+                  <div className="truncate text-sm text-muted-foreground" title={recipients}>
+                    to {recipients}
+                  </div>
+                ) : null}
               </div>
             </div>
             {m.ai_summary ? (
@@ -148,42 +156,9 @@ export function MessageDetailView({ id }: { id: string }) {
                 ) : null}
               </div>
             ) : null}
-            {m.snippet ? (
-              <blockquote className="mt-5 text-[0.95rem] leading-relaxed text-pretty">
-                {m.snippet}
-                {m.web_url ? (
-                  <span className="mt-2 block text-sm text-muted-foreground">
-                    This is a preview.{" "}
-                    <a href={m.web_url} target="_blank" rel="noreferrer noopener" className="font-medium text-brand-ink underline-offset-2 hover:underline">
-                      Read the full email in {provider}
-                    </a>
-                    .
-                  </span>
-                ) : null}
-              </blockquote>
-            ) : null}
-            <details className="group mt-5 border-t pt-4 text-sm">
-              <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring">
-                More details
-              </summary>
-              <dl className="mt-2 divide-y">
-                <Row label="To">{m.to_addresses.length ? m.to_addresses.join(", ") : "—"}</Row>
-                <Row label="Received">{absoluteTime(m.received_at)}</Row>
-                <Row label="Mailbox">{m.mailbox_address ?? "—"}</Row>
-                {m.has_attachments ? (
-                  <Row label="Attachments">
-                    <span className="inline-flex items-center gap-1">
-                      <Paperclip className="size-3.5" /> Yes
-                    </span>
-                  </Row>
-                ) : null}
-                {m.list_id ? (
-                  <Row label="Mailing list">
-                    <span className="font-mono text-xs">{m.list_id}</span>
-                  </Row>
-                ) : null}
-              </dl>
-            </details>
+            <div className="mt-6">
+              <FullEmail messageId={m.id} content={content} webUrl={content.data?.web_url ?? m.web_url} snippet={m.snippet} />
+            </div>
           </article>
 
           <WhatsAppDeliveries notifications={m.notifications} destinations={destMap} />

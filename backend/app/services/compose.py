@@ -456,7 +456,7 @@ async def _alert_command(db: AsyncSession, user: User, command: cmd.Command) -> 
 
 
 AI_OFF = ("✨ The AI assistant isn't available right now. It's turned off in *Settings*, or your administrator "
-          "hasn't set it up.\n\nYou can still reply yourself: */reply CODE manual*")
+          "hasn't set it up.\n\nYou can still reply yourself: */reply K7 manual* (use the code from the alert)")
 
 
 async def _send_files(db: AsyncSession, user: User, arg: str) -> None:

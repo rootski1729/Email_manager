@@ -111,6 +111,35 @@ export const messageQuery = (id: string) =>
       unwrap(api.GET("/api/v1/messages/{message_id}", { params: { path: { message_id: id } } })),
   });
 
+/** The whole email, read live from the mailbox (slow-ish, may 502), so it's cached and never auto-retried. */
+export const messageContentQuery = (id: string) =>
+  queryOptions({
+    queryKey: qk.messageContent(id),
+    queryFn: () =>
+      unwrap(api.GET("/api/v1/messages/{message_id}/content", { params: { path: { message_id: id } } })),
+    staleTime: 5 * 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+/** Fetch one attachment with the bearer token and hand it to the browser as a download. */
+export async function downloadAttachment(messageId: string, file: { index: number; name: string }): Promise<void> {
+  const blob = await unwrap(
+    api.GET("/api/v1/messages/{message_id}/attachments/{index}", {
+      params: { path: { message_id: messageId, index: file.index } },
+      parseAs: "blob",
+    }),
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.name || `attachment-${file.index + 1}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
 export const notificationsQuery = (status?: NotificationStatus) =>
   infiniteQueryOptions({
     queryKey: qk.notifications(status),

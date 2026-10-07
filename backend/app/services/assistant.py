@@ -178,8 +178,8 @@ async def draft_reply_for(
         draft = await ai.draft_reply(subject=env.subject, sender=_sender(env), body=env.body_text or env.snippet,
                                      instructions=instructions, user_name=user.display_name)
     except AIUnavailable as exc:
-        raise AssistantError("The AI couldn't write the reply just now. Try again, or use /reply CODE manual.") \
-            from exc
+        hint = f" Or write it yourself: /reply {message.ref} manual" if source == "whatsapp" else ""
+        raise AssistantError(f"The AI couldn't write the reply just now. Try again in a minute.{hint}") from exc
     return await create_draft(db, user, mailbox=mailbox, to=[reply_address(message, env)], cc=[],
                               subject=draft.subject, body=draft.body, reply_to=message, source=source)
 

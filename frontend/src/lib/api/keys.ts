@@ -12,6 +12,8 @@ export const qk = {
     ["messages", "list", filters] as const,
   messagesAll: ["messages"] as const,
   message: (id: string) => ["messages", "detail", id] as const,
+  // Outside the "messages" prefix on purpose: it's a live mailbox read, so list invalidations shouldn't refetch it.
+  messageContent: (id: string) => ["message-content", id] as const,
   notifications: (status?: string) => ["notifications", "list", status ?? "all"] as const,
   notificationsAll: ["notifications"] as const,
   destinations: ["destinations"] as const,
@@ -29,7 +31,7 @@ export const qk = {
   ruleSuggestions: (mailboxId: string) => ["rule-suggestions", mailboxId] as const,
   onboarding: ["onboarding"] as const,
   aiStatus: ["ai", "status"] as const,
-  aiReplyIdeas: (messageId: string) => ["ai", "reply-ideas", messageId] as const,
+  aiReplyIdeas: (messageId: string, guidance = "") => ["ai", "reply-ideas", messageId, guidance] as const,
   adminWaha: ["admin", "waha"] as const,
   adminQueues: ["admin", "queues"] as const,
 };
