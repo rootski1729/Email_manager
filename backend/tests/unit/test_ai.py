@@ -86,6 +86,10 @@ async def test_client_errors_become_ai_unavailable(monkeypatch) -> None:
     with pytest.raises(AIUnavailable, match="401"):
         await ai_client.complete([], config=other)
     assert http.requests[0]["headers"] == {"Authorization": "Bearer k"}
+    filtered = httpx.Response(400, json={"error": {"code": "content_filter", "message": "filtered"}})
+    monkeypatch.setattr(ai_client, "get_http", lambda: FakeHttp(filtered))
+    with pytest.raises(AIUnavailable, match="safety filter"):
+        await ai_client.complete([], config=other)
     with pytest.raises(AIUnavailable, match="not configured"):
         await ai_client.complete([], config=AIConfig("", "", "", True, "environment"))
 

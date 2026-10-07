@@ -69,12 +69,16 @@ async def complete(
         raise AIUnavailable("The AI service is busy or unreachable") from exc
     assert resp is not None
     if resp.status_code != 200:
-        detail = ""
+        code, detail = "", ""
         try:
-            detail = resp.json().get("error", {}).get("message", "")
-        except ValueError:
+            error = resp.json().get("error", {})
+            code, detail = str(error.get("code") or ""), str(error.get("message") or "")
+        except (ValueError, AttributeError):
             pass
-        log.warning("ai_call_failed", status=resp.status_code, detail=detail[:300])
+        log.warning("ai_call_failed", status=resp.status_code, code=code, detail=detail[:300])
+        if code == "content_filter":
+            # Azure's safety filter (e.g. Prompt Shields spotting instructions hidden in an email).
+            raise AIUnavailable("Azure's safety filter declined this email")
         raise AIUnavailable(f"AI request failed ({resp.status_code}): {detail[:200]}")
     data = resp.json()
     try:
