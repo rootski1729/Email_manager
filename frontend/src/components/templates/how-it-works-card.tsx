@@ -20,7 +20,7 @@ export function HowItWorksCard() {
         <ol className="space-y-3">
           {STEPS.map((s, i) => (
             <li key={s.title} className="flex gap-3">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-muted-foreground ring-1 ring-border ring-inset">
                 {i + 1}
               </span>
               <div className="min-w-0 text-sm">
@@ -34,9 +34,9 @@ export function HowItWorksCard() {
           <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring">
             All email commands
           </summary>
-          <dl className="mt-2 divide-y rounded-xl border">
+          <dl className="mt-2 divide-y border-y">
             {COMMANDS.map((c) => (
-              <div key={c.command} className="grid grid-cols-1 gap-0.5 px-3 py-2 min-[420px]:grid-cols-[7.5rem_1fr] min-[420px]:gap-2">
+              <div key={c.command} className="grid grid-cols-1 gap-0.5 py-2 min-[420px]:grid-cols-[7.5rem_1fr] min-[420px]:gap-2">
                 <dt>
                   <code className="font-mono text-[12px] font-medium">{c.command}</code>
                 </dt>
@@ -45,7 +45,7 @@ export function HowItWorksCard() {
             ))}
           </dl>
         </details>
-        <p className="flex gap-2 rounded-xl bg-success/10 px-3 py-2 text-xs">
+        <p className="flex gap-2 border-t pt-4 text-xs text-muted-foreground">
           <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
           Only your own WhatsApp number can send email.
         </p>

@@ -23,7 +23,7 @@ export function Timeline({ events, nextId }: { events: EventItem[]; nextId?: str
             <h2 id={`tl-${g.id}`} className="text-sm font-semibold tracking-tight">
               {g.label}
             </h2>
-            <span className="rounded-full bg-muted px-1.5 text-xs font-medium text-muted-foreground tabular">{g.events.length}</span>
+            <span className="rounded-md bg-muted px-1.5 text-xs font-medium text-muted-foreground tabular">{g.events.length}</span>
             <div aria-hidden className="h-px flex-1 bg-border" />
           </div>
           <ol className="relative space-y-3 border-l border-dashed border-border pl-4 sm:pl-5">

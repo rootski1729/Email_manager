@@ -55,9 +55,9 @@ export function ReplyWithAiPanel({ messageId, onClose }: { messageId: string; on
           <div className="flex flex-wrap gap-2">
             {ideas.isPending ? (
               <>
-                <Skeleton className="h-8 w-32 rounded-full" />
-                <Skeleton className="h-8 w-40 rounded-full" />
-                <Skeleton className="h-8 w-28 rounded-full" />
+                <Skeleton className="h-8 w-32 rounded-lg" />
+                <Skeleton className="h-8 w-40 rounded-lg" />
+                <Skeleton className="h-8 w-28 rounded-lg" />
               </>
             ) : ideas.isError ? (
               <p className="text-sm text-muted-foreground">No ideas this time. Say what to reply below.</p>
@@ -68,7 +68,7 @@ export function ReplyWithAiPanel({ messageId, onClose }: { messageId: string; on
                   type="button"
                   title={idea.instruction}
                   onClick={() => write(idea.instruction)}
-                  className="inline-flex h-8 items-center rounded-full bg-secondary px-3 text-sm font-medium text-secondary-foreground outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring"
+                  className="inline-flex h-8 items-center rounded-lg bg-secondary px-3 text-sm font-medium text-secondary-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-3 focus-visible:ring-ring"
                 >
                   {idea.label}
                 </button>

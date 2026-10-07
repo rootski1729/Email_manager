@@ -33,13 +33,13 @@ export function AppSidebar() {
   const badges: Record<string, number> = { "/mailboxes": attention };
 
   return (
-    <Sidebar collapsible="icon" variant="inset">
+    <Sidebar collapsible="icon" className="border-sidebar-border">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild className="hover:bg-transparent">
+            <SidebarMenuButton size="lg" asChild className="hover:bg-transparent active:bg-transparent [&_svg]:size-7">
               <Link href="/dashboard" aria-label="Home" onClick={() => setOpenMobile(false)}>
-                <Brand className="text-sidebar-accent-foreground" />
+                <Brand className="text-foreground" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -48,7 +48,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-0.5">
               {NAV.map((item) => {
                 const active = isActive(pathname, item);
                 const badge = badges[item.href];
@@ -56,19 +56,18 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
-                      size="lg"
                       isActive={active}
                       tooltip={item.label}
-                      className="relative h-10 gap-3 text-[0.9rem] text-sidebar-foreground/80 group-data-[collapsible=icon]:size-10! before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-sidebar-primary before:opacity-0 before:transition-opacity data-active:text-sidebar-accent-foreground data-active:before:opacity-100 data-active:[&_svg]:text-sidebar-primary group-data-[collapsible=icon]:before:hidden"
+                      className="h-9 gap-2.5 px-2.5 text-sidebar-foreground [&_svg]:text-sidebar-foreground/70 data-active:[&_svg]:text-sidebar-primary"
                     >
                       <Link href={item.href} onClick={() => setOpenMobile(false)} aria-current={active ? "page" : undefined}>
-                        <item.icon className="size-[18px]!" />
+                        <item.icon className="size-4.5!" />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                     {badge ? (
                       <SidebarMenuBadge
-                        className="top-2.5! rounded-full bg-sidebar-primary px-1.5 text-sidebar-primary-foreground peer-hover/menu-button:text-sidebar-primary-foreground peer-data-active/menu-button:text-sidebar-primary-foreground"
+                        className="top-2! rounded-full bg-sidebar-primary px-1.5 text-sidebar-primary-foreground peer-hover/menu-button:text-sidebar-primary-foreground peer-data-active/menu-button:text-sidebar-primary-foreground"
                         aria-label={`${badge} need${badge === 1 ? "s" : ""} attention`}
                       >
                         {badge}
@@ -81,10 +80,13 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         {user ? (
-          <div className="truncate px-2 pb-1 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
-            Signed in as {user.display_name || maskPhone(user.phone_e164)}
+          <div className="mx-1 border-t border-sidebar-border px-1.5 pt-3 pb-1 text-xs leading-snug">
+            <span className="block text-sidebar-foreground/60">Signed in as</span>
+            <span className="block truncate font-medium text-sidebar-foreground">
+              {user.display_name || maskPhone(user.phone_e164)}
+            </span>
           </div>
         ) : null}
       </SidebarFooter>

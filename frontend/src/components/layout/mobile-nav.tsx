@@ -13,12 +13,12 @@ export function MobileNav() {
   const { setOpenMobile } = useSidebar();
   const inMore = !NAV_MOBILE.some((n) => isActive(pathname, n)) && NAV.some((n) => isActive(pathname, n));
   const item =
-    "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 pt-2 pb-1.5 text-[11px] font-medium outline-none focus-visible:bg-accent";
-  const pill = "flex h-7 w-12 items-center justify-center rounded-full transition-colors";
+    "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 pt-1.5 pb-1.5 text-[11px] font-medium outline-none focus-visible:bg-accent";
+  const pill = "flex h-7 w-11 items-center justify-center rounded-lg transition-colors";
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
     >
       {NAV_MOBILE.map((n) => {
         const active = isActive(pathname, n);
@@ -29,7 +29,7 @@ export function MobileNav() {
             aria-current={active ? "page" : undefined}
             className={cn(item, active ? "text-foreground" : "text-muted-foreground")}
           >
-            <span className={cn(pill, active && "bg-brand text-brand-foreground")}>
+            <span className={cn(pill, active && "bg-accent text-brand-ink")}>
               <n.icon className="size-5" />
             </span>
             <span className="max-w-full truncate px-1">{n.short ?? n.label}</span>
@@ -41,7 +41,7 @@ export function MobileNav() {
         onClick={() => setOpenMobile(true)}
         className={cn(item, inMore ? "text-foreground" : "text-muted-foreground")}
       >
-        <span className={cn(pill, inMore && "bg-brand text-brand-foreground")}>
+        <span className={cn(pill, inMore && "bg-accent text-brand-ink")}>
           <Menu className="size-5" />
         </span>
         More

@@ -82,22 +82,22 @@ export function EventCard({
       id={`event-${event.id}`}
       aria-label={event.title}
       className={cn(
-        "group/event relative scroll-mt-24 overflow-hidden rounded-xl border bg-card transition-shadow before:absolute before:inset-y-0 before:left-0 before:w-1",
-        meta.accent,
-        next && "ring-1 ring-brand",
-        suggested && "border-dashed bg-card/70",
-        compact ? "p-3 pl-4" : "p-4 pl-5",
+        "group/event relative scroll-mt-24 overflow-hidden rounded-xl border bg-card transition-shadow",
+        next && "border-primary/40",
+        suggested && "border-dashed",
+        // Compact cards sit inside another card: no second frame, just the row.
+        compact ? "rounded-none border-0 bg-transparent px-0 py-2.5" : "p-4",
       )}
     >
       <div className="flex gap-3">
         <span
           className={cn(
-            "flex shrink-0 items-center justify-center rounded-xl",
+            "flex shrink-0 items-center justify-center rounded-lg",
             meta.tile,
-            compact ? "size-9" : "size-10",
+            compact ? "size-8" : "size-9",
           )}
         >
-          <meta.icon className={compact ? "size-4" : "size-5"} aria-hidden />
+          <meta.icon className={compact ? "size-4" : "size-4.5"} aria-hidden />
           <span className="sr-only">{meta.label}</span>
         </span>
         <div className="min-w-0 flex-1 space-y-1.5">
@@ -109,7 +109,7 @@ export function EventCard({
                 {suggested ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span tabIndex={0} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <span tabIndex={0} className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <StatusBadge tone={conf.tone}>
                           {conf.label} · {Math.round(event.confidence * 100)}%
                         </StatusBadge>

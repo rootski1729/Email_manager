@@ -16,14 +16,14 @@ const LOGIN_PATH = "/admin/login";
 function ShellSkeleton() {
   return (
     <div className="flex min-h-svh w-full" aria-busy="true" aria-label="Restoring your admin session">
-      <div className="hidden w-64 flex-col gap-3 bg-sidebar p-4 md:flex">
+      <div className="hidden w-64 flex-col gap-3 border-r bg-sidebar p-4 md:flex">
         <div className="flex items-center gap-2">
           <AdminMark />
-          <Skeleton className="h-4 w-28 bg-sidebar-accent" />
+          <Skeleton className="h-4 w-28 bg-sidebar-foreground/6" />
         </div>
         <div className="mt-6 space-y-2">
           {Array.from({ length: 9 }, (_, i) => (
-            <Skeleton key={i} className="h-8 w-full bg-sidebar-accent" />
+            <Skeleton key={i} className="h-8 w-full bg-sidebar-foreground/6" />
           ))}
         </div>
       </div>
@@ -66,11 +66,10 @@ function GuardedShell({ defaultOpen, children }: { defaultOpen: boolean; childre
       </a>
       <AdminSidebar />
       <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3 md:px-4">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur-md md:px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand/50 bg-brand/15 px-2.5 py-0.5 text-xs font-medium text-brand-ink">
-            <span aria-hidden className="size-1.5 rounded-full bg-brand" />
+          <span className="inline-flex h-6 items-center rounded-md bg-accent px-2 text-xs font-medium text-brand-ink">
             Admin console
           </span>
           <div className="ml-auto flex items-center gap-1.5">

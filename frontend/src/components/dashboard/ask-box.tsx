@@ -17,7 +17,7 @@ export function AskBox() {
   if (!available) return null;
 
   return (
-    <section aria-label="Ask about your mail" className="space-y-3 rounded-xl border bg-card p-4">
+    <section aria-label="Ask about your mail" className="space-y-3">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -25,7 +25,7 @@ export function AskBox() {
           if (q.length >= 2 && !ask.isPending) ask.mutate(q);
         }}
       >
-        <InputGroup className="h-10">
+        <InputGroup className="h-11 shadow-xs">
           <InputGroupAddon>
             <MessageCircleQuestion />
           </InputGroupAddon>
@@ -49,7 +49,7 @@ export function AskBox() {
         </p>
       ) : null}
       {ask.data ? (
-        <div className="space-y-2 text-sm" aria-live="polite">
+        <div className="space-y-2 rounded-xl border bg-card px-4 py-3 text-sm" aria-live="polite">
           <p className="whitespace-pre-line text-pretty">{ask.data.answer}</p>
           {ask.data.refs.length ? (
             <ul className="flex flex-col gap-1">

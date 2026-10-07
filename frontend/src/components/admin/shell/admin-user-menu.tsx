@@ -32,7 +32,7 @@ export function AdminUserMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-9 gap-2 rounded-full pr-3 pl-1" aria-label="Admin menu">
+          <Button variant="ghost" className="h-9 gap-2 pr-2.5 pl-1" aria-label="Admin menu">
             <Avatar className="size-7">
               <AvatarFallback className="bg-primary text-[11px] font-semibold text-primary-foreground">
                 {initials(name, "A")}

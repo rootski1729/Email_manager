@@ -8,16 +8,16 @@ import { cn } from "@/lib/utils";
 import { useSendTestAlert } from "./test-alert-button";
 
 const tile =
-  "group flex h-full items-center gap-3 rounded-xl border bg-card p-4 text-left outline-none transition-colors hover:border-brand/60 focus-visible:ring-3 focus-visible:ring-ring disabled:opacity-60";
+  "group flex h-full items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left outline-none transition-colors hover:border-input hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring disabled:opacity-60";
 
 function TileBody({ icon: Icon, title, hint, busy }: { icon: LucideIcon; title: string; hint: string; busy?: boolean }) {
   return (
     <>
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition-colors group-hover:bg-brand/30">
+      <span className="flex shrink-0 text-muted-foreground transition-colors group-hover:text-brand-ink">
         {busy ? <Spinner className="size-5" /> : <Icon className="size-5" aria-hidden />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block font-medium">{title}</span>
+        <span className="block text-sm font-medium">{title}</span>
         <span className="block text-sm text-muted-foreground text-pretty">{hint}</span>
       </span>
       <ArrowRight

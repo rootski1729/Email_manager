@@ -42,9 +42,9 @@ function LinkRow({ href, icon: Icon, title, hint }: { href: string; icon: Lucide
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-xl border bg-card p-4 outline-none transition-colors hover:border-brand/60 focus-visible:ring-3 focus-visible:ring-ring"
+      className="group flex items-center gap-3 rounded-xl border bg-card p-4 outline-none transition-colors hover:border-input hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring"
     >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
         <Icon className="size-5" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
@@ -134,7 +134,7 @@ export function SettingsView() {
               <CardTitle className="flex items-center justify-between gap-2">
                 Your plan
                 {me.data ? (
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground capitalize">
+                  <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-secondary-foreground capitalize">
                     {me.data.plan}
                   </span>
                 ) : null}

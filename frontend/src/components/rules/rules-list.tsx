@@ -46,7 +46,7 @@ function RuleCard({ rule }: { rule: Rule }) {
   return (
     <li
       className={cn(
-        "relative flex items-start gap-4 rounded-xl border bg-card p-4 transition-colors hover:border-brand/50 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring",
+        "relative flex items-start gap-4 rounded-xl border bg-card p-4 transition-colors hover:border-input has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring",
         !rule.enabled && "bg-muted/40",
       )}
     >
@@ -62,12 +62,12 @@ function RuleCard({ rule }: { rule: Rule }) {
             {rule.name}
           </Link>
           {urgent ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
+            <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
               <Siren className="size-3" aria-hidden /> Urgent
             </span>
           ) : null}
           {digest ? (
-            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-secondary-foreground">
+            <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-secondary-foreground">
               Daily summary
             </span>
           ) : null}
@@ -105,7 +105,7 @@ function SortableRow({ rule, index }: { rule: Rule; index: number }) {
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         "flex items-center gap-3 rounded-xl border bg-card py-2 pr-4 pl-1",
-        isDragging && "z-10 shadow-lg ring-2 ring-brand",
+        isDragging && "z-10 shadow-lg ring-2 ring-primary/50",
       )}
     >
       <button

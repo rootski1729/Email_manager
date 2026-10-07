@@ -58,7 +58,7 @@ export function TagInput({
         <span
           key={`${v}-${i}`}
           className={cn(
-            "inline-flex max-w-full items-center gap-0.5 rounded-full bg-secondary py-0.5 pr-0.5 pl-2.5 text-xs text-secondary-foreground",
+            "inline-flex max-w-full items-center gap-0.5 rounded-md bg-secondary py-0.5 pr-0.5 pl-2 text-xs text-secondary-foreground",
             mono && "font-mono",
             bad && "bg-destructive/10 text-destructive ring-1 ring-destructive/30 ring-inset",
           )}
@@ -68,7 +68,7 @@ export function TagInput({
           {bad ? <span className="sr-only"> (invalid)</span> : null}
           <button
             type="button"
-            className="rounded-full p-0.5 text-muted-foreground outline-none hover:bg-card hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="rounded-sm p-0.5 text-muted-foreground outline-none hover:bg-card hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`Remove ${v}`}
             onClick={(e) => {
               e.stopPropagation();

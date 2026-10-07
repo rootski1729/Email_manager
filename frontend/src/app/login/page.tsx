@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 import { LoginForm } from "@/components/auth/login-form";
 import { Brand } from "@/components/common/brand";
-import { WhatsAppBubble } from "@/components/common/whatsapp-bubble";
+import { PhoneMock } from "@/components/landing/phone-mock";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -34,7 +34,7 @@ export default function LoginPage() {
           <p className="mt-2 mb-8 text-muted-foreground text-pretty">
             Sign in with your WhatsApp number. No password needed.
           </p>
-          <div className="rounded-2xl border bg-card p-5 shadow-md sm:p-6">
+          <div className="rounded-xl border bg-card p-5 shadow-xs sm:p-6">
             <Suspense fallback={<Skeleton className="h-40 w-full" />}>
               <LoginForm />
             </Suspense>
@@ -44,14 +44,13 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-      <div className="hidden rounded-3xl border border-hero-border bg-hero text-hero-foreground lg:m-3 lg:flex lg:items-center lg:justify-center">
-        <div className="w-full max-w-md px-8">
-          <span aria-hidden className="mb-6 block h-1 w-12 rounded-full bg-brand" />
-          <p className="mb-4 text-sm font-medium text-hero-muted">What lands on your phone</p>
-          <WhatsAppBubble text={SAMPLE} time="09:41" className="rounded-2xl shadow-xl" />
-          <p className="mt-8 text-2xl font-semibold tracking-tight text-balance">
+      <div className="hidden overflow-hidden rounded-2xl border border-hero-border bg-linear-to-b from-hero to-hero/40 text-hero-foreground lg:m-3 lg:flex lg:flex-col lg:items-center lg:justify-center">
+        <div className="w-full max-w-md px-10">
+          <p className="text-3xl leading-tight font-semibold tracking-tight text-balance">
             The emails that matter, on the app you actually check.
           </p>
+          <p className="mt-10 mb-4 text-sm font-medium text-hero-muted">What lands on your phone</p>
+          <PhoneMock text={SAMPLE} time="09:41" className="mx-0" />
         </div>
       </div>
     </div>

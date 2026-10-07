@@ -53,12 +53,9 @@ function DestinationRow({
   return (
     <li className="flex items-center gap-3 rounded-xl border bg-card p-4">
       <span
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-xl",
-          d.kind === "whatsapp_group" ? "bg-brand/15 text-brand-ink" : "bg-wa/12 text-wa",
-        )}
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground"
       >
-        <kind.icon className="size-5" />
+        <kind.icon className="size-4.5" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -93,7 +90,7 @@ function DestinationRow({
                 update.mutate({ id: d.id, is_default: true }, { onSuccess: () => toast.success(`Alerts now go to ${d.label}`) })
               }
             >
-              <Star className={cn(d.is_default && "fill-warning text-warning")} />
+              <Star className={cn(d.is_default && "fill-primary text-primary")} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>{d.is_default ? "Alerts go here unless a rule says otherwise" : "Send alerts here by default"}</TooltipContent>

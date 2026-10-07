@@ -85,25 +85,19 @@ export function StatusLine() {
   const allGood = needsYou === 0 && !issues.some((i) => i.key === "waha");
 
   return (
-    <section
-      aria-live="polite"
-      className={cn(
-        "rounded-xl border p-4 sm:p-5",
-        allGood ? "border-success/25 bg-success/8" : needsYou ? "border-warning/30 bg-warning/8" : "bg-card",
-      )}
-    >
+    <section aria-live="polite" className="rounded-xl border bg-card px-4 py-4 sm:px-5">
       <div className="flex items-start gap-3">
         <span
           className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-full",
-            allGood ? "bg-success text-success-foreground" : needsYou ? "bg-warning text-warning-foreground" : "bg-info text-info-foreground",
+            "mt-0.5 flex shrink-0",
+            allGood ? "text-success" : needsYou ? "text-warning" : "text-info",
           )}
           aria-hidden
         >
           {allGood ? <CheckCircle2 className="size-5" /> : needsYou ? <AlertTriangle className="size-5" /> : <Info className="size-5" />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold tracking-tight sm:text-lg">
+          <p className="text-base font-semibold tracking-tight">
             {allGood
               ? "All good — WhatsApp alerts are on"
               : needsYou
@@ -121,11 +115,11 @@ export function StatusLine() {
         </div>
       </div>
       {issues.length ? (
-        <ul className="mt-3 space-y-2 sm:pl-13">
+        <ul className="mt-2 divide-y pl-8">
           {issues.map((i) => (
             <li
               key={i.key}
-              className="flex flex-col gap-2 rounded-xl bg-card/80 px-3 py-2.5 text-sm ring-1 ring-border sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-1 py-2.5 text-sm text-muted-foreground last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
             >
               <span className="text-pretty">{i.text}</span>
               {i.href && i.action ? (

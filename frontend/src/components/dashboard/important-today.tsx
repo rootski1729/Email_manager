@@ -36,15 +36,15 @@ function EmailRow({ r }: { r: Row }) {
       <Link
         href={`/messages/${r.id}`}
         className={cn(
-          "flex items-start gap-3 rounded-xl px-3 py-3 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring",
+          "flex items-start gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring",
           r.fresh && "animate-in fade-in slide-in-from-top-1",
         )}
       >
         <span
           aria-hidden
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-            r.fresh ? "bg-brand text-brand-foreground" : "bg-secondary text-secondary-foreground",
+            "flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold text-secondary-foreground",
+            r.fresh && "ring-2 ring-primary/40",
           )}
         >
           {initials(r.from)}
@@ -131,12 +131,12 @@ export function ImportantToday() {
         {latest.isPending && feed.length === 0 ? (
           <div className="space-y-2 px-3 py-2">
             {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-xl" />
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
             ))}
           </div>
         ) : shown.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-            <span className="flex size-11 items-center justify-center rounded-xl bg-brand/15 text-brand-ink">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
               <MailCheck className="size-5" aria-hidden />
             </span>
             <p className="max-w-xs text-sm text-muted-foreground text-pretty">

@@ -3,37 +3,37 @@ import { cn } from "@/lib/utils";
 
 export const TONE: Record<Tone, { badge: string; dot: string; text: string; soft: string }> = {
   success: {
-    badge: "bg-success/10 text-success ring-success/25",
+    badge: "bg-success/10 text-success",
     dot: "bg-success",
     text: "text-success",
     soft: "bg-success/10",
   },
   warning: {
-    badge: "bg-warning/15 text-foreground ring-warning/40",
+    badge: "bg-warning/10 text-warning",
     dot: "bg-warning",
     text: "text-warning",
     soft: "bg-warning/15",
   },
   danger: {
-    badge: "bg-destructive/10 text-destructive ring-destructive/25",
+    badge: "bg-destructive/10 text-destructive",
     dot: "bg-destructive",
     text: "text-destructive",
     soft: "bg-destructive/10",
   },
   info: {
-    badge: "bg-info/10 text-info ring-info/25",
+    badge: "bg-info/10 text-info",
     dot: "bg-info",
     text: "text-info",
     soft: "bg-info/10",
   },
   brand: {
-    badge: "bg-brand/15 text-brand-ink ring-brand/35",
+    badge: "bg-accent text-brand-ink",
     dot: "bg-brand",
     text: "text-brand-ink",
-    soft: "bg-brand/15",
+    soft: "bg-accent",
   },
   neutral: {
-    badge: "bg-muted text-muted-foreground ring-border",
+    badge: "bg-muted text-muted-foreground",
     dot: "bg-muted-foreground/60",
     text: "text-muted-foreground",
     soft: "bg-muted",
@@ -55,7 +55,7 @@ export function ToneBadge({
   return (
     <span
       className={cn(
-        "inline-flex h-5.5 shrink-0 items-center gap-1.5 rounded-full px-2 text-xs font-medium whitespace-nowrap ring-1 ring-inset",
+        "inline-flex h-5.5 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium whitespace-nowrap",
         t.badge,
         className,
       )}

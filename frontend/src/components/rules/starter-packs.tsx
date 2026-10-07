@@ -44,16 +44,16 @@ function PackCard({ pack, rule }: { pack: RulePack; rule?: Rule }) {
     <li
       className={cn(
         "relative flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors",
-        on ? "border-brand ring-1 ring-brand" : "hover:border-brand/50",
+        on ? "border-primary/45" : "hover:border-input",
       )}
     >
       <div className="flex items-start gap-3">
-        <PackIcon name={pack.icon} className="size-11" />
+        <PackIcon name={pack.icon} />
         <div className="min-w-0 flex-1">
           <label htmlFor={switchId} className="flex flex-wrap items-center gap-1.5 font-medium">
             {pack.name}
             {pack.urgent ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
+              <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
                 <Siren className="size-3" aria-hidden /> Urgent
               </span>
             ) : null}

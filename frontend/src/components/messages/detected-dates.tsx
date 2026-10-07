@@ -17,10 +17,10 @@ export function DetectedDates({ messageId, events }: { messageId: string; events
   const dismissed = events.length - visible.length;
 
   return (
-    <Card className="rounded-xl">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarClock className="size-4 text-brand-ink" /> Dates in this email
+          <CalendarClock className="size-4 text-muted-foreground" /> Dates in this email
         </CardTitle>
         <CardDescription>
           {visible.length
@@ -36,7 +36,7 @@ export function DetectedDates({ messageId, events }: { messageId: string; events
       {visible.length || dismissed ? (
         <CardContent className="space-y-3">
           {visible.length ? (
-            <ul className="space-y-2">
+            <ul className="divide-y border-y">
               {visible.map((e) => (
                 <li key={e.id}>
                   <EventCard event={e} showSource={false} compact />

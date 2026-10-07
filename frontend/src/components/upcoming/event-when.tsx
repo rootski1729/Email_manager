@@ -53,10 +53,10 @@ export function CountdownChip({ event, className }: { event: EventItem; classNam
   return (
     <span
       className={cn(
-        "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-semibold tabular shadow-xs ring-1 ring-inset",
+        "inline-flex h-5.5 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold tabular",
         soon
-          ? "bg-destructive/10 text-destructive ring-destructive/25"
-          : "bg-brand/15 text-brand-ink ring-brand/35",
+          ? "bg-destructive/10 text-destructive"
+          : "bg-accent text-brand-ink",
         className,
       )}
     >

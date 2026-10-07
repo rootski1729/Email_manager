@@ -9,7 +9,7 @@ export function RefBadge({ value, className, hint = true }: { value: string | nu
   const badge = (
     <span
       className={cn(
-        "inline-flex h-5 shrink-0 items-center gap-0.5 rounded-full bg-brand/15 px-2 font-mono text-[11px] font-semibold text-brand-ink tabular ring-1 ring-brand/35 ring-inset",
+        "inline-flex h-5 shrink-0 items-center gap-0.5 rounded-md bg-accent px-1.5 font-mono text-[11px] font-semibold text-brand-ink tabular",
         className,
       )}
     >

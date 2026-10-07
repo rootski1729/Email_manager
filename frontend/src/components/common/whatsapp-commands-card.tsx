@@ -27,11 +27,11 @@ const MORE: { command: string; description: string }[] = [
 
 function CommandList({ items }: { items: typeof MAIN }) {
   return (
-    <dl className="divide-y rounded-xl border bg-background/50 text-sm">
+    <dl className="divide-y border-y text-sm">
       {items.map((c) => (
-        <div key={c.command} className="grid grid-cols-1 gap-0.5 px-3 py-2.5 min-[420px]:grid-cols-[7.5rem_1fr] min-[420px]:gap-3">
+        <div key={c.command} className="grid grid-cols-1 gap-0.5 py-2.5 min-[420px]:grid-cols-[8rem_1fr] min-[420px]:gap-3">
           <dt>
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] font-medium">{c.command}</code>
+            <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[12px] font-medium">{c.command}</code>
           </dt>
           <dd className="text-muted-foreground">{c.description}</dd>
         </div>
@@ -65,11 +65,11 @@ export function WhatsAppCommandsCard({ className }: { className?: string }) {
             <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden />
           </CollapsibleTrigger>
         </Collapsible>
-        <p className="flex gap-2 rounded-xl bg-secondary/70 px-3 py-2.5 text-xs text-secondary-foreground">
-          <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
+        <p className="flex gap-2 pt-1 text-xs text-muted-foreground">
+          <Lightbulb className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           <span>
-            Easier still: reply to an alert and just type <em className="font-medium">remind 2h</em>,{" "}
-            <em className="font-medium">open</em> or <em className="font-medium">mute</em>. No code needed.
+            Easier still: reply to an alert and just type <em className="font-medium text-foreground">remind 2h</em>,{" "}
+            <em className="font-medium text-foreground">open</em> or <em className="font-medium text-foreground">mute</em>. No code needed.
           </span>
         </p>
       </CardContent>

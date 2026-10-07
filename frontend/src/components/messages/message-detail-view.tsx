@@ -124,11 +124,11 @@ export function MessageDetailView({ id }: { id: string }) {
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-6">
-          <article className="rounded-xl border bg-card p-4 sm:p-5">
+          <article className="rounded-xl border bg-card p-4 sm:p-6">
             <div className="flex items-start gap-3">
               <span
                 aria-hidden
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-secondary-foreground"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground"
               >
                 {initials(from)}
               </span>
@@ -138,8 +138,8 @@ export function MessageDetailView({ id }: { id: string }) {
               </div>
             </div>
             {m.ai_summary ? (
-              <div className="mt-4 rounded-xl bg-accent px-4 py-3 text-sm text-accent-foreground">
-                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">In short</p>
+              <div className="mt-5 rounded-lg bg-accent px-4 py-3 text-sm text-accent-foreground">
+                <p className="text-xs font-semibold tracking-wider text-brand-ink uppercase">In short</p>
                 <p className="mt-1 text-pretty">{m.ai_summary}</p>
                 {m.ai_action ? (
                   <p className="mt-1.5">
@@ -149,7 +149,7 @@ export function MessageDetailView({ id }: { id: string }) {
               </div>
             ) : null}
             {m.snippet ? (
-              <blockquote className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-[0.95rem] leading-relaxed text-pretty">
+              <blockquote className="mt-5 text-[0.95rem] leading-relaxed text-pretty">
                 {m.snippet}
                 {m.web_url ? (
                   <span className="mt-2 block text-sm text-muted-foreground">
@@ -162,7 +162,7 @@ export function MessageDetailView({ id }: { id: string }) {
                 ) : null}
               </blockquote>
             ) : null}
-            <details className="group mt-4 text-sm">
+            <details className="group mt-5 border-t pt-4 text-sm">
               <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring">
                 More details
               </summary>
@@ -200,12 +200,12 @@ export function MessageDetailView({ id }: { id: string }) {
                   {match.rule_id ? (
                     <Link
                       href={`/rules/${match.rule_id}`}
-                      className="inline-flex h-8 items-center rounded-full bg-secondary px-3 text-sm font-medium text-secondary-foreground outline-none hover:bg-brand/30 focus-visible:ring-3 focus-visible:ring-ring"
+                      className="inline-flex h-7 items-center rounded-md bg-secondary px-2.5 text-sm font-medium text-secondary-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-3 focus-visible:ring-ring"
                     >
                       {match.rule_name}
                     </Link>
                   ) : (
-                    <span className="inline-flex h-8 items-center rounded-full bg-muted px-3 text-sm text-muted-foreground">
+                    <span className="inline-flex h-7 items-center rounded-md bg-muted px-2.5 text-sm text-muted-foreground">
                       {match.rule_name} (removed)
                     </span>
                   )}

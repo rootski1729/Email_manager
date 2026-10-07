@@ -39,7 +39,7 @@ export function GmailConnectPanel({ onBack }: { onBack: () => void }) {
             <span className="text-muted-foreground"> to see if it&apos;s important. We never change or delete anything.</span>
           </span>
         </p>
-        <label className="flex cursor-pointer gap-3 rounded-xl border p-3 has-[[data-state=checked]]:border-brand has-[[data-state=checked]]:bg-brand/10">
+        <label className="flex cursor-pointer gap-3 rounded-xl border p-3 has-[[data-state=checked]]:border-primary/50 has-[[data-state=checked]]:bg-accent/60">
           <Checkbox checked={send} onCheckedChange={(v) => setSend(v === true)} className="mt-0.5" />
           <span className="text-sm">
             <span className="flex items-center gap-1.5 font-medium">

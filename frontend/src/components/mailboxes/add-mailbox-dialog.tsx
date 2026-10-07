@@ -15,10 +15,10 @@ import { GmailConnectPanel } from "./connect-gmail-button";
 type Step = { kind: "choose" } | { kind: "gmail" } | { kind: "imap"; preset: string; other: boolean };
 
 const CHOICES: { id: "gmail" | "outlook" | "yahoo" | "other"; label: string; hint: string; tile: string }[] = [
-  { id: "gmail", label: "Gmail", hint: "One click with your Google account", tile: "bg-chart-5/14 text-chart-5" },
-  { id: "outlook", label: "Outlook", hint: "Outlook, Hotmail, Microsoft 365", tile: "bg-chart-1/14 text-chart-1" },
-  { id: "yahoo", label: "Yahoo", hint: "Yahoo Mail", tile: "bg-chart-3/14 text-chart-3" },
-  { id: "other", label: "Other", hint: "Zoho, iCloud, work or school email…", tile: "bg-secondary text-secondary-foreground" },
+  { id: "gmail", label: "Gmail", hint: "One click with your Google account", tile: "bg-secondary text-muted-foreground" },
+  { id: "outlook", label: "Outlook", hint: "Outlook, Hotmail, Microsoft 365", tile: "bg-secondary text-muted-foreground" },
+  { id: "yahoo", label: "Yahoo", hint: "Yahoo Mail", tile: "bg-secondary text-muted-foreground" },
+  { id: "other", label: "Other", hint: "Zoho, iCloud, work or school email…", tile: "bg-secondary text-muted-foreground" },
 ];
 
 const TITLES: Record<string, string> = { outlook: "Add Outlook", yahoo: "Add Yahoo Mail" };
@@ -64,7 +64,7 @@ export function AddMailboxDialog({
               <li key={c.id}>
                 <button
                   type="button"
-                  className="group flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left outline-none transition-colors hover:border-brand hover:bg-brand/5 focus-visible:ring-3 focus-visible:ring-ring"
+                  className="group flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left outline-none transition-colors hover:border-input hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring"
                   onClick={() =>
                     setStep(
                       c.id === "gmail"
@@ -75,7 +75,7 @@ export function AddMailboxDialog({
                     )
                   }
                 >
-                  <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", c.tile)}>
+                  <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", c.tile)}>
                     {c.id === "other" ? <MoreHorizontal className="size-5" aria-hidden /> : <Mail className="size-5" aria-hidden />}
                   </span>
                   <span className="min-w-0 flex-1">

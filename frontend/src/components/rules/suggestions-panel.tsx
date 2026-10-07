@@ -44,7 +44,7 @@ function PackRow({ s }: { s: PackSuggestion }) {
   const install = useInstallPack();
   return (
     <li className="flex items-start gap-3 py-3">
-      <PackIcon name={s.pack.icon} className="size-9" />
+      <PackIcon name={s.pack.icon} />
       <div className="min-w-0 flex-1">
         <div className="font-medium">{s.pack.name}</div>
         <p className="text-sm text-muted-foreground">
@@ -74,7 +74,7 @@ function SenderRow({ s }: { s: SenderSuggestion }) {
   const add = useRuleFromSender();
   return (
     <li className="flex items-start gap-3 py-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
         <UserRound className="size-4" aria-hidden />
       </span>
       <div className="min-w-0 flex-1">

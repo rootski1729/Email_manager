@@ -53,10 +53,10 @@ export function ConditionGroup({ node, depth, isRoot = false }: { node: GroupNod
           onValueChange={(v) => v && patch({ mode: v as "all" | "any" })}
           aria-label="Group logic"
         >
-          <ToggleGroupItem value="all" className="px-3 data-[state=on]:bg-brand/15 data-[state=on]:text-brand-ink">
+          <ToggleGroupItem value="all" className="px-3 data-[state=on]:bg-accent data-[state=on]:text-brand-ink">
             ALL
           </ToggleGroupItem>
-          <ToggleGroupItem value="any" className="px-3 data-[state=on]:bg-brand/15 data-[state=on]:text-brand-ink">
+          <ToggleGroupItem value="any" className="px-3 data-[state=on]:bg-accent data-[state=on]:text-brand-ink">
             ANY
           </ToggleGroupItem>
         </ToggleGroup>
@@ -81,7 +81,7 @@ export function ConditionGroup({ node, depth, isRoot = false }: { node: GroupNod
             {i > 0 ? (
               <div className="flex items-center gap-2 py-1 pl-3" aria-hidden>
                 <span className="h-3 border-l border-dashed" />
-                <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                   {joiner}
                 </span>
               </div>

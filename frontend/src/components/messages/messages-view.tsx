@@ -32,7 +32,7 @@ function MessageRow({ m }: { m: Message }) {
     <li className="relative flex gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50 has-[a:focus-visible]:bg-muted/50">
       <span
         aria-hidden
-        className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground"
+        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold text-secondary-foreground"
       >
         {initials(from)}
       </span>

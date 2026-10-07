@@ -249,7 +249,7 @@ export function ImapConnectForm({
             <FieldError errors={[errors.password]} />
           </Field>
 
-          <Alert className="border-brand/40 bg-brand/10">
+          <Alert className="border-transparent bg-accent text-accent-foreground">
             <KeyRound />
             <AlertDescription>
               <p>

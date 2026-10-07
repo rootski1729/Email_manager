@@ -4,32 +4,32 @@ export type Tone = "success" | "warning" | "danger" | "info" | "brand" | "neutra
 
 export const TONE_CLASSES: Record<Tone, { badge: string; dot: string; text: string }> = {
   success: {
-    badge: "bg-success/12 text-success ring-success/25",
+    badge: "bg-success/10 text-success",
     dot: "bg-success",
     text: "text-success",
   },
   warning: {
-    badge: "bg-warning/12 text-warning ring-warning/30",
+    badge: "bg-warning/10 text-warning",
     dot: "bg-warning",
     text: "text-warning",
   },
   danger: {
-    badge: "bg-destructive/10 text-destructive ring-destructive/25",
+    badge: "bg-destructive/10 text-destructive",
     dot: "bg-destructive",
     text: "text-destructive",
   },
   info: {
-    badge: "bg-info/12 text-info ring-info/25",
+    badge: "bg-info/10 text-info",
     dot: "bg-info",
     text: "text-info",
   },
   brand: {
-    badge: "bg-brand/15 text-brand-ink ring-brand/35",
+    badge: "bg-accent text-brand-ink",
     dot: "bg-brand",
     text: "text-brand-ink",
   },
   neutral: {
-    badge: "bg-muted text-muted-foreground ring-border",
+    badge: "bg-muted text-muted-foreground",
     dot: "bg-muted-foreground/60",
     text: "text-muted-foreground",
   },

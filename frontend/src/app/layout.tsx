@@ -13,8 +13,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Light is the default theme for everyone, so the browser chrome matches the off-white page.
-  themeColor: "#f8f8f5",
+  // Browser chrome follows the OS scheme: the light page or the near-black dark page.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fcfcfd" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0b0f" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

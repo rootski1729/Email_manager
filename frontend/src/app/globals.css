@@ -67,141 +67,134 @@
   --radius-3xl: calc(var(--radius) + 8px);
   --radius-4xl: calc(var(--radius) * 2);
 
-  /* Soft, lifted elevation: neutral and low-opacity, never coloured. */
-  --shadow-2xs: 0 1px 0 rgb(0 0 0 / 0.02);
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px -2px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 2px 4px -2px rgb(0 0 0 / 0.05), 0 6px 16px -4px rgb(0 0 0 / 0.08);
-  --shadow-lg: 0 4px 8px -4px rgb(0 0 0 / 0.06), 0 14px 28px -8px rgb(0 0 0 / 0.12);
-  --shadow-xl: 0 8px 16px -8px rgb(0 0 0 / 0.08), 0 22px 44px -12px rgb(0 0 0 / 0.16);
-  --shadow-2xl: 0 30px 60px -18px rgb(0 0 0 / 0.22);
+  /* Quiet elevation: hairline borders separate surfaces; shadows are only for floating layers. */
+  --shadow-2xs: 0 1px 0 rgb(16 16 24 / 0.02);
+  --shadow-xs: 0 1px 2px rgb(16 16 24 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(16 16 24 / 0.04);
+  --shadow-md: 0 4px 12px -2px rgb(16 16 24 / 0.08);
+  --shadow-lg: 0 8px 24px -6px rgb(16 16 24 / 0.12);
+  --shadow-xl: 0 16px 40px -12px rgb(16 16 24 / 0.18);
+  --shadow-2xl: 0 24px 56px -16px rgb(16 16 24 / 0.22);
 }
 
 :root {
   /*
-   * Black & Gold Elegance — navy #14213D, gold #FCA311, light grey #E5E5E5, white, black.
-   * Soft off-white page, white cards with #E5E5E5 hairlines, navy ink and solid navy buttons.
-   * Gold is a fill only (2:1 on white): text on gold is navy, and gold-ish text uses --brand-ink.
-   * Every pair is checked by WCAG (4.5:1 text, 3:1 icons, control outlines and focus rings).
+   * Iris — crisp white surfaces, cool neutral greys, one violet-indigo accent.
+   * Colour is reserved for meaning: the primary action, the selected item, links and status.
+   * Text pairs pass WCAG AA (4.5:1); focus rings pass 3:1. Input outlines are deliberately soft;
+   * focus adds the iris ring.
    */
-  --background: #f8f8f5;
-  --foreground: #14213d;
+  --background: #fcfcfd;
+  --foreground: #18181f;
   --card: #ffffff;
-  --card-foreground: #14213d;
+  --card-foreground: #18181f;
   --popover: #ffffff;
-  --popover-foreground: #14213d;
-  --primary: #14213d;
+  --popover-foreground: #18181f;
+  --primary: #5a45dd;
   --primary-foreground: #ffffff;
-  --secondary: #f0f0ec;
-  --secondary-foreground: #14213d;
-  --muted: #f1f1ed;
-  /* Navy-grey: 5.6:1+ on the page, cards and muted fills. */
-  --muted-foreground: #566074;
-  /* Pale navy wash for hovered/selected menu rows. */
-  --accent: #edf0f5;
-  --accent-foreground: #14213d;
-  --destructive: #b42318;
+  --secondary: #f4f4f7;
+  --secondary-foreground: #18181f;
+  --muted: #f4f4f7;
+  --muted-foreground: #5f5f6e;
+  /* Iris wash for hovered and selected rows. */
+  --accent: #f1f0fe;
+  --accent-foreground: #2e2290;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  /* Hairline for surfaces; --input is the control outline and keeps 3:1 for form controls. */
-  --border: #e5e5e5;
-  --input: #7d8699;
-  /* Deep gold focus ring: gold on white is 2:1, so the ring is stepped down to clear 3:1. */
-  --ring: #ab7300;
-  /* Gold as a fill (highlight button, active markers, badges, icon tiles) and as readable ink. */
-  --brand: #fca311;
-  --brand-foreground: #14213d;
-  --brand-ink: #8a5a00;
-  --brand-2: #14213d;
-  /* Status: deep and solid; each passes AA as text on card, page and its own 10–15% tint. */
-  --success: #126b41;
+  --border: #ebebf0;
+  --input: #d6d6de;
+  --ring: #5a45dd;
+  /* The brand is the iris accent itself; brand-ink is its readable text shade on washes. */
+  --brand: #5a45dd;
+  --brand-foreground: #ffffff;
+  --brand-ink: #4b38c9;
+  --brand-2: #18181f;
+  --success: #15803d;
   --success-foreground: #ffffff;
-  --warning: #a13f07;
+  --warning: #b45309;
   --warning-foreground: #ffffff;
-  --info: #2c5aa0;
+  --info: #2563eb;
   --info-foreground: #ffffff;
-  /* WhatsApp mock-ups. */
-  --wa: #157a4a;
-  --wa-bubble: #dcf2e3;
-  --wa-canvas: #eeeee8;
-  /* Flat navy dimmer behind dialogs and sheets (no blur). */
-  --scrim: rgb(11 18 32 / 0.45);
-  /* Chart series (validated: lightness band, chroma floor, CVD + normal-vision separation on all
-     pairs, 3:1 on card). Navy · bronze gold · teal · violet · brick red. */
-  --chart-1: #314c95;
-  --chart-2: #aa7826;
-  --chart-3: #128c7c;
-  --chart-4: #884cce;
-  --chart-5: #ae2d2c;
-  --radius: 1rem;
-  /* Solid navy sidebar: light ink, gold active marker, lighter-navy active row. */
-  --sidebar: #14213d;
-  --sidebar-foreground: #e6eaf2;
-  --sidebar-primary: #fca311;
-  --sidebar-primary-foreground: #14213d;
-  --sidebar-accent: #22335a;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #2b3c62;
-  --sidebar-ring: #fca311;
-  /* Navy hero bands and panels (landing, sign-in). */
-  --hero: #14213d;
-  --hero-foreground: #ffffff;
-  --hero-muted: #b9c1d1;
-  --hero-border: #2b3c62;
+  /* WhatsApp mock-ups: WhatsApp's own green on a cool grey canvas. */
+  --wa: #128c4a;
+  --wa-bubble: #dcf8e6;
+  --wa-canvas: #efeff3;
+  --scrim: rgb(24 24 31 / 0.4);
+  /* Iris · teal · amber · pink · sky. */
+  --chart-1: #5a45dd;
+  --chart-2: #0e9384;
+  --chart-3: #d97706;
+  --chart-4: #db2777;
+  --chart-5: #0284c7;
+  --radius: 0.75rem;
+  /* Light, quiet sidebar: the selected item gets the iris wash. */
+  --sidebar: #f7f7f9;
+  --sidebar-foreground: #3f3f4a;
+  --sidebar-primary: #5a45dd;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ecebfd;
+  --sidebar-accent-foreground: #2e2290;
+  --sidebar-border: #ebebf0;
+  --sidebar-ring: #5a45dd;
+  /* Hero panels (landing, sign-in): a soft iris wash, not a dark block. */
+  --hero: #f5f4ff;
+  --hero-foreground: #18181f;
+  --hero-muted: #5f5f6e;
+  --hero-border: #e4e1fb;
 }
 
 .dark {
-  /* Midnight navy: deep page, navy cards, off-white ink, gold accents. */
-  --background: #0c1424;
-  --foreground: #f2f2ed;
-  --card: #14213d;
-  --card-foreground: #f2f2ed;
-  --popover: #182850;
-  --popover-foreground: #f2f2ed;
-  --primary: #f2f2ed;
-  --primary-foreground: #14213d;
-  --secondary: #1d2c4e;
-  --secondary-foreground: #f2f2ed;
-  --muted: #1a2847;
-  --muted-foreground: #a4aec3;
-  --accent: #23345c;
-  --accent-foreground: #f2f2ed;
-  --destructive: #f4877c;
-  --destructive-foreground: #0c1424;
-  --border: #26375c;
-  --input: #6d7c9b;
-  --ring: #fca311;
-  --brand: #fca311;
-  --brand-foreground: #14213d;
-  --brand-ink: #fdb94b;
-  --brand-2: #f2f2ed;
-  --success: #5ccb8f;
-  --success-foreground: #0c1424;
-  --warning: #f59a5b;
-  --warning-foreground: #0c1424;
-  --info: #8bb2f0;
-  --info-foreground: #0c1424;
-  --wa: #55c78d;
-  --wa-bubble: #17483a;
-  --wa-canvas: #101b31;
-  --scrim: rgb(2 6 15 / 0.62);
-  /* Amber gold · azure · teal · orchid · red — validated (all pairs) on the navy card surface. */
-  --chart-1: #c88203;
-  --chart-2: #1792e7;
-  --chart-3: #09a685;
-  --chart-4: #aa5eac;
-  --chart-5: #d83742;
-  --sidebar: #080f1d;
-  --sidebar-foreground: #e3e7ef;
-  --sidebar-primary: #fca311;
-  --sidebar-primary-foreground: #14213d;
-  --sidebar-accent: #17233f;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1b2844;
-  --sidebar-ring: #fca311;
-  --hero: #080f1d;
-  --hero-foreground: #ffffff;
-  --hero-muted: #aeb7ca;
-  --hero-border: #1f2d4d;
+  /* Near-black neutrals with the same iris accent. */
+  --background: #0b0b0f;
+  --foreground: #ededf2;
+  --card: #131318;
+  --card-foreground: #ededf2;
+  --popover: #17171d;
+  --popover-foreground: #ededf2;
+  --primary: #6553e6;
+  --primary-foreground: #ffffff;
+  --secondary: #1c1c24;
+  --secondary-foreground: #ededf2;
+  --muted: #18181f;
+  --muted-foreground: #a0a0ae;
+  --accent: #1e1b3a;
+  --accent-foreground: #ece9ff;
+  --destructive: #f87171;
+  --destructive-foreground: #0b0b0f;
+  --border: #24242c;
+  --input: #34343e;
+  --ring: #8b7cf6;
+  --brand: #6553e6;
+  --brand-foreground: #ffffff;
+  --brand-ink: #a99cff;
+  --brand-2: #ededf2;
+  --success: #4ade80;
+  --success-foreground: #0b0b0f;
+  --warning: #fbbf24;
+  --warning-foreground: #0b0b0f;
+  --info: #60a5fa;
+  --info-foreground: #0b0b0f;
+  --wa: #4ade80;
+  --wa-bubble: #133d2a;
+  --wa-canvas: #101015;
+  --scrim: rgb(0 0 0 / 0.6);
+  --chart-1: #8b7cf6;
+  --chart-2: #2dd4bf;
+  --chart-3: #fbbf24;
+  --chart-4: #f472b6;
+  --chart-5: #38bdf8;
+  --sidebar: #0e0e13;
+  --sidebar-foreground: #c9c9d4;
+  --sidebar-primary: #8b7cf6;
+  --sidebar-primary-foreground: #0b0b0f;
+  --sidebar-accent: #1e1b3a;
+  --sidebar-accent-foreground: #ece9ff;
+  --sidebar-border: #1e1e26;
+  --sidebar-ring: #8b7cf6;
+  --hero: #131318;
+  --hero-foreground: #ededf2;
+  --hero-muted: #a0a0ae;
+  --hero-border: #24242c;
 }
 
 @layer base {
@@ -212,7 +205,7 @@
     @apply bg-background text-foreground;
   }
   ::selection {
-    background: color-mix(in oklab, var(--brand) 30%, transparent);
+    background: color-mix(in oklab, var(--brand) 22%, transparent);
   }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;

@@ -24,7 +24,7 @@ export function CalendarFeedCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarSync className="size-4 text-brand-ink" /> Add to your calendar
+          <CalendarSync className="size-4 text-muted-foreground" /> Add to your calendar
         </CardTitle>
         <CardDescription>
           Confirmed dates appear in Google or Apple Calendar and stay in sync. Calendar apps refresh it every few hours.
@@ -66,7 +66,7 @@ export function CalendarFeedCard() {
                 </a>
               </Button>
             </div>
-            <div className="flex items-start justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2">
+            <div className="flex items-start justify-between gap-3 border-t pt-3">
               <p className="text-xs text-muted-foreground">
                 Anyone with this link can see your dates. Shared it by mistake? Get a new one.
               </p>

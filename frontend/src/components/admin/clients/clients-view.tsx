@@ -150,7 +150,7 @@ export function ClientsView() {
                         className="flex items-center gap-3 outline-none"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
                           {initials(c.display_name, "#")}
                         </span>
                         <span className="min-w-0">

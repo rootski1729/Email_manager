@@ -162,7 +162,7 @@ function SimpleEditor({
         />
         <FieldDescription>Checks the subject and the text of the email. Capital letters don&apos;t matter.</FieldDescription>
       </Field>
-      <p className="rounded-xl bg-muted/70 px-3 py-2.5 text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Fill in one box or more. If you fill in several, an email has to match <em>all</em> of them.
       </p>
       {problem ? (
@@ -396,7 +396,7 @@ export function RuleEditor({ rule }: { rule?: Rule }) {
                 {state.editor === "advanced" && !simpleFromTree ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span tabIndex={0} className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring">
+                      <span tabIndex={0} className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring">
                         <Switch id="rule-advanced" checked disabled aria-label="Advanced builder" />
                       </span>
                     </TooltipTrigger>
@@ -555,7 +555,7 @@ export function RuleEditor({ rule }: { rule?: Rule }) {
                           key={d.id}
                           className={cn(
                             "flex min-w-0 items-center gap-2 rounded-xl border p-2.5 text-sm",
-                            state.destinations.includes(d.id) && "border-brand bg-brand/10",
+                            state.destinations.includes(d.id) && "border-primary/50 bg-accent/60",
                           )}
                         >
                           <Checkbox

@@ -19,14 +19,14 @@ import { UserMenu } from "./user-menu";
 function ShellSkeleton() {
   return (
     <div className="flex min-h-svh w-full" aria-busy="true" aria-label="Restoring your session">
-      <div className="hidden w-64 flex-col gap-3 bg-sidebar p-4 md:flex">
+      <div className="hidden w-64 flex-col gap-3 border-r bg-sidebar p-4 md:flex">
         <div className="flex items-center gap-2">
           <BrandMark />
-          <Skeleton className="h-4 w-28 bg-sidebar-accent" />
+          <Skeleton className="h-4 w-28 bg-sidebar-foreground/6" />
         </div>
         <div className="mt-6 space-y-2">
           {Array.from({ length: 7 }, (_, i) => (
-            <Skeleton key={i} className="h-10 w-full bg-sidebar-accent" />
+            <Skeleton key={i} className="h-9 w-full bg-sidebar-foreground/6" />
           ))}
         </div>
       </div>
@@ -69,7 +69,7 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
         </a>
         <AppSidebar />
         <SidebarInset className="min-w-0">
-          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 rounded-t-2xl border-b bg-background px-3 md:px-4">
+          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur-md md:px-4">
             <SidebarTrigger className="hidden md:inline-flex" />
             <Separator orientation="vertical" className="mr-1 hidden md:block data-vertical:h-4 data-vertical:self-center" />
             <Link href="/dashboard" aria-label="Home" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring md:hidden">

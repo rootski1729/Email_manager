@@ -14,7 +14,7 @@ function ProgressBar({ value, total }: { value: number; total: number }) {
   const pct = total ? Math.round((value / total) * 100) : 0;
   return (
     <div
-      className="h-2 w-full overflow-hidden rounded-full bg-secondary"
+      className="h-1.5 w-full overflow-hidden rounded-full bg-secondary"
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={total}
@@ -28,28 +28,23 @@ function ProgressBar({ value, total }: { value: number; total: number }) {
 
 function Step({ step, index, isNext }: { step: OnboardingStep; index: number; isNext: boolean }) {
   return (
-    <li
-      className={cn(
-        "flex gap-3 rounded-xl p-3 transition-colors",
-        isNext ? "bg-accent text-accent-foreground" : "text-foreground",
-      )}
-    >
+    <li className="flex break-inside-avoid gap-3 py-2">
       <span
         className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+          "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
           step.done
-            ? "bg-brand text-brand-foreground"
+            ? "bg-accent text-brand-ink"
             : isNext
               ? "bg-primary text-primary-foreground"
-              : "ring-1 ring-input ring-inset",
+              : "text-muted-foreground ring-1 ring-border ring-inset",
         )}
         aria-hidden
       >
         {step.done ? <Check className="size-3.5" /> : index + 1}
       </span>
-      <div className="min-w-0 flex-1 space-y-2">
+      <div className="min-w-0 flex-1 space-y-2.5 pt-0.5">
         <div>
-          <h3 className={cn("text-sm font-medium", step.done && "opacity-70")}>
+          <h3 className={cn("text-sm font-medium", step.done && "text-muted-foreground")}>
             {step.title}
             <span className="sr-only">{step.done ? " (done)" : " (to do)"}</span>
           </h3>
@@ -81,12 +76,12 @@ export function Onboarding() {
   return (
     <section
       aria-labelledby="onboarding-title"
-      className="rounded-xl border bg-card p-4 text-card-foreground sm:p-6"
+      className="rounded-xl border bg-card px-4 py-4 text-card-foreground sm:px-5 sm:py-5"
     >
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1 space-y-3">
           <div>
-            <h2 id="onboarding-title" className="text-lg font-semibold tracking-tight">
+            <h2 id="onboarding-title" className="text-base font-semibold tracking-tight">
               Let&apos;s get you set up
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -107,7 +102,7 @@ export function Onboarding() {
           <X />
         </Button>
       </div>
-      <ol className="mt-4 grid gap-1 md:grid-cols-2">
+      <ol className="mt-3 gap-x-10 md:columns-2">
         {o.steps.map((s, i) => (
           <Step key={s.id} step={s} index={i} isNext={i === next} />
         ))}

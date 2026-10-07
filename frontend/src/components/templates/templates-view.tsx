@@ -42,7 +42,7 @@ function TemplateRow({ t, mailboxes, onDelete }: { t: EmailTemplate; mailboxes: 
   const from = t.mailbox_id ? mailboxes.find((m) => m.id === t.mailbox_id) : undefined;
   const command = `/email ${t.name}`;
   return (
-    <li className="group relative flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:border-brand/50 sm:flex-row sm:items-center">
+    <li className="group relative flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:border-input sm:flex-row sm:items-center">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <Link
@@ -88,7 +88,7 @@ function TemplateRow({ t, mailboxes, onDelete }: { t: EmailTemplate; mailboxes: 
                   )
                 }
               >
-                <Star className={cn(t.is_default && "fill-warning text-warning")} />
+                <Star className={cn(t.is_default && "fill-primary text-primary")} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t.is_default ? "Used by a plain /email" : "Use for a plain /email"}</TooltipContent>

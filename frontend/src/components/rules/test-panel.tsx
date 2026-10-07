@@ -118,7 +118,7 @@ export function TestPanel({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FlaskConical className="size-4 text-brand-ink" /> Try it on your email
+          <FlaskConical className="size-4 text-muted-foreground" /> Try it on your email
         </CardTitle>
         <CardDescription>See which of your recent emails this would catch. Nothing is sent.</CardDescription>
       </CardHeader>

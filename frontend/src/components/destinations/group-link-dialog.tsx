@@ -85,7 +85,7 @@ export function GroupLinkDialog() {
           <div className="space-y-4">
             <ol className="space-y-2 text-sm">
               <li className="flex gap-2">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">1</span>
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-muted-foreground ring-1 ring-border ring-inset">1</span>
                 <span>
                   Add{" "}
                   {link.bot_number ? (
@@ -97,7 +97,7 @@ export function GroupLinkDialog() {
                 </span>
               </li>
               <li className="flex gap-2">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">2</span>
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-muted-foreground ring-1 ring-border ring-inset">2</span>
                 <span>Send this code as a message in the group:</span>
               </li>
             </ol>

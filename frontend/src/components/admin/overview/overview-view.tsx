@@ -152,7 +152,7 @@ export function OverviewView() {
                 <CardDescription>Every connected inbox, by health.</CardDescription>
               </CardHeader>
               <CardContent>
-                <ul className="grid grid-cols-2 gap-2">
+                <ul className="-my-1 divide-y">
                   {MAILBOX_STATUSES.map((s) => {
                     const meta = MAILBOX_STATUS[s];
                     const n = q.data.mailboxes[s] ?? 0;
@@ -160,13 +160,13 @@ export function OverviewView() {
                       <li key={s}>
                         <Link
                           href={`/admin/mailboxes?status=${s}`}
-                          className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 transition-colors hover:bg-muted"
+                          className="-mx-2 flex items-center justify-between gap-2 rounded-md px-2 py-2 transition-colors hover:bg-muted/60"
                         >
                           <span className="flex items-center gap-2 text-sm">
                             <span aria-hidden className={cn("size-2 rounded-full", TONE[meta.tone].dot)} />
                             {meta.label}
                           </span>
-                          <span className={cn("text-lg font-semibold tabular", n === 0 && "text-muted-foreground")}>
+                          <span className={cn("text-sm font-semibold tabular", n === 0 && "text-muted-foreground")}>
                             {formatNumber(n)}
                           </span>
                         </Link>
@@ -184,17 +184,17 @@ export function OverviewView() {
                 <CardDescription>All WhatsApp messages ever queued, by where they are now.</CardDescription>
               </CardHeader>
               <CardContent>
-                <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <ul className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
                   {OUTBOX_ORDER.map((s) => {
                     const meta = NOTIFICATION_STATUS[s];
                     const n = q.data.outbox[s] ?? 0;
                     return (
-                      <li key={s} className="flex flex-col gap-0.5 rounded-lg border px-3 py-2">
+                      <li key={s} className="flex flex-col gap-0.5">
                         <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
                           <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", TONE[meta.tone].dot)} />
                           {meta.label}
                         </span>
-                        <span className={cn("text-base font-semibold tabular", n === 0 && "text-muted-foreground")}>
+                        <span className={cn("text-lg font-semibold tabular", n === 0 && "text-muted-foreground")}>
                           {formatNumber(n)}
                         </span>
                       </li>
