@@ -50,7 +50,9 @@ function MessageRow({ m }: { m: Message }) {
           </Link>
           {m.has_attachments ? <Paperclip className="size-3.5 shrink-0 text-muted-foreground" aria-label="Has attachments" /> : null}
         </div>
-        {m.snippet ? <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{m.snippet}</p> : null}
+        {m.ai_summary || m.snippet ? (
+          <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{m.ai_summary || m.snippet}</p>
+        ) : null}
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <RefBadge value={m.ref} />
           {(m.rules ?? []).length ? (

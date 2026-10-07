@@ -28,6 +28,8 @@ export const qk = {
   rulePacks: ["rules", "packs"] as const,
   ruleSuggestions: (mailboxId: string) => ["rule-suggestions", mailboxId] as const,
   onboarding: ["onboarding"] as const,
+  aiStatus: ["ai", "status"] as const,
+  aiReplyIdeas: (messageId: string) => ["ai", "reply-ideas", messageId] as const,
   adminWaha: ["admin", "waha"] as const,
   adminQueues: ["admin", "queues"] as const,
 };

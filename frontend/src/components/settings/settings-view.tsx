@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { meQuery, settingsQuery, useRevokeAllSessions } from "@/lib/api/queries";
 import { useAuth } from "@/lib/auth/auth-provider";
+import { AiSettingsCard } from "./ai-settings-card";
 import { AssistantSettingsCard } from "./assistant-settings-card";
 import { ComposeSettingsCard } from "./compose-settings-card";
 import { MutedSendersCard } from "./muted-senders-card";
@@ -88,6 +89,7 @@ export function SettingsView() {
           <Skeleton className="h-80 rounded-xl" />
         )}
         {s ? <AssistantSettingsCard settings={s} /> : <Skeleton className="h-28 rounded-xl" />}
+        {s ? <AiSettingsCard settings={s} /> : null}
         {s ? (
           <MutedSendersCard key={s.muted_senders.join("\n")} settings={s} />
         ) : (

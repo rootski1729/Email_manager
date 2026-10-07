@@ -15,6 +15,7 @@ export const ak = {
   rules: ["admin", "rules"] as const,
   ruleList: (params: Record<string, unknown>) => ["admin", "rules", "list", params] as const,
   google: ["admin", "google"] as const,
+  ai: ["admin", "ai"] as const,
   admins: ["admin", "admins"] as const,
   dbTables: ["admin", "db", "tables"] as const,
   dbRows: (table: string, params: Record<string, unknown>) => ["admin", "db", "rows", table, params] as const,

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const MAIN: { command: string; description: string }[] = [
   { command: "/open K7", description: "Show that email again, with links" },
   { command: "/remind K7 2h", description: "Remind me later: 2h, tonight, tomorrow 9am" },
-  { command: "/reply K7", description: "Reply to that email from WhatsApp" },
+  { command: "/reply K7", description: "Reply from WhatsApp. With AI on: pick 1-3 or describe it" },
   { command: "/mute K7", description: "No more alerts from that sender" },
 ];
 
@@ -19,6 +19,9 @@ const MORE: { command: string; description: string }[] = [
   { command: "/upcoming", description: "Exams, interviews and due dates coming up" },
   { command: "/muted", description: "Senders you muted (undo with /unmute)" },
   { command: "/email", description: "Write and send an email (/email <template>)" },
+  { command: "/write …", description: "AI drafts a new email" },
+  { command: "/edit …", description: "Change the AI draft" },
+  { command: "/ask …", description: "Ask about your mail" },
   { command: "/help", description: "Every command" },
 ];
 

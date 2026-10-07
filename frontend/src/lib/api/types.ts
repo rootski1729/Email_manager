@@ -59,6 +59,12 @@ export type SenderRuleCreate = S["SenderRuleCreate"];
 export type Onboarding = S["OnboardingOut"];
 export type OnboardingStep = S["OnboardingStep"];
 export type TestAlertOut = S["TestAlertOut"];
+export type AiStatus = S["AIStatus"];
+export type Draft = S["DraftOut"];
+export type ReplyIdea = S["ReplyIdeaOut"];
+export type RuleIdea = S["RuleIdeaOut"];
+export type AskOut = S["AskOut"];
+export type OutboundCreate = S["OutboundCreate"];
 
 export const EVENT_KINDS: EventKind[] = ["exam", "interview", "deadline", "payment", "meeting", "travel", "other"];
 

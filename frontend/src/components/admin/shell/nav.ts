@@ -8,6 +8,7 @@ import {
   Mail,
   MessageCircle,
   ShieldCheck,
+  Sparkles,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -33,6 +34,7 @@ export const ADMIN_NAV: { label: string; items: AdminNavItem[] }[] = [
     items: [
       { href: "/admin/whatsapp", label: "WhatsApp", icon: MessageCircle },
       { href: "/admin/google", label: "Gmail setup", icon: Mail },
+      { href: "/admin/ai", label: "AI assistant", icon: Sparkles },
     ],
   },
   {

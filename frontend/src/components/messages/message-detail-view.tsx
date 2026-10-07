@@ -1,12 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, MoreHorizontal, Paperclip, SearchX, Trash2 } from "lucide-react";
+import { ExternalLink, MoreHorizontal, Paperclip, SearchX, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ReplyWithAiPanel } from "@/components/ai/reply-with-ai";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
@@ -21,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAiAvailable } from "@/lib/api/ai";
 import { ApiError } from "@/lib/api/errors";
 import { destinationsQuery, messageQuery, useDeleteMessage } from "@/lib/api/queries";
 import { absoluteTime, initials } from "@/lib/format";
@@ -46,6 +48,8 @@ export function MessageDetailView({ id }: { id: string }) {
   const destinations = useQuery(destinationsQuery);
   const remove = useDeleteMessage();
   const [deleting, setDeleting] = useState(false);
+  const aiAvailable = useAiAvailable();
+  const [replying, setReplying] = useState(false);
   const destMap = useMemo(() => new Map((destinations.data ?? []).map((d) => [d.id, d])), [destinations.data]);
 
   if (message.isPending) {
@@ -95,6 +99,11 @@ export function MessageDetailView({ id }: { id: string }) {
             </a>
           </Button>
         ) : null}
+        {aiAvailable ? (
+          <Button variant="outline" onClick={() => setReplying((v) => !v)} aria-expanded={replying}>
+            <Sparkles /> Reply with AI
+          </Button>
+        ) : null}
         <RemindMenu messageId={m.id} />
         <MuteMenu messageId={m.id} fromAddress={m.from_address} />
         <DropdownMenu>
@@ -111,6 +120,8 @@ export function MessageDetailView({ id }: { id: string }) {
         </DropdownMenu>
       </div>
 
+      {aiAvailable && replying ? <ReplyWithAiPanel messageId={m.id} onClose={() => setReplying(false)} /> : null}
+
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-6">
           <article className="rounded-xl border bg-card p-4 sm:p-5">
@@ -126,6 +137,17 @@ export function MessageDetailView({ id }: { id: string }) {
                 <div className="truncate text-sm text-muted-foreground">{m.from_address}</div>
               </div>
             </div>
+            {m.ai_summary ? (
+              <div className="mt-4 rounded-xl bg-accent px-4 py-3 text-sm text-accent-foreground">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">In short</p>
+                <p className="mt-1 text-pretty">{m.ai_summary}</p>
+                {m.ai_action ? (
+                  <p className="mt-1.5">
+                    <span className="font-medium">To do:</span> {m.ai_action}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             {m.snippet ? (
               <blockquote className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-[0.95rem] leading-relaxed text-pretty">
                 {m.snippet}

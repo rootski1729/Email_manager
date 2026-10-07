@@ -9,6 +9,7 @@ import type {
   AdminUpdate,
   ClientCreate,
   ClientUpdate,
+  AIConfigIn,
   GoogleConfigIn,
   MailboxAction,
   MailboxStatus,
@@ -104,6 +105,11 @@ export function ruleQuery(id: string) {
 export const googleQuery = queryOptions({
   queryKey: ak.google,
   queryFn: () => unwrap(adminApi.GET("/api/v1/admin/config/google")),
+});
+
+export const aiConfigQuery = queryOptions({
+  queryKey: ak.ai,
+  queryFn: () => unwrap(adminApi.GET("/api/v1/admin/config/ai")),
 });
 
 export const adminsQuery = queryOptions({
@@ -291,6 +297,28 @@ export function useResetGoogle() {
 export function useCheckGoogle() {
   return useMutation({
     mutationFn: () => unwrap(adminApi.POST("/api/v1/admin/config/google/check")),
+  });
+}
+
+export function useSaveAi() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AIConfigIn) => unwrap(adminApi.PUT("/api/v1/admin/config/ai", { body })),
+    onSuccess: (data) => qc.setQueryData(ak.ai, data),
+  });
+}
+
+export function useResetAi() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(adminApi.DELETE("/api/v1/admin/config/ai")),
+    onSuccess: (data) => qc.setQueryData(ak.ai, data),
+  });
+}
+
+export function useCheckAi() {
+  return useMutation({
+    mutationFn: () => unwrap(adminApi.POST("/api/v1/admin/config/ai/check")),
   });
 }
 

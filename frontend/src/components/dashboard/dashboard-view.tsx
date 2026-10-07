@@ -5,6 +5,7 @@ import { useNow } from "@/lib/hooks/use-now";
 import { useZone } from "@/lib/hooks/use-zone";
 import { zonedParts } from "@/lib/datetime";
 import { useAuth } from "@/lib/auth/auth-provider";
+import { AskBox } from "./ask-box";
 import { ComingUp } from "./coming-up";
 import { ImportantToday } from "./important-today";
 import { Onboarding } from "./onboarding";
@@ -35,6 +36,7 @@ export function DashboardView() {
       <StatusLine />
       <Onboarding />
       <QuickActions />
+      <AskBox />
       <div className="grid items-start gap-6 lg:grid-cols-2 [&>*]:min-w-0">
         <ImportantToday />
         <div className="space-y-6">

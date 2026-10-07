@@ -3,6 +3,7 @@
 import { FileText, Send } from "lucide-react";
 import Link from "next/link";
 
+import { WriteWithAiButton } from "@/components/ai/write-with-ai";
 import { PageHeader } from "@/components/common/page-header";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +19,12 @@ export function SendEmailHeader({ active, actions }: { active: "templates" | "se
       <PageHeader
         title="Send email"
         description="Write an email on WhatsApp and it goes out from your own mailbox. Templates fill in the usual parts for you."
-        actions={actions}
+        actions={
+          <>
+            <WriteWithAiButton />
+            {actions}
+          </>
+        }
         className="pb-0"
       />
       <nav aria-label="Send email" className="flex gap-1 border-b">

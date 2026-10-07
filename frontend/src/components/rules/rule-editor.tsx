@@ -33,7 +33,7 @@ import {
   useDeleteRule,
   useUpdateRule,
 } from "@/lib/api/queries";
-import type { Rule, RuleTestHit } from "@/lib/api/types";
+import type { Rule, RuleIdea, RuleTestHit } from "@/lib/api/types";
 import { chatIdToDisplay } from "@/lib/format";
 import {
   EMPTY_SIMPLE,
@@ -49,6 +49,7 @@ import { plainSummary } from "@/lib/rules/summary";
 import { measure, rootFromJson, toJson, validateTree, type GroupNode } from "@/lib/rules/tree";
 import { LIMITS, type ActionsJson } from "@/lib/rules/types";
 import { cn } from "@/lib/utils";
+import { AiRuleBox } from "./ai-rule-box";
 import { BuilderContext } from "./builder-context";
 import { ConditionGroup } from "./condition-group";
 import { TagInput } from "./tag-input";
@@ -243,6 +244,20 @@ export function RuleEditor({ rule }: { rule?: Rule }) {
     }
   }
 
+  /** Pre-fill the form from an AI suggestion; the user still reviews and saves. */
+  function applyIdea(idea: RuleIdea) {
+    const simple = simpleFromJson(idea.condition);
+    setShowIssues(false);
+    setNameError(null);
+    setState((s) => ({
+      ...s,
+      name: idea.name.trim() ? idea.name.trim().slice(0, 120) : s.name,
+      editor: simple ? "simple" : "advanced",
+      simple: simple ?? s.simple,
+      root: rootFromJson(idea.condition),
+    }));
+  }
+
   function buildConditionForTest() {
     if (simpleProblem || advancedProblem) {
       setShowIssues(true);
@@ -337,6 +352,7 @@ export function RuleEditor({ rule }: { rule?: Rule }) {
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-6">
+          {rule ? null : <AiRuleBox onIdea={applyIdea} />}
           <Card>
             <CardContent>
               <Field data-invalid={Boolean(nameError) || undefined}>
