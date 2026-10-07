@@ -42,7 +42,7 @@ function LinkRow({ href, icon: Icon, title, hint }: { href: string; icon: Lucide
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-xl border bg-card p-4 outline-none transition-colors hover:border-brand/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="group flex items-center gap-3 rounded-xl border bg-card p-4 outline-none transition-colors hover:border-brand/60 focus-visible:ring-3 focus-visible:ring-ring"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
         <Icon className="size-5" aria-hidden />

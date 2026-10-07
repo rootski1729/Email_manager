@@ -59,7 +59,7 @@ function TablePicker({ tables, value, onChange }: { tables: DbTable[]; value: st
                   onClick={() => onChange(t.name)}
                   aria-current={active ? "true" : undefined}
                   className={cn(
-                    "w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring",
                     active && "border-border bg-card shadow-xs",
                   )}
                 >

@@ -300,7 +300,7 @@ export function ImapConnectForm({
                 </Field>
               ) : null}
               <details className="text-sm">
-                <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+                <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring">
                   Server settings (you rarely need these)
                 </summary>
                 <div className="mt-3">{serverFields}</div>

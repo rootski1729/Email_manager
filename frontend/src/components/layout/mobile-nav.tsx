@@ -29,7 +29,7 @@ export function MobileNav() {
             aria-current={active ? "page" : undefined}
             className={cn(item, active ? "text-foreground" : "text-muted-foreground")}
           >
-            <span className={cn(pill, active && "bg-brand/15 text-brand-ink")}>
+            <span className={cn(pill, active && "bg-brand text-brand-foreground")}>
               <n.icon className="size-5" />
             </span>
             <span className="max-w-full truncate px-1">{n.short ?? n.label}</span>
@@ -41,7 +41,7 @@ export function MobileNav() {
         onClick={() => setOpenMobile(true)}
         className={cn(item, inMore ? "text-foreground" : "text-muted-foreground")}
       >
-        <span className={cn(pill, inMore && "bg-brand/15 text-brand-ink")}>
+        <span className={cn(pill, inMore && "bg-brand text-brand-foreground")}>
           <Menu className="size-5" />
         </span>
         More

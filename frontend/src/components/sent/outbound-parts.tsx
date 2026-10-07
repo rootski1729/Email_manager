@@ -43,7 +43,7 @@ export function FromTo({ email }: { email: OutboundEmail }) {
 export function AttachmentChip({ a }: { a: OutboundAttachment }) {
   const Icon = a.mime_type.startsWith("image/") ? ImageIcon : a.mime_type === "application/pdf" ? FileText : Paperclip;
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-md border bg-muted/40 px-1.5 py-0.5 text-xs">
+    <span className="inline-flex max-w-full items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-xs">
       <Icon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
       <span className="truncate">{a.filename}</span>
       <span className="shrink-0 text-muted-foreground tabular">{humanSize(a.size)}</span>

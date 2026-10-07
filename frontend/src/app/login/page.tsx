@@ -24,7 +24,7 @@ export default function LoginPage() {
     <div className="grid min-h-svh lg:grid-cols-[1fr_1.05fr]">
       <div className="flex flex-col px-4 py-6 sm:px-8">
         <div className="flex items-center justify-between">
-          <Link href="/" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          <Link href="/" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring">
             <Brand />
           </Link>
           <ThemeToggle />
@@ -34,7 +34,7 @@ export default function LoginPage() {
           <p className="mt-2 mb-8 text-muted-foreground text-pretty">
             Sign in with your WhatsApp number. No password needed.
           </p>
-          <div className="rounded-xl border bg-card p-5 shadow-sm sm:p-6">
+          <div className="rounded-2xl border bg-card p-5 shadow-md sm:p-6">
             <Suspense fallback={<Skeleton className="h-40 w-full" />}>
               <LoginForm />
             </Suspense>
@@ -44,10 +44,11 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-      <div className="hidden border-l bg-accent text-accent-foreground lg:flex lg:items-center lg:justify-center">
+      <div className="hidden rounded-3xl border border-hero-border bg-hero text-hero-foreground lg:m-3 lg:flex lg:items-center lg:justify-center">
         <div className="w-full max-w-md px-8">
-          <p className="mb-4 text-sm font-medium text-muted-foreground">What lands on your phone</p>
-          <WhatsAppBubble text={SAMPLE} time="09:41" className="rounded-xl border shadow-sm" />
+          <span aria-hidden className="mb-6 block h-1 w-12 rounded-full bg-brand" />
+          <p className="mb-4 text-sm font-medium text-hero-muted">What lands on your phone</p>
+          <WhatsAppBubble text={SAMPLE} time="09:41" className="rounded-2xl shadow-xl" />
           <p className="mt-8 text-2xl font-semibold tracking-tight text-balance">
             The emails that matter, on the app you actually check.
           </p>

@@ -313,7 +313,7 @@ export function ClientDetailView({ id }: { id: string }) {
       {back}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-center gap-4">
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-primary-foreground">
             {initials(c.display_name, "#")}
           </span>
           <div className="min-w-0">

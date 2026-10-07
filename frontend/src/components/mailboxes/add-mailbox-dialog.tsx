@@ -64,7 +64,7 @@ export function AddMailboxDialog({
               <li key={c.id}>
                 <button
                   type="button"
-                  className="group flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left outline-none transition-colors hover:border-brand hover:bg-brand/5 focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="group flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left outline-none transition-colors hover:border-brand hover:bg-brand/5 focus-visible:ring-3 focus-visible:ring-ring"
                   onClick={() =>
                     setStep(
                       c.id === "gmail"

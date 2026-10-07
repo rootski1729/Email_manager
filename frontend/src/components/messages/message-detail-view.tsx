@@ -163,7 +163,7 @@ export function MessageDetailView({ id }: { id: string }) {
               </blockquote>
             ) : null}
             <details className="group mt-4 text-sm">
-              <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+              <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring">
                 More details
               </summary>
               <dl className="mt-2 divide-y">
@@ -200,7 +200,7 @@ export function MessageDetailView({ id }: { id: string }) {
                   {match.rule_id ? (
                     <Link
                       href={`/rules/${match.rule_id}`}
-                      className="inline-flex h-8 items-center rounded-full bg-secondary px-3 text-sm font-medium text-secondary-foreground outline-none hover:bg-brand/30 focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="inline-flex h-8 items-center rounded-full bg-secondary px-3 text-sm font-medium text-secondary-foreground outline-none hover:bg-brand/30 focus-visible:ring-3 focus-visible:ring-ring"
                     >
                       {match.rule_name}
                     </Link>

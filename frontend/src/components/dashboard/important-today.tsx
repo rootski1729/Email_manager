@@ -36,7 +36,7 @@ function EmailRow({ r }: { r: Row }) {
       <Link
         href={`/messages/${r.id}`}
         className={cn(
-          "flex items-start gap-3 rounded-xl px-3 py-3 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50",
+          "flex items-start gap-3 rounded-xl px-3 py-3 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring",
           r.fresh && "animate-in fade-in slide-in-from-top-1",
         )}
       >
@@ -44,7 +44,7 @@ function EmailRow({ r }: { r: Row }) {
           aria-hidden
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-            r.fresh ? "bg-brand-ink text-brand-foreground" : "bg-secondary text-secondary-foreground",
+            r.fresh ? "bg-brand text-brand-foreground" : "bg-secondary text-secondary-foreground",
           )}
         >
           {initials(r.from)}
@@ -155,7 +155,7 @@ export function ImportantToday() {
         <div className="border-t px-4 pt-3">
           <Link
             href="/messages"
-            className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring"
           >
             See all important mail <ArrowRight className="size-4" aria-hidden />
           </Link>

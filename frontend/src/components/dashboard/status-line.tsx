@@ -131,7 +131,7 @@ export function StatusLine() {
               {i.href && i.action ? (
                 <Link
                   href={i.href}
-                  className="inline-flex shrink-0 items-center gap-1 self-start rounded-md font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 sm:self-auto"
+                  className="inline-flex shrink-0 items-center gap-1 self-start rounded-md font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring sm:self-auto"
                 >
                   {i.action} <ArrowRight className="size-4" aria-hidden />
                 </Link>

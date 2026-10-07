@@ -69,10 +69,10 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
         </a>
         <AppSidebar />
         <SidebarInset className="min-w-0">
-          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 rounded-t-xl border-b bg-background px-3 md:px-4">
+          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 rounded-t-2xl border-b bg-background px-3 md:px-4">
             <SidebarTrigger className="hidden md:inline-flex" />
             <Separator orientation="vertical" className="mr-1 hidden md:block data-vertical:h-4 data-vertical:self-center" />
-            <Link href="/dashboard" aria-label="Home" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:hidden">
+            <Link href="/dashboard" aria-label="Home" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring md:hidden">
               <Brand />
             </Link>
             <div className="ml-auto flex items-center gap-1.5">

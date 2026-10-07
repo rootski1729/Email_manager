@@ -47,7 +47,7 @@ export function ComingUp({ className }: { className?: string }) {
             {upcoming.map((e, i) => {
               const meta = kindMeta(e.kind);
               return (
-                <li key={e.id} className="relative flex items-start gap-3 rounded-xl px-3 py-3 hover:bg-muted/60 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50">
+                <li key={e.id} className="relative flex items-start gap-3 rounded-xl px-3 py-3 hover:bg-muted/60 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring">
                     <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl", meta.tile)}>
                       <meta.icon className="size-4" aria-hidden />
                       <span className="sr-only">{meta.label}</span>
@@ -73,7 +73,7 @@ export function ComingUp({ className }: { className?: string }) {
       <div className="border-t px-4 pt-3">
         <Link
           href="/upcoming"
-          className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring"
         >
           See everything coming up <ArrowRight className="size-4" aria-hidden />
         </Link>

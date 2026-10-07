@@ -69,8 +69,8 @@ function GuardedShell({ defaultOpen, children }: { defaultOpen: boolean; childre
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-3 md:px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-            <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-brand/50 bg-brand/15 px-2.5 py-0.5 text-xs font-medium text-brand-ink">
+            <span aria-hidden className="size-1.5 rounded-full bg-brand" />
             Admin console
           </span>
           <div className="ml-auto flex items-center gap-1.5">

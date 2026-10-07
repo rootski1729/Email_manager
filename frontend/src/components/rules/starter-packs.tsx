@@ -70,7 +70,7 @@ function PackCard({ pack, rule }: { pack: RulePack; rule?: Rule }) {
         {rule ? (
           <Link
             href={`/rules/${rule.id}`}
-            className="inline-flex items-center gap-1 rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="inline-flex items-center gap-1 rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring"
           >
             <Pencil className="size-3" aria-hidden /> Adjust
           </Link>

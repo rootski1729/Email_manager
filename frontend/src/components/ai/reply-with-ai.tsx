@@ -68,7 +68,7 @@ export function ReplyWithAiPanel({ messageId, onClose }: { messageId: string; on
                   type="button"
                   title={idea.instruction}
                   onClick={() => write(idea.instruction)}
-                  className="inline-flex h-8 items-center rounded-full bg-secondary px-3 text-sm font-medium text-secondary-foreground outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="inline-flex h-8 items-center rounded-full bg-secondary px-3 text-sm font-medium text-secondary-foreground outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring"
                 >
                   {idea.label}
                 </button>

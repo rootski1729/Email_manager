@@ -68,7 +68,7 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                     {badge ? (
                       <SidebarMenuBadge
-                        className="top-2.5! rounded-full bg-warning px-1.5 text-warning-foreground dark:text-warning-foreground"
+                        className="top-2.5! rounded-full bg-sidebar-primary px-1.5 text-sidebar-primary-foreground peer-hover/menu-button:text-sidebar-primary-foreground peer-data-active/menu-button:text-sidebar-primary-foreground"
                         aria-label={`${badge} need${badge === 1 ? "s" : ""} attention`}
                       >
                         {badge}

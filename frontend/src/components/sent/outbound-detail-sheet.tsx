@@ -79,7 +79,7 @@ export function OutboundDetailSheet({ id, onOpenChange }: { id: string | null; o
                 </div>
               ) : null}
               {e.error ? (
-                <p className="rounded-md bg-destructive/8 px-3 py-2 font-mono text-xs break-words text-destructive">
+                <p className="rounded-lg bg-destructive/8 px-3 py-2 font-mono text-xs break-words text-destructive">
                   {e.error}
                 </p>
               ) : null}

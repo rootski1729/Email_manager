@@ -396,7 +396,7 @@ export function RuleEditor({ rule }: { rule?: Rule }) {
                 {state.editor === "advanced" && !simpleFromTree ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span tabIndex={0} className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                      <span tabIndex={0} className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring">
                         <Switch id="rule-advanced" checked disabled aria-label="Advanced builder" />
                       </span>
                     </TooltipTrigger>
@@ -481,7 +481,7 @@ export function RuleEditor({ rule }: { rule?: Rule }) {
           </Card>
 
           <Collapsible open={moreOpen} onOpenChange={setMoreOpen}>
-            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-left text-sm font-medium outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50">
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-left text-sm font-medium outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring">
               <span>
                 More options
                 <span className="block text-xs font-normal text-muted-foreground">

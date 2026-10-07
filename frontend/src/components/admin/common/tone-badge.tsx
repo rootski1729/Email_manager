@@ -27,10 +27,10 @@ export const TONE: Record<Tone, { badge: string; dot: string; text: string; soft
     soft: "bg-info/10",
   },
   brand: {
-    badge: "bg-primary/10 text-primary ring-primary/20",
-    dot: "bg-primary",
-    text: "text-primary",
-    soft: "bg-primary/10",
+    badge: "bg-brand/15 text-brand-ink ring-brand/35",
+    dot: "bg-brand",
+    text: "text-brand-ink",
+    soft: "bg-brand/15",
   },
   neutral: {
     badge: "bg-muted text-muted-foreground ring-border",

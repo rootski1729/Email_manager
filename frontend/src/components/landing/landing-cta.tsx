@@ -10,7 +10,7 @@ export function LandingCta({ size = "lg", label = "Get started" }: { size?: "lg"
   const { status } = useAuth();
   const authed = status === "authenticated";
   return (
-    <Button asChild size={size} className={size === "lg" ? "h-12 px-6 text-[15px]" : undefined}>
+    <Button asChild variant="highlight" size={size} className={size === "lg" ? "h-12 px-6 text-[15px]" : undefined}>
       <Link href={authed ? "/dashboard" : "/login"}>
         {authed ? "Open MailSentinel" : label}
         <ArrowRight />

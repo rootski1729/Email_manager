@@ -46,7 +46,7 @@ function RuleCard({ rule }: { rule: Rule }) {
   return (
     <li
       className={cn(
-        "relative flex items-start gap-4 rounded-xl border bg-card p-4 transition-colors hover:border-brand/50 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50",
+        "relative flex items-start gap-4 rounded-xl border bg-card p-4 transition-colors hover:border-brand/50 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring",
         !rule.enabled && "bg-muted/40",
       )}
     >
@@ -111,7 +111,7 @@ function SortableRow({ rule, index }: { rule: Rule; index: number }) {
       <button
         ref={setActivatorNodeRef}
         type="button"
-        className="flex size-9 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing"
+        className="flex size-9 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring active:cursor-grabbing"
         aria-label={`Move ${rule.name}. Press space to pick up, arrow keys to move.`}
         {...attributes}
         {...listeners}

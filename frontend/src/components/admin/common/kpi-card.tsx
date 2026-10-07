@@ -24,7 +24,7 @@ export function KpiCard({
     <>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", TONE[tone].soft, TONE[tone].text)}>
+        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl", TONE[tone].soft, TONE[tone].text)}>
           <Icon className="size-4.5" aria-hidden />
         </span>
       </div>
@@ -33,7 +33,7 @@ export function KpiCard({
     </>
   );
   const cls =
-    "block rounded-xl border bg-card p-4 text-card-foreground shadow-xs transition-colors sm:p-5";
+    "block rounded-2xl border bg-card p-4 text-card-foreground shadow-sm transition-colors sm:p-5";
   return href ? (
     <Link href={href} className={cn(cls, "outline-none hover:border-ring/50 focus-visible:ring-3 focus-visible:ring-ring/50")}>
       {body}

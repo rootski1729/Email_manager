@@ -102,7 +102,7 @@ export function NotificationSettingsCard({ settings }: { settings: Settings }) {
           <Switch id="weekly-recap" checked={recap} onCheckedChange={setRecap} />
         </Field>
         <details className="text-sm">
-          <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+          <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring">
             More options
           </summary>
           <Field data-invalid={capInvalid || undefined} className="mt-3 sm:max-w-xs">

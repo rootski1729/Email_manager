@@ -36,7 +36,7 @@ export function SendEmailHeader({ active, actions }: { active: "templates" | "se
               href={t.href}
               aria-current={on ? "page" : undefined}
               className={cn(
-                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 pb-2.5 text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 pb-2.5 text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring",
                 on ? "border-brand text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >

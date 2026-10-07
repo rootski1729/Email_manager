@@ -87,7 +87,7 @@ export function SmtpSection({
   return (
     <Collapsible open={open || Boolean(error)} onOpenChange={setOpen} className="rounded-lg border">
       <div className="flex items-center gap-3 px-3 py-2.5">
-        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring">
           <Send className="size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0">
             <span className="block font-medium">Also send email from this address (optional)</span>

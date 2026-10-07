@@ -60,7 +60,7 @@ export function WhatsAppCommandsCard({ className }: { className?: string }) {
           <CollapsibleContent className="pb-3">
             <CommandList items={MORE} />
           </CollapsibleContent>
-          <CollapsibleTrigger className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50">
+          <CollapsibleTrigger className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring">
             {open ? "Show fewer" : "More commands"}
             <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden />
           </CollapsibleTrigger>

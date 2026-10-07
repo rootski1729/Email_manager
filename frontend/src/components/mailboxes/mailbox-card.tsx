@@ -147,7 +147,7 @@ export function MailboxCard({ mailbox }: { mailbox: Mailbox }) {
         </p>
         {(needsReauth || broken) && mailbox.last_error ? (
           <details className="text-xs text-muted-foreground">
-            <summary className="cursor-pointer rounded outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+            <summary className="cursor-pointer rounded outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring">
               What went wrong?
             </summary>
             <p className="mt-1 break-words">

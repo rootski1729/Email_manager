@@ -20,7 +20,7 @@ export function ConnectionIndicator() {
       <TooltipTrigger asChild>
         <span
           tabIndex={0}
-          className="inline-flex h-7 items-center gap-1.5 rounded-full border bg-card px-2.5 text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="inline-flex h-7 items-center gap-1.5 rounded-full border bg-card px-2.5 text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring"
           role="status"
           aria-live="polite"
         >

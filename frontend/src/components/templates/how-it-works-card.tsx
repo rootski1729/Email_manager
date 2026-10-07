@@ -31,7 +31,7 @@ export function HowItWorksCard() {
           ))}
         </ol>
         <details className="text-sm">
-          <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+          <summary className="cursor-pointer rounded-md text-muted-foreground outline-none select-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring">
             All email commands
           </summary>
           <dl className="mt-2 divide-y rounded-xl border">

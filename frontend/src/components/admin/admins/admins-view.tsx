@@ -266,7 +266,7 @@ export function AdminsView() {
                   <TableRow key={a.id}>
                     <TableCell>
                       <span className="flex items-center gap-3">
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
                           {initials(a.display_name || a.username, "A")}
                         </span>
                         <span className="min-w-0">
