@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from email import policy
 from email.message import EmailMessage
@@ -13,18 +14,25 @@ from uuid import UUID
 from app.rules.envelope import Attachment, Envelope
 
 _TAGS_DROP = re.compile(r"<(script|style|head)[^>]*>.*?</\1>", re.S | re.I)
-_BREAKS = re.compile(r"<\s*(br|/p|/div|/tr|/li|/h\d)\s*/?>", re.I)
+_BREAKS = re.compile(r"<\s*(br|/p|/div|/tr|/li|/h\d|/table|/ul|/ol)\s*/?>", re.I)
+_BLOCK_START = re.compile(r"<\s*(p|div|h\d|tr|table)\b[^>]*>", re.I)
+_LIST_ITEM = re.compile(r"<\s*li\b[^>]*>", re.I)
 _TAGS = re.compile(r"<[^>]+>")
 _SPACES = re.compile(r"[ \t\r\f\v]+")
 _BLANK_LINES = re.compile(r"\n\s*\n+")
+_SPACE_BEFORE_PUNCT = re.compile(r"(?<=\S) +([.,;:!?])(?=\s|$)")
 MAX_BODY_CHARS = 200_000
 
 
 def html_to_text(html: str) -> str:
     text = _TAGS_DROP.sub(" ", html)
+    text = _LIST_ITEM.sub("\n• ", text)
+    text = _BLOCK_START.sub("\n", text)
     text = _BREAKS.sub("\n", text)
     text = unescape(_TAGS.sub(" ", text))
     text = _SPACES.sub(" ", text)
+    text = _SPACE_BEFORE_PUNCT.sub(r"\1", text)
+    text = "\n".join(line.strip() for line in text.split("\n"))
     return _BLANK_LINES.sub("\n\n", text).strip()
 
 
@@ -76,8 +84,7 @@ def envelope_from_headers(
     )
 
 
-def _body_text(msg: EmailMessage) -> str:
-    part = msg.get_body(preferencelist=("plain", "html"))
+def _part_text(part: EmailMessage | None) -> str:
     if part is None:
         return ""
     try:
@@ -87,9 +94,16 @@ def _body_text(msg: EmailMessage) -> str:
         content = payload.decode("utf-8", errors="replace") if isinstance(payload, bytes) else ""
     if not isinstance(content, str):
         return ""
-    if part.get_content_type() == "text/html":
-        content = html_to_text(content)
-    return content[:MAX_BODY_CHARS]
+    return html_to_text(content) if part.get_content_type() == "text/html" else content
+
+
+def _body_text(msg: EmailMessage) -> str:
+    """The plain-text part, unless it's a stub ("view this email in your browser") and the HTML says more."""
+    plain = _part_text(msg.get_body(preferencelist=("plain",)))  # type: ignore[arg-type]
+    html = _part_text(msg.get_body(preferencelist=("html",)))  # type: ignore[arg-type]
+    if not plain or (len(html) > 2 * len(plain) and (len(plain) < 200 or len(html) > 3 * len(plain))):
+        return (html or plain)[:MAX_BODY_CHARS]
+    return plain[:MAX_BODY_CHARS]
 
 
 MAX_CALENDAR_BYTES = 256 * 1024
@@ -106,6 +120,25 @@ def _calendars(msg: EmailMessage) -> list[bytes]:
         if isinstance(payload, bytes) and 0 < len(payload) <= MAX_CALENDAR_BYTES:
             found.append(payload)
     return found[:5]
+
+
+@dataclass(frozen=True, slots=True)
+class AttachmentPart:
+    name: str
+    mime_type: str
+    data: bytes
+
+
+def attachment_parts(raw: bytes) -> list[AttachmentPart]:
+    """Attachments with their bytes, in the same order as Envelope.attachments."""
+    msg = BytesParser(policy=policy.default).parsebytes(raw)
+    assert isinstance(msg, EmailMessage)
+    out = []
+    for part in msg.iter_attachments():
+        payload = part.get_payload(decode=True)
+        out.append(AttachmentPart(part.get_filename() or "", part.get_content_type(),
+                                  payload if isinstance(payload, bytes) else b""))
+    return out
 
 
 def _attachments(msg: EmailMessage) -> list[Attachment]:

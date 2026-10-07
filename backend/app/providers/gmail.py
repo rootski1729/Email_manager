@@ -314,8 +314,27 @@ class GmailSession:
     async def recent(self, limit: int) -> list[str]:
         return await self._list("in:inbox", limit)
 
+    async def load_full(self, ref: str) -> tuple[Envelope, bytes] | None:
+        resp = await self.request("GET", f"/messages/{ref}", params={"format": "raw"})
+        if resp.status_code == 404:
+            return None
+        if resp.status_code != 200:
+            raise ProviderError(google_error(resp, "Gmail get"))
+        data = resp.json()
+        raw = base64.urlsafe_b64decode(data["raw"] + "=" * (-len(data["raw"]) % 4))
+        env = envelope_from_bytes(
+            raw, mailbox_id=self.mailbox_id, message_id=str(data["id"]),
+            received_at=datetime.fromtimestamp(int(data.get("internalDate", 0)) / 1000, UTC),
+            snippet=unescape_snippet(data.get("snippet", "")), thread_id=data.get("threadId"),
+            web_url=web_url(self.address, str(data["id"])), full=True, snippet_chars=self._settings.snippet_chars,
+        )
+        return env, raw
+
     async def load(self, ref: str, *, full: bool) -> Envelope | None:
-        fmt = "raw" if full else "metadata"
+        if full:
+            loaded = await self.load_full(ref)
+            return loaded[0] if loaded else None
+        fmt = "metadata"
         resp = await self.request("GET", f"/messages/{ref}", params={"format": fmt})
         if resp.status_code == 404:
             return None
@@ -327,12 +346,6 @@ class GmailSession:
         snippet = unescape_snippet(data.get("snippet", ""))
         thread_id = data.get("threadId")
         link = web_url(self.address, message_id)
-        if full:
-            raw = base64.urlsafe_b64decode(data["raw"] + "=" * (-len(data["raw"]) % 4))
-            return envelope_from_bytes(
-                raw, mailbox_id=self.mailbox_id, message_id=message_id, received_at=received, snippet=snippet,
-                thread_id=thread_id, web_url=link, full=True, snippet_chars=self._settings.snippet_chars,
-            )
         pairs = [(h["name"], h["value"]) for h in data.get("payload", {}).get("headers", [])]
         return envelope_from_headers(
             pairs, mailbox_id=self.mailbox_id, message_id=message_id, received_at=received, snippet=snippet,

@@ -1,14 +1,17 @@
 import base64
 from datetime import UTC, datetime
+from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 from sqlalchemy import Select, and_, or_, select, update
 
 from app.api.deps import DB, CurrentUser
 from app.api.schemas import (
+    EmailFileOut,
     EventOut,
     MatchOut,
+    MessageContent,
     MessageDetail,
     MessageOut,
     MuteOut,
@@ -17,9 +20,10 @@ from app.api.schemas import (
     Page,
     RemindOut,
     RemindRequest,
+    ThreadMessageOut,
 )
 from app.compose.when import describe, parse_when
-from app.core.errors import AppError, NotFound
+from app.core.errors import AppError, NotFound, UpstreamError
 from app.models import (
     Event,
     Mailbox,
@@ -30,10 +34,11 @@ from app.models import (
     RuleMatch,
     UserSettings,
 )
+from app.notify import wa
 from app.notify.templates import render_payload
 from app.rules.envelope import domain_of
 from app.services import alert_actions as actions
-from app.services import outbox
+from app.services import mail_content, outbox
 from app.services.events import wake_dispatcher
 from app.services.schedule import tz
 
@@ -120,6 +125,60 @@ async def get_message(message_id: UUID, user: CurrentUser, db: DB) -> MessageDet
                 for e in (await db.scalars(select(Event).where(Event.message_id == message.id)
                                            .order_by(Event.starts_at))).all()],
     )
+
+
+# Types a browser could render or run if opened directly; served as plain downloads instead.
+_UNSAFE_TYPES = ("text/html", "image/svg+xml", "application/xhtml+xml", "text/xml", "application/xml",
+                 "text/javascript", "application/javascript")
+
+
+async def _own_message(db: DB, user_id: UUID, message_id: UUID) -> Message:
+    message = await db.get(Message, message_id)
+    if message is None or message.user_id != user_id:
+        raise NotFound("Message not found")
+    return message
+
+
+@router.get("/messages/{message_id}/content", response_model=MessageContent)
+async def get_message_content(message_id: UUID, user: CurrentUser, db: DB) -> MessageContent:
+    """The full email, its earlier thread and its attachments, read live from the mailbox (nothing is stored)."""
+    message = await _own_message(db, user.id, message_id)
+    try:
+        full = await mail_content.fetch_full(db, message)
+    except mail_content.ContentError as exc:
+        raise UpstreamError(str(exc)) from exc
+    env, reading = full.env, full.reading
+    files = [EmailFileOut(index=i, name=a.name or f"attachment-{i + 1}", mime_type=a.mime_type, size=a.size)
+             for i, a in enumerate(env.attachments)]
+    shown = {f["index"] for f in wa.meaningful_files([{**f.model_dump(), "type": f.mime_type} for f in files])}
+    return MessageContent(
+        kind=reading.kind, subject=env.subject, from_name=env.from_name, from_address=env.from_address,
+        to=env.to, cc=env.cc, received_at=env.received_at,
+        text=(reading.forwarded_body if reading.kind == "forward" else reading.latest) or env.snippet or "",
+        note=reading.latest if reading.kind == "forward" and reading.latest else None,
+        forwarded_from=reading.forwarded_from or None, forwarded_subject=reading.forwarded_subject or None,
+        thread=[ThreadMessageOut(sender=t.sender, sent=t.sent, text=t.text) for t in full.thread],
+        attachments=[f for f in files if f.index in shown], web_url=message.web_url,
+    )
+
+
+@router.get("/messages/{message_id}/attachments/{index}", response_class=Response,
+            responses={200: {"content": {"application/octet-stream": {}}}})
+async def download_attachment(message_id: UUID, index: int, user: CurrentUser, db: DB) -> Response:
+    message = await _own_message(db, user.id, message_id)
+    try:
+        parts = (await mail_content.fetch_full(db, message)).files()
+    except mail_content.ContentError as exc:
+        raise UpstreamError(str(exc)) from exc
+    if not 0 <= index < len(parts):
+        raise NotFound("Attachment not found")
+    part = parts[index]
+    name = part.name or f"attachment-{index + 1}"
+    media_type = "application/octet-stream" if part.mime_type in _UNSAFE_TYPES else part.mime_type
+    ascii_name = name.encode("ascii", "ignore").decode().replace('"', "") or "attachment"
+    return Response(content=part.data, media_type=media_type, headers={
+        "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}",
+        "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"})
 
 
 @router.post("/messages/{message_id}/remind", response_model=RemindOut, status_code=201)

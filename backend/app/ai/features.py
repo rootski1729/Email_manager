@@ -50,6 +50,8 @@ async def summarize(*, subject: str, sender: str, body: str) -> Summary:
         {"role": "system", "content": (
             "You summarise one email for a WhatsApp notification. Reply in JSON: "
             '{"summary": "...", "action": "..." or null, "importance": "high"|"normal"|"low"}. '
+            "If the email replies to or forwards earlier messages, summarise the newest message and use the "
+            "earlier ones only for context. "
             "summary: one or two short sentences saying what the email is about and the key facts "
             "(dates, times, amounts, places, deadlines). action: what the reader must do and by when, in one "
             "short sentence, or null if nothing. Plain words, no greetings, no markdown, same language as the "
@@ -75,11 +77,17 @@ class ReplyIdea:
     instruction: str  # what the full reply should say
 
 
-async def suggest_replies(*, subject: str, sender: str, body: str, user_name: str | None) -> list[ReplyIdea]:
+async def suggest_replies(
+    *, subject: str, sender: str, body: str, user_name: str | None, guidance: str | None = None,
+) -> list[ReplyIdea]:
+    steer = (f"The reader wants replies that follow this: {guidance.strip()}. All 3 must follow it and differ "
+             "in approach or tone. ") if guidance and guidance.strip() else (
+             "Make them different (e.g. accept, ask a question, decline or postpone, acknowledge), most likely "
+             "first. ")
     data = await complete_json([
         {"role": "system", "content": (
-            "Suggest exactly 3 different replies the reader could send to this email (e.g. accept, ask a "
-            "question, decline or postpone, acknowledge), most likely first. Reply in JSON: "
+            "Suggest exactly 3 replies the reader could send to this email. " + steer + "If the email is a "
+            "reply in a longer thread, answer its newest message. Reply in JSON: "
             '{"replies": [{"label": "2-5 words", "instruction": "one sentence describing what the reply says"}]}. '
             f"The reader is {user_name or 'the recipient'}. Same language as the email. " + UNTRUSTED)},
         {"role": "user", "content": _email_block(subject=subject, sender=sender, body=body)},

@@ -619,6 +619,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/messages/{message_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Message Content
+         * @description The full email, its earlier thread and its attachments, read live from the mailbox (nothing is stored).
+         */
+        get: operations["get_message_content_api_v1_messages__message_id__content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/messages/{message_id}/attachments/{index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Attachment */
+        get: operations["download_attachment_api_v1_messages__message_id__attachments__index__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/messages/{message_id}/remind": {
         parameters: {
             query?: never;
@@ -904,7 +941,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reply Ideas */
+        /**
+         * Reply Ideas
+         * @description Three reply ideas; pass `guidance` ("politely decline", "more formal") to steer them.
+         */
         post: operations["reply_ideas_api_v1_messages__message_id__ai_replies_post"];
         delete?: never;
         options?: never;
@@ -2364,6 +2404,20 @@ export interface components {
              */
             instructions: string;
         };
+        /** EmailFileOut */
+        EmailFileOut: {
+            /**
+             * Index
+             * @description Use with GET /messages/{id}/attachments/{index}
+             */
+            index: number;
+            /** Name */
+            name: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Size */
+            size: number;
+        };
         /** EmailTemplateCreate */
         EmailTemplateCreate: {
             /** Description */
@@ -2896,6 +2950,55 @@ export interface components {
              * Format: date-time
              */
             matched_at: string;
+        };
+        /**
+         * MessageContent
+         * @description The whole email, read live from the mailbox: what's new in it, the earlier thread and the files.
+         */
+        MessageContent: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "new" | "reply" | "forward";
+            /** Subject */
+            subject: string;
+            /** From Name */
+            from_name: string;
+            /** From Address */
+            from_address: string;
+            /** To */
+            to: string[];
+            /** Cc */
+            cc: string[];
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /**
+             * Text
+             * @description What the sender wrote in this email (for a forward: the forwarded email)
+             */
+            text: string;
+            /**
+             * Note
+             * @description Forwards: the note the forwarder added
+             */
+            note?: string | null;
+            /** Forwarded From */
+            forwarded_from?: string | null;
+            /** Forwarded Subject */
+            forwarded_subject?: string | null;
+            /**
+             * Thread
+             * @description Earlier messages in the thread, newest first
+             */
+            thread: components["schemas"]["ThreadMessageOut"][];
+            /** Attachments */
+            attachments: components["schemas"]["EmailFileOut"][];
+            /** Web Url */
+            web_url?: string | null;
         };
         /** MessageDetail */
         MessageDetail: {
@@ -3439,6 +3542,14 @@ export interface components {
             /** Instruction */
             instruction: string;
         };
+        /** ReplyIdeasRequest */
+        ReplyIdeasRequest: {
+            /**
+             * Guidance
+             * @description Optional: what the replies should do, e.g. 'politely decline'
+             */
+            guidance?: string | null;
+        };
         /** ReviseRequest */
         ReviseRequest: {
             /** Instructions */
@@ -3789,6 +3900,21 @@ export interface components {
             queued: boolean;
             /** Chat Id */
             chat_id: string;
+        };
+        /** ThreadMessageOut */
+        ThreadMessageOut: {
+            /**
+             * Sender
+             * @description Who wrote it (name or address), as quoted in the email
+             */
+            sender: string;
+            /**
+             * Sent
+             * @description When, as the email client wrote it
+             */
+            sent: string;
+            /** Text */
+            text: string;
         };
         /** TokenOut */
         TokenOut: {
@@ -8216,6 +8342,209 @@ export interface operations {
             };
         };
     };
+    get_message_content_api_v1_messages__message_id__content_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageContent"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    download_attachment_api_v1_messages__message_id__attachments__index__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     remind_message_api_v1_messages__message_id__remind_post: {
         parameters: {
             query?: never;
@@ -10327,7 +10656,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReplyIdeasRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

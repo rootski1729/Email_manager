@@ -351,6 +351,43 @@ class NotificationOut(ORM):
     sent_at: datetime | None
 
 
+class ThreadMessageOut(BaseModel):
+    sender: str = Field(description="Who wrote it (name or address), as quoted in the email")
+    sent: str = Field(description="When, as the email client wrote it")
+    text: str
+
+
+class EmailFileOut(BaseModel):
+    index: int = Field(description="Use with GET /messages/{id}/attachments/{index}")
+    name: str
+    mime_type: str
+    size: int
+
+
+class MessageContent(BaseModel):
+    """The whole email, read live from the mailbox: what's new in it, the earlier thread and the files."""
+
+    kind: Literal["new", "reply", "forward"]
+    subject: str
+    from_name: str
+    from_address: str
+    to: list[str]
+    cc: list[str]
+    received_at: datetime
+    text: str = Field(description="What the sender wrote in this email (for a forward: the forwarded email)")
+    note: str | None = Field(default=None, description="Forwards: the note the forwarder added")
+    forwarded_from: str | None = None
+    forwarded_subject: str | None = None
+    thread: list[ThreadMessageOut] = Field(description="Earlier messages in the thread, newest first")
+    attachments: list[EmailFileOut]
+    web_url: str | None = None
+
+
+class ReplyIdeasRequest(BaseModel):
+    guidance: str | None = Field(default=None, max_length=500,
+                                 description="Optional: what the replies should do, e.g. 'politely decline'")
+
+
 class MessageDetail(MessageOut):
     to_addresses: list[str]
     list_id: str | None

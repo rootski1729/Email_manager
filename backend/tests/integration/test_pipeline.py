@@ -27,6 +27,7 @@ EXAM_RULE = {"name": "Exams", "condition": {"all": [
 class FakeWaha:
     def __init__(self, fail: WahaError | None = None) -> None:
         self.sent: list[tuple[str, str]] = []
+        self.files: list[tuple[str, str, bytes, str]] = []  # chat, filename, data, caption
         self.fail = fail
 
     async def session_info(self) -> dict:
@@ -40,6 +41,12 @@ class FakeWaha:
             raise self.fail
         self.sent.append((chat_id, text))
         return f"true_{chat_id}_{len(self.sent)}"
+
+    async def send_file(self, chat_id: str, *, data_b64: str, filename: str, mimetype: str, caption: str) -> str:
+        import base64
+
+        self.files.append((chat_id, filename, base64.b64decode(data_b64), caption))
+        return f"true_{chat_id}_file{len(self.files)}"
 
 
 def send_mail(smtp: tuple[str, int], to: str, sender: str, subject: str, body: str) -> None:

@@ -40,9 +40,8 @@ class WahaClient:
 
     async def _call(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         try:
-            return await get_http().request(
-                method, f"{self.base}{path}", headers=self._headers, timeout=30.0, **kwargs
-            )
+            kwargs.setdefault("timeout", 30.0)
+            return await get_http().request(method, f"{self.base}{path}", headers=self._headers, **kwargs)
         except httpx.TimeoutException as exc:
             raise WahaError("WAHA timed out", retryable=True) from exc
         except httpx.TransportError as exc:
@@ -155,3 +154,19 @@ class WahaClient:
         retryable = session_not_ready or resp.status_code in (408, 409, 425, 429) or resp.status_code >= 500
         raise WahaError(f"sendText failed ({resp.status_code}): {resp.text[:200]}", retryable=retryable)
 
+    async def send_file(self, chat_id: str, *, data_b64: str, filename: str, mimetype: str, caption: str) -> str:
+        """Send a document (an email attachment). WAHA Core supports media since 2026.6."""
+        if self.dry_run:
+            log.info("waha_dry_run_file", chat_id=chat_id, filename=filename, caption=caption)
+            return f"dry_{secrets.token_hex(8)}"
+        resp = await self._call(
+            "POST", "/api/sendFile",
+            json={"session": self.session, "chatId": chat_id, "caption": caption,
+                  "file": {"mimetype": mimetype or "application/octet-stream", "filename": filename, "data": data_b64}},
+            timeout=120.0,
+        )
+        if resp.status_code in (200, 201):
+            return _message_id(resp.json()) or f"unknown_{secrets.token_hex(6)}"
+        session_not_ready = resp.status_code == 422 and "Session status" in resp.text
+        retryable = session_not_ready or resp.status_code in (408, 409, 425, 429) or resp.status_code >= 500
+        raise WahaError(f"sendFile failed ({resp.status_code}): {resp.text[:200]}", retryable=retryable)

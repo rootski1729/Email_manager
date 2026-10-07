@@ -5,6 +5,7 @@ WhatsApp or presses Send on the web, through exactly the same send path as hand-
 """
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import getaddresses
@@ -20,7 +21,7 @@ from app.core.config import get_settings
 from app.core.db import uuid7
 from app.core.redis import get_redis
 from app.core.runtime import ai_config
-from app.core.security import phone_to_chat_id, vault
+from app.core.security import phone_to_chat_id
 from app.models import (
     Event,
     EventStatus,
@@ -32,9 +33,9 @@ from app.models import (
     User,
     UserSettings,
 )
-from app.providers import get_provider
-from app.providers.base import ProviderError, ReauthRequired
+from app.notify import wa
 from app.rules.envelope import Envelope
+from app.services import mail_content
 from app.services.schedule import tz
 
 SUGGESTIONS_TTL_S = 30 * 60
@@ -58,20 +59,10 @@ async def available(db: AsyncSession, user: User) -> bool:
 
 async def fetch_email(db: AsyncSession, message: Message) -> Envelope:
     """The full email, read live from the mailbox (bodies are never stored)."""
-    mailbox = await db.get(Mailbox, message.mailbox_id)
-    if mailbox is None:
-        raise AssistantError("That mailbox is no longer connected.")
     try:
-        creds = vault().decrypt_json(mailbox.credentials)
-        async with get_provider(mailbox.provider).open(mailbox.id, mailbox.address, creds) as session:
-            env = await session.load(message.provider_message_id, full=True)
-    except ReauthRequired as exc:
-        raise AssistantError(f"I can't read {mailbox.address} right now: reconnect it in the app.") from exc
-    except (ProviderError, OSError, TimeoutError) as exc:
-        raise AssistantError("I couldn't reach your mailbox just now. Try again in a minute.") from exc
-    if env is None:
-        raise AssistantError("That email no longer exists in your mailbox.")
-    return env
+        return (await mail_content.fetch_full(db, message)).env
+    except mail_content.ContentError as exc:
+        raise AssistantError(str(exc)) from exc
 
 
 def _sender(env: Envelope) -> str:
@@ -138,17 +129,21 @@ async def latest_draft(db: AsyncSession, user_id: UUID) -> OutboundEmail | None:
 
 
 def draft_preview(email: OutboundEmail) -> str:
-    lines = ["✍️ *Draft ready*", "", f"*From:* {email.from_address}", f"*To:* {', '.join(email.to_addresses)}"]
+    """The draft as it will be sent, set apart from the instructions so it's easy to read and check."""
+    kind = "reply" if email.reply_to_message_id else "email"
+    lines = [f"✍️ *Your {kind} is ready* · _not sent yet_", "",
+             f"*From:* {email.from_address}", f"*To:* {', '.join(email.to_addresses)}"]
     if email.cc_addresses:
         lines.append(f"*Cc:* {', '.join(email.cc_addresses)}")
-    lines += [f"*Subject:* {email.subject or '(no subject)'}", ""]
-    body = email.body.strip()
-    if len(body) > 1500:
-        body = body[:1500].rstrip() + "…"
-    lines += [f"> {line}" if line.strip() else ">" for line in body.splitlines()]
+    lines += [f"*Subject:* {wa.plain(email.subject) or '(no subject)'}", wa.RULE, ""]
+    body = re.sub(r"\n\s*\n\s*\n+", "\n\n", email.body.strip())
+    if len(body) > 2500:
+        body = body[:2500].rstrip() + "…"
+    lines += [wa.plain(body), "", wa.RULE]
     minutes = get_settings().compose_confirm_ttl_s // 60
-    lines += ["", f"Reply *YES* to send, *NO* to cancel, or say what to change: */edit make it shorter* "
-                  f"(expires in {minutes} min)."]
+    lines += ["✅ *YES* · send it", "❌ *NO* · cancel",
+              "✏️ */edit …* · change it, e.g. */edit shorter and more formal*",
+              f"_The draft waits {minutes} minutes._"]
     return "\n".join(lines)
 
 
@@ -161,11 +156,11 @@ class Suggestions:
     ideas: list[ai.ReplyIdea]
 
 
-async def suggest(db: AsyncSession, user: User, message: Message) -> Suggestions:
+async def suggest(db: AsyncSession, user: User, message: Message, guidance: str | None = None) -> Suggestions:
     env = await fetch_email(db, message)
     try:
         ideas = await ai.suggest_replies(subject=env.subject, sender=_sender(env), body=env.body_text or env.snippet,
-                                         user_name=user.display_name)
+                                         user_name=user.display_name, guidance=guidance)
     except AIUnavailable as exc:
         raise AssistantError("The AI couldn't suggest replies just now.") from exc
     await get_redis().set(_suggestions_key(user.id), json.dumps(
@@ -189,8 +184,8 @@ async def draft_reply_for(
                               subject=draft.subject, body=draft.body, reply_to=message, source=source)
 
 
-async def picked(db: AsyncSession, user: User, number: int) -> tuple[Message, str] | None:
-    """The suggestion the user picked with '1', '2' or '3', if a suggestion list is open."""
+async def picked(db: AsyncSession, user: User, number: int, extra: str = "") -> tuple[Message, str] | None:
+    """The suggestion the user picked with '1', '2' or '3' (plus any words they added), if a list is open."""
     raw = await get_redis().get(_suggestions_key(user.id))
     if not raw:
         return None
@@ -201,7 +196,8 @@ async def picked(db: AsyncSession, user: User, number: int) -> tuple[Message, st
     message = await db.get(Message, UUID(data["message_id"]))
     if message is None or message.user_id != user.id:
         return None
-    return message, ideas[number - 1]["instruction"]
+    instruction = ideas[number - 1]["instruction"]
+    return message, f"{instruction}. Also: {extra.strip()}" if extra.strip() else instruction
 
 
 async def clear_suggestions(user_id: Any) -> None:

@@ -179,7 +179,7 @@ async def test_whatsapp_actions_on_alerts(client, ready, infra, monkeypatch):
 
     # Quote the alert and type a plain word.
     assert await compose.handle_inbound(wa("remind 2h", quoted=alert_text)) == "remind"
-    assert "I'll bring back *Fee payment notice*" in await last_reply()
+    assert (await last_reply()).startswith("⏰ *Reminder set*\n\n*Fee payment notice*  #32")
     [reminder] = await notes(NotificationKind.reminder)
     assert abs((reminder.next_attempt_at - datetime.now(UTC)) - timedelta(hours=2)) < timedelta(minutes=1)
     assert await compose.handle_inbound(wa("/remind 32 someday")) == "remind"

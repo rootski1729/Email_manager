@@ -11,7 +11,7 @@ from app.ai import features as ai
 from app.ai.client import AIUnavailable, normalize_endpoint
 from app.compose import commands as cmd
 from app.core.runtime import AIConfig
-from app.notify.templates import quote_block, render_alert
+from app.notify.templates import render_alert
 from app.providers.mime import readable_preview
 
 
@@ -171,11 +171,11 @@ def test_alert_shows_summary_excerpt_and_actions() -> None:
         "urgent": True,
     })
     lines = text.splitlines()
-    assert lines[0] == "🚨 *Urgent*" and lines[1] == "📬 *Admit card released*  #K7"
+    assert lines[:3] == ["🚨 *Urgent*", "📬 *Admit card released*", "*Exam Cell* · c@univ.edu"]
     assert "📝 *In short:* Exam on 15 Oct at 10 AM." in text and "✅ *To do:* Download" in text
-    assert "> Exam on 15 Oct.\n>\n> Carry your ID." in text
-    assert "*/reply K7*" in text and "*/remind K7 2h*" in text
-    assert quote_block("", 10) == "" and quote_block("one two three four", 10) == "> one two…"
+    assert "> Exam on 15 Oct.\n> Carry your ID." in text  # no empty quote lines between paragraphs
+    assert "🏷️ Exams · to me@gmail.com · *#K7*" in text
+    assert lines[-1] == "👉 */open K7* · */reply K7* · */remind K7 2h*"
 
 
 @pytest.mark.parametrize(("text", "kind", "arg"), [
@@ -185,6 +185,11 @@ def test_alert_shows_summary_excerpt_and_actions() -> None:
     ("/ask when is my exam?", cmd.Kind.ask, "when is my exam?"),
     ("2", cmd.Kind.pick, "2"),
     (" 3 ", cmd.Kind.pick, "3"),
+    ("2 mention I'm travelling", cmd.Kind.pick, "2 mention I'm travelling"),
+    ("1. shorter please", cmd.Kind.pick, "1 shorter please"),
+    ("/ideas K7 politely decline", cmd.Kind.ideas, "K7 politely decline"),
+    ("/files K7 2", cmd.Kind.files, "K7 2"),
+    ("/thread K7", cmd.Kind.thread, "K7"),
     ("23", cmd.Kind.text, ""),
 ])
 def test_ai_commands_parse(text: str, kind: cmd.Kind, arg: str) -> None:

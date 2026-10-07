@@ -19,6 +19,7 @@ from app.rules.envelope import Envelope
 
 MAX_MESSAGES_PER_SYNC = 200
 MAX_FULL_BYTES = 8 * 1024 * 1024
+MAX_RAW_BYTES = 40 * 1024 * 1024  # opening one email in full (attachments included)
 _UIDVALIDITY = re.compile(rb"UIDVALIDITY (\d+)")
 _UIDNEXT = re.compile(rb"UIDNEXT (\d+)")
 _SIZE = re.compile(rb"RFC822\.SIZE (\d+)")
@@ -111,6 +112,25 @@ class ImapSession:
         start = max(self.uidnext - 1 - limit * 3, 1)
         uids = await self._search(f"UID {start}:*")
         return [str(u) for u in sorted(uids, reverse=True)[:limit]]
+
+    async def load_full(self, ref: str) -> tuple[Envelope, bytes] | None:
+        """The whole message as stored (for reading it in full and extracting attachments)."""
+        size_resp = await self._client.uid("fetch", ref, "(UID RFC822.SIZE)")
+        if not _ok(size_resp):
+            raise ProviderError(f"IMAP fetch failed: {size_resp.result}")
+        meta = b" ".join(line for line in size_resp.lines if isinstance(line, bytes))
+        size_match = _SIZE.search(meta)
+        if size_match is None:
+            return None
+        if int(size_match.group(1)) > MAX_RAW_BYTES:
+            raise ProviderError("This email is too large to open here")
+        body = await self._client.uid("fetch", ref, "(BODY.PEEK[])")
+        raw = _first_literal(body.lines) if _ok(body) else None
+        if raw is None:
+            return None
+        env = envelope_from_bytes(raw, mailbox_id=self.mailbox_id, message_id=ref, full=True,
+                                  snippet_chars=get_settings().snippet_chars)
+        return env, raw
 
     async def load(self, ref: str, *, full: bool) -> Envelope | None:
         head = await self._client.uid("fetch", ref, "(UID RFC822.SIZE INTERNALDATE BODY.PEEK[HEADER])")

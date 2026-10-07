@@ -24,6 +24,10 @@ class MailSession(Protocol):
         """Load one message. `full=False` loads headers (and a snippet when cheap)."""
         ...
 
+    async def load_full(self, ref: str) -> tuple[Envelope, bytes] | None:
+        """The full message and its raw RFC 5322 bytes (attachments included)."""
+        ...
+
     async def recent(self, limit: int) -> list[str]:
         """Most recent inbox message ids, newest first (used for rule previews)."""
         ...

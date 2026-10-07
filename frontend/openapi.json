@@ -5185,6 +5185,262 @@
         }
       }
     },
+    "/api/v1/messages/{message_id}/content": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Get Message Content",
+        "description": "The full email, its earlier thread and its attachments, read live from the mailbox (nothing is stored).",
+        "operationId": "get_message_content_api_v1_messages__message_id__content_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageContent"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/messages/{message_id}/attachments/{index}": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Download Attachment",
+        "operationId": "download_attachment_api_v1_messages__message_id__attachments__index__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Index"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/messages/{message_id}/remind": {
       "post": {
         "tags": [
@@ -7872,6 +8128,7 @@
           "assistant"
         ],
         "summary": "Reply Ideas",
+        "description": "Three reply ideas; pass `guidance` (\"politely decline\", \"more formal\") to steer them.",
         "operationId": "reply_ideas_api_v1_messages__message_id__ai_replies_post",
         "security": [
           {
@@ -7890,6 +8147,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReplyIdeasRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -16579,6 +16853,35 @@
         ],
         "title": "DraftRequest"
       },
+      "EmailFileOut": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index",
+            "description": "Use with GET /messages/{id}/attachments/{index}"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "name",
+          "mime_type",
+          "size"
+        ],
+        "title": "EmailFileOut"
+      },
       "EmailTemplateCreate": {
         "properties": {
           "description": {
@@ -18048,6 +18351,130 @@
           "matched_at"
         ],
         "title": "MatchOut"
+      },
+      "MessageContent": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "new",
+              "reply",
+              "forward"
+            ],
+            "title": "Kind"
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "from_name": {
+            "type": "string",
+            "title": "From Name"
+          },
+          "from_address": {
+            "type": "string",
+            "title": "From Address"
+          },
+          "to": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "To"
+          },
+          "cc": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cc"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "What the sender wrote in this email (for a forward: the forwarded email)"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "Forwards: the note the forwarder added"
+          },
+          "forwarded_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forwarded From"
+          },
+          "forwarded_subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forwarded Subject"
+          },
+          "thread": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadMessageOut"
+            },
+            "type": "array",
+            "title": "Thread",
+            "description": "Earlier messages in the thread, newest first"
+          },
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/EmailFileOut"
+            },
+            "type": "array",
+            "title": "Attachments"
+          },
+          "web_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Web Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "subject",
+          "from_name",
+          "from_address",
+          "to",
+          "cc",
+          "received_at",
+          "text",
+          "thread",
+          "attachments"
+        ],
+        "title": "MessageContent",
+        "description": "The whole email, read live from the mailbox: what's new in it, the earlier thread and the files."
       },
       "MessageDetail": {
         "properties": {
@@ -19635,6 +20062,25 @@
         ],
         "title": "ReplyIdeaOut"
       },
+      "ReplyIdeasRequest": {
+        "properties": {
+          "guidance": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guidance",
+            "description": "Optional: what the replies should do, e.g. 'politely decline'"
+          }
+        },
+        "type": "object",
+        "title": "ReplyIdeasRequest"
+      },
       "ReviseRequest": {
         "properties": {
           "instructions": {
@@ -20619,6 +21065,31 @@
           "chat_id"
         ],
         "title": "TestAlertOut"
+      },
+      "ThreadMessageOut": {
+        "properties": {
+          "sender": {
+            "type": "string",
+            "title": "Sender",
+            "description": "Who wrote it (name or address), as quoted in the email"
+          },
+          "sent": {
+            "type": "string",
+            "title": "Sent",
+            "description": "When, as the email client wrote it"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sender",
+          "sent",
+          "text"
+        ],
+        "title": "ThreadMessageOut"
       },
       "TokenOut": {
         "properties": {

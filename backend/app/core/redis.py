@@ -86,6 +86,11 @@ class Keys:
         return f"compose:{user_id}"
 
     @staticmethod
+    def wa_file(token: str) -> str:
+        """An email attachment waiting to be sent on WhatsApp (base64, short TTL)."""
+        return f"wa:file:{token}"
+
+    @staticmethod
     def inbound_seen(message_id: str) -> str:
         return f"wa:in:{message_id}"
 

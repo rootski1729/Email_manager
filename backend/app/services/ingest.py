@@ -25,6 +25,7 @@ from app.models import Mailbox, MailboxStatus, Message, NotificationKind, Rule, 
 from app.providers import get_provider
 from app.providers.base import ProviderError, ReauthRequired
 from app.providers.mime import readable_preview
+from app.providers.reading import read_email
 from app.rules.engine import CompiledRule
 from app.rules.envelope import Envelope, domain_of
 from app.services import deadlines, events, outbox
@@ -130,7 +131,9 @@ async def record_match(
     ctx = ctx or await load_context(db, mailbox.user_id)
     message_id = uuid7()
     ref = await next_ref(db, mailbox.user_id)
-    preview = (readable_preview(env.body_text, settings.alert_preview_chars) if env.body_text else "") or \
+    reading = read_email(env.body_text, subject=env.subject, in_reply_to=bool(env.header("in-reply-to"))) \
+        if env.body_text else None
+    preview = (readable_preview(reading.main_text, settings.alert_preview_chars) if reading else "") or \
         (env.snippet or "")[: settings.alert_preview_chars]
     inserted = await db.scalar(
         insert(Message).values(
@@ -171,6 +174,11 @@ async def record_match(
         instant |= notify.get("mode", "instant") == "instant" or bool(notify.get("urgent"))
     payload = alert_payload(mailbox, env, matched, message_id)
     payload["snippet"] = preview
+    payload["attachments"] = [{"name": a.name, "type": a.mime_type, "size": a.size} for a in env.attachments[:20]]
+    if reading and reading.kind != "new":
+        payload["thread"] = {"kind": reading.kind, "earlier": reading.earlier,
+                             "forwarded_from": reading.forwarded_from,
+                             "note": readable_preview(reading.latest, 200) if reading.kind == "forward" else ""}
     if summary:
         payload["ai"] = {"summary": summary.summary, "action": summary.action, "importance": summary.importance}
     payload["ref"] = ref

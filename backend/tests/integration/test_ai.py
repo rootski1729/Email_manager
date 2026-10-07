@@ -30,6 +30,10 @@ class FakeModel:
             return {"summary": "The viva is on 20 Oct at 11 AM in Lab 3.", "action": "Confirm your slot by Friday.",
                     "importance": "high"}
         if "Suggest exactly 3" in system:
+            if "politely decline" in system:
+                return {"replies": [{"label": "Decline kindly", "instruction": "Decline the viva slot politely"},
+                                    {"label": "Decline and thank", "instruction": "Thank them and decline"},
+                                    {"label": "Decline, offer later", "instruction": "Decline and offer later"}]}
             return {"replies": [{"label": "Confirm slot", "instruction": "Confirm the 11 AM slot"},
                                 {"label": "Ask to move", "instruction": "Ask for an afternoon slot"},
                                 {"label": "Ask venue", "instruction": "Ask which building Lab 3 is in"}]}
@@ -37,6 +41,8 @@ class FakeModel:
             body = "Dear Sir,\n\nCould I move my viva to the afternoon?\n\nAsha"
             if "shorter" in last:
                 body = "Sir, may I have an afternoon viva slot?\n\nAsha"
+            elif "travelling" in last:
+                body = "Dear Sir,\n\nCould I move my viva to the afternoon? I'm travelling in the morning.\n\nAsha"
             return {"subject": "Re: Project viva slot", "body": body}
         if "Write a new email" in system:
             to = ["office@univ.edu"] if "office@univ.edu" in last else []
@@ -140,19 +146,27 @@ async def test_whatsapp_alert_summary_reply_pick_edit_and_send(client, setup, in
     # /reply → three suggestions; "2" → a full draft; /edit → revised; YES → sent, threaded under the original.
     assert await compose.handle_inbound(wa(f"/reply {message.ref}")) == "reply"
     suggestions = await last_reply()
-    assert "*1.* Confirm slot" in suggestions and "*2.* Ask to move" in suggestions
-    assert f"/reply {message.ref} manual" in suggestions
+    assert suggestions.startswith(f"💡 *Reply ideas* · #{message.ref}")
+    assert "*1. Confirm slot*" in suggestions and "*2. Ask to move*" in suggestions
+    assert f"/reply {message.ref} manual" in suggestions and "*2 mention I'm travelling*" in suggestions
 
-    assert await compose.handle_inbound(wa("2")) == "pick"
+    # Your own words steer the ideas.
+    assert await compose.handle_inbound(wa(f"/ideas {message.ref} politely decline")) == "ideas"
+    steered = await last_reply()
+    assert "🎯 Following: _politely decline_" in steered and "*1. Decline kindly*" in steered
+
+    await compose.handle_inbound(wa(f"/reply {message.ref}"))
+    assert await compose.handle_inbound(wa("2 mention I'm travelling in the morning")) == "pick"
     draft = await last_reply()
-    assert "✍️ *Draft ready*" in draft and "*To:* notices@exam.univ.edu" in draft
-    assert "> Could I move my viva to the afternoon?" in draft and "/edit" in draft
+    assert draft.startswith("✍️ *Your reply is ready* · _not sent yet_") and "*To:* notices@exam.univ.edu" in draft
+    assert "Could I move my viva to the afternoon? I'm travelling in the morning." in draft
+    assert "✅ *YES* · send it" in draft and "/edit" in draft
     # The list closes once a reply is picked: another number is plain chat, which nudges about the waiting draft.
     assert await compose.handle_inbound(wa("2")) == "text"
     assert (await last_reply()).startswith("Reply *YES* to send")
 
     assert await compose.handle_inbound(wa("/edit make it shorter")) == "edit"
-    assert "> Sir, may I have an afternoon viva slot?" in await last_reply()
+    assert "Sir, may I have an afternoon viva slot?" in await last_reply()
 
     assert await compose.handle_inbound(wa("yes")) == "confirm"
     assert await compose.send_outbound(UUID(queued[0])) == "sent"
@@ -164,7 +178,7 @@ async def test_whatsapp_alert_summary_reply_pick_edit_and_send(client, setup, in
 
     # /reply CODE <instructions> drafts straight away; /reply CODE manual gives the hand-written form.
     await compose.handle_inbound(wa(f"/reply {message.ref} ask which building Lab 3 is in"))
-    assert "✍️ *Draft ready*" in await last_reply()
+    assert "✍️ *Your reply is ready*" in await last_reply()
     await compose.handle_inbound(wa("no"))
     await compose.handle_inbound(wa(f"/reply {message.ref} manual"))
     assert "Subject: Re: Project viva slot" in await last_reply()
@@ -189,7 +203,8 @@ async def test_whatsapp_write_and_ask(client, setup, infra, model, queued):
 
     assert await compose.handle_inbound(wa("/ask when is my viva?")) == "ask"
     answer = await last_reply()
-    assert answer.startswith("💬 Your viva is on 20 Oct") and "Project viva slot" in answer
+    assert answer.startswith("💬 *when is my viva?*") and "Your viva is on 20 Oct" in answer
+    assert "📬 *From these emails*" in answer and "Project viva slot" in answer
 
 
 async def test_ai_switched_off_falls_back_to_the_manual_form(client, setup, infra, model):
@@ -225,6 +240,9 @@ async def test_website_reply_with_ai_rule_from_text_and_send(client, setup, infr
     assert detail["ai_summary"] == "The viva is on 20 Oct at 11 AM in Lab 3."
     ideas = (await client.post(f"/api/v1/messages/{message.id}/ai/replies", headers=headers)).json()
     assert [i["label"] for i in ideas] == ["Confirm slot", "Ask to move", "Ask venue"]
+    steered = (await client.post(f"/api/v1/messages/{message.id}/ai/replies", headers=headers,
+                                 json={"guidance": "politely decline"})).json()
+    assert steered[0]["label"] == "Decline kindly"
 
     resp = await client.post(f"/api/v1/messages/{message.id}/ai/draft", headers=headers,
                              json={"instructions": ideas[1]["instruction"]})

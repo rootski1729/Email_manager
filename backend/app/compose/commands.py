@@ -35,6 +35,8 @@ class Kind(StrEnum):
     cancel = "cancel"  # NO / /cancel
     help = "help"  # /help
     open = "open"  # /open K7: full text of an alerted email
+    thread = "thread"  # /thread K7: the earlier messages of a reply
+    files = "files"  # /files K7 [n]: send the email's attachments as WhatsApp documents
     reply = "reply"  # /reply K7: reply form addressed to the sender
     remind = "remind"  # /remind K7 tomorrow 9am
     mute = "mute"  # /mute K7 [domain] | /mute someone@x.com | /mute x.com
@@ -45,7 +47,8 @@ class Kind(StrEnum):
     write = "write"  # /write email prof@x.edu asking for leave  (AI drafts a new email)
     edit = "edit"  # /edit make it shorter  (AI revises the draft waiting for YES)
     ask = "ask"  # /ask when is my exam?  (AI answers from your important mail)
-    pick = "pick"  # 1 / 2 / 3: choose one of the suggested replies
+    ideas = "ideas"  # /ideas K7 [what you want]: AI reply suggestions, optionally steered by your own words
+    pick = "pick"  # "2" or "2 mention I'm travelling": choose a suggested reply (and add to it)
     unknown_command = "unknown_command"  # any other /word
     text = "text"  # ordinary message
 
@@ -62,7 +65,9 @@ _REF_IN_ALERT = re.compile(r"#([2-9A-HJKMNP-Z]{2,6})\b")
 _REF_ARG = re.compile(r"^#?([2-9a-hjkmnp-z]{2,6})$", re.I)
 # Words that act on a quoted alert, with or without the slash: "remind 2h", "open", "mute".
 QUOTE_ACTIONS = {"open": "/open", "full": "/open", "read": "/open", "show": "/open", "reply": "/reply",
-                 "remind": "/remind", "snooze": "/remind", "mute": "/mute"}
+                 "remind": "/remind", "snooze": "/remind", "mute": "/mute", "thread": "/thread",
+                 "files": "/files", "attachments": "/files", "ideas": "/ideas", "suggest": "/ideas"}
+_PICK = re.compile(r"^([1-5])(?:\s*[.:)\-]?\s+(\S.*))?$", re.S)
 
 
 def encode_ref(n: int) -> str:
@@ -104,8 +109,8 @@ def parse_command(text: str | None, *, quoted: str | None = None) -> Command:
     lowered = first_line.lower()
     if lowered.startswith("/send"):
         return Command(Kind.send, raw=raw)
-    if raw in ("1", "2", "3", "4", "5"):
-        return Command(Kind.pick, arg=raw, raw=raw)
+    if pick := _PICK.match(raw):
+        return Command(Kind.pick, arg=" ".join(filter(None, pick.groups())), raw=raw)
     if raw.lower() in CONFIRM_WORDS:
         return Command(Kind.confirm, raw=raw)
     if raw.lower() in CANCEL_WORDS:
@@ -122,6 +127,12 @@ def parse_command(text: str | None, *, quoted: str | None = None) -> Command:
             return Command(Kind.help, raw=raw)
         case "/open" | "/full" | "/read" | "/show":
             return Command(Kind.open, arg=rest.strip(), raw=raw)
+        case "/thread" | "/history" | "/earlier":
+            return Command(Kind.thread, arg=rest.strip(), raw=raw)
+        case "/files" | "/file" | "/attachments" | "/attachment":
+            return Command(Kind.files, arg=rest.strip(), raw=raw)
+        case "/ideas" | "/suggest" | "/suggestions":
+            return Command(Kind.ideas, arg=raw.partition(" ")[2].strip(), raw=raw)
         case "/reply" | "/re":
             return Command(Kind.reply, arg=rest.strip(), raw=raw)
         case "/remind" | "/snooze" | "/remindme":
@@ -272,24 +283,30 @@ INSTRUCTIONS = (
 )
 
 HELP = (
-    "🤖 *MailSentinel commands*\n\n"
-    "*AI assistant:*\n"
-    "*/reply K7* – suggested replies (pick 1, 2 or 3) · */reply K7 say I'll attend* – write it for me\n"
-    "*/write email prof@x.edu asking for leave tomorrow* – a new email\n"
-    "*/edit make it shorter* – change the draft · */ask when is my exam?*\n\n"
-    "*Act on an alert* (use the code, e.g. #K7, or just quote the alert):\n"
-    "*/open K7* – read the full email\n"
-    "*/reply K7* – reply to the sender\n"
-    "*/remind K7 2h* – remind me later (2h, tomorrow 9am, mon 8:30)\n"
-    "*/mute K7* – stop alerts from this sender (*/mute K7 domain* for the whole domain)\n"
-    "*/recent* – your last alerts · */upcoming* – exams, interviews and due dates\n"
-    "*/muted* · */unmute <address or domain>*\n\n"
-    "*Send email:*\n"
-    "*/email* – get a blank email form\n"
-    "*/email <template>* – get a saved template, e.g. /email leave\n"
-    "*/templates* – list your templates\n"
-    "*/send* … – send the filled form (you'll confirm first)\n"
-    "*YES* / *NO* – confirm or cancel the email waiting for confirmation\n"
-    "*/cancel* – cancel and drop any attachments you sent\n\n"
-    "Manage templates in the web app under *Email templates*."
+    "🤖 *MailSentinel · what you can do*\n"
+    "_Every alert has a code like *#K7*. Use it in a command, or swipe right on the alert and type just the word "
+    "(open, reply, remind 2h…)._\n\n"
+    "📖 *Read*\n"
+    "- */open K7* · the full email\n"
+    "- */thread K7* · earlier messages of a reply\n"
+    "- */files K7* · get the attachments here (*/files K7 2* for one)\n"
+    "- */recent* · your latest important emails\n"
+    "- */upcoming* · exams, interviews and due dates\n\n"
+    "✨ *Reply with AI*\n"
+    "- */reply K7* · three reply ideas, answer *1*, *2* or *3*\n"
+    "- *2 mention I'm travelling* · pick an idea and add to it\n"
+    "- */ideas K7 politely decline* · ideas that follow your words\n"
+    "- */reply K7 say I'll attend* · write the reply straight away\n"
+    "- */reply K7 manual* · write it yourself\n\n"
+    "✍️ *Write and send*\n"
+    "- */write email prof@x.edu asking for leave tomorrow*\n"
+    "- */edit make it shorter* · change the draft\n"
+    "- *YES* sends it · *NO* cancels\n"
+    "- */email leave* · a saved template · */templates* lists them\n\n"
+    "⏰ *Stay on top*\n"
+    "- */remind K7 2h* · also *6pm*, *tomorrow 9am*, *mon 8:30*\n"
+    "- */mute K7* · no more alerts from this sender (*/mute K7 domain* for all of them)\n"
+    "- */muted* · */unmute someone@x.com*\n\n"
+    "💬 *Ask*\n"
+    "- */ask when is my exam?* · answers from your important mail"
 )

@@ -202,6 +202,21 @@ class Dispatcher:
         for unit_items, text in units:
             await self._send(user, pref, chat_id, unit_items, text)
 
+    async def _send_file(self, chat_id: str, file: dict[str, Any], caption: str) -> str:
+        """An email attachment staged in Redis by /files; it expires quickly and is dropped once sent."""
+        redis = get_redis()
+        key = Keys.wa_file(str(file.get("token")))
+        data = await redis.get(key)
+        if not data:
+            return await self.waha.send_text(chat_id, f"⌛ *{file.get('filename') or 'That file'}* took too long to "
+                                                      "send and has expired. Ask again with /files.")
+        data_b64 = data.decode() if isinstance(data, bytes) else data
+        provider_id = await self.waha.send_file(
+            chat_id, data_b64=data_b64, filename=str(file.get("filename") or "file"),
+            mimetype=str(file.get("mimetype") or ""), caption=caption)
+        await redis.delete(key)
+        return provider_id
+
     def _buckets(self, user: User | None, pref: UserSettings | None, destination: str) -> list[Bucket]:
         s = self.settings
         buckets = [
@@ -240,8 +255,12 @@ class Dispatcher:
             await self.waha.typing(chat_id, True)
             await asyncio.sleep(random.uniform(lo, hi) / 1000)
         await guard.remember_text(chat_id, text)
+        file = items[0].payload.get("file") if len(items) == 1 else None
         try:
-            provider_id = await self.waha.send_text(chat_id, text)
+            if file:
+                provider_id = await self._send_file(chat_id, file, text)
+            else:
+                provider_id = await self.waha.send_text(chat_id, text)
         except WahaError as exc:
             self.circuit.failure()
             FAILED.labels(retryable=str(exc.retryable).lower()).inc()

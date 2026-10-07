@@ -41,7 +41,7 @@ from app.models import (
     User,
     UserSettings,
 )
-from app.notify import guard
+from app.notify import guard, wa
 from app.notify.ratelimit import Bucket, RateLimiter
 from app.notify.waha import WahaClient, WahaError
 from app.providers.base import ProviderError, ReauthRequired
@@ -430,8 +430,8 @@ async def _on_media(db: AsyncSession, user: User, inbound: Inbound, waha: WahaCl
     return True
 
 
-ALERT_COMMANDS = {cmd.Kind.open, cmd.Kind.remind, cmd.Kind.mute, cmd.Kind.unmute, cmd.Kind.muted,
-                  cmd.Kind.recent, cmd.Kind.upcoming}
+ALERT_COMMANDS = {cmd.Kind.open, cmd.Kind.thread, cmd.Kind.remind, cmd.Kind.mute, cmd.Kind.unmute,
+                  cmd.Kind.muted, cmd.Kind.recent, cmd.Kind.upcoming}
 
 
 async def _alert_command(db: AsyncSession, user: User, command: cmd.Command) -> list[str]:
@@ -439,6 +439,8 @@ async def _alert_command(db: AsyncSession, user: User, command: cmd.Command) -> 
     match command.kind:
         case cmd.Kind.open:
             return await actions.on_open(db, user, command.arg)
+        case cmd.Kind.thread:
+            return await actions.on_thread(db, user, command.arg)
         case cmd.Kind.remind:
             return await actions.on_remind(db, user, command.arg)
         case cmd.Kind.mute:
@@ -453,43 +455,87 @@ async def _alert_command(db: AsyncSession, user: User, command: cmd.Command) -> 
             return await actions.on_upcoming(db, user)
 
 
-AI_OFF = ("The AI assistant isn't available right now (turned off in *Settings*, or not set up by the "
-          "administrator). You can still reply by hand: */reply CODE manual*.")
+AI_OFF = ("✨ The AI assistant isn't available right now. It's turned off in *Settings*, or your administrator "
+          "hasn't set it up.\n\nYou can still reply yourself: */reply CODE manual*")
+
+
+async def _send_files(db: AsyncSession, user: User, arg: str) -> None:
+    texts, files = await actions.on_files(db, user, arg)
+    await reply(db, user, *texts)
+    if files:
+        dest = await _self_destination(db, user)
+        for f in files:
+            await outbox.enqueue(db, user_id=user.id, destination=dest, kind=NotificationKind.reply,
+                                 payload={"text": f.caption, "file": {"token": f.token, "filename": f.filename,
+                                                                      "mimetype": f.mimetype}},
+                                 dedupe=f"file:{f.token}")
+
+
+def _ideas_text(message: Message, ideas: list[Any], guidance: str | None) -> str:
+    subject = wa.plain(wa.clip(wa.strip_prefixes(message.subject), 80)) or "(no subject)"
+    lines = [f"💡 *Reply ideas* · #{message.ref}", f"_{subject}_"]
+    if guidance:
+        lines.append(f"🎯 Following: _{wa.plain(wa.clip(guidance, 120))}_")
+    for n, idea in enumerate(ideas, 1):
+        lines += ["", f"*{n}. {wa.plain(idea.label)}*", f"_{wa.plain(idea.instruction)}_"]
+    lines += ["", wa.RULE,
+              "👉 Answer *1*, *2* or *3* and I'll write it",
+              "➕ Add to it: *2 mention I'm travelling*",
+              f"🎯 Other ideas: */ideas {message.ref} more formal*",
+              f"✍️ Your words: */reply {message.ref} say I'll attend*",
+              f"⌨️ Yourself: */reply {message.ref} manual*"]
+    return "\n".join(lines)
+
+
+async def _ai_ideas(db: AsyncSession, user: User, arg: str) -> None:
+    """/reply K7 or /ideas K7 [what you want]: three reply ideas to pick from."""
+    token, _, guidance = arg.strip().partition(" ")
+    guidance = guidance.strip()
+    if not await assistant.available(db, user):
+        await reply(db, user, AI_OFF)
+        return
+    message = await actions.find_by_ref(db, user.id, token)
+    if message is None:
+        await reply(db, user, actions.NO_CODE.format(verb="ideas") if not token
+                    else f"I can't find an alert with code *{token}*.")
+        return
+    try:
+        result = await assistant.suggest(db, user, message, guidance or None)
+    except assistant.AssistantError as exc:
+        await reply(db, user, f"⚠️ {exc}")
+        return
+    await reply(db, user, _ideas_text(message, result.ideas, guidance or None))
 
 
 async def _ai_reply(db: AsyncSession, user: User, arg: str) -> bool:
-    """/reply K7 → three suggestions; /reply K7 <what to say> → a draft. False = use the manual form instead."""
+    """/reply K7 → three ideas; /reply K7 <what to say> → a draft. False = use the manual form instead."""
     token, _, rest = arg.strip().partition(" ")
     rest = rest.strip()
-    if rest.lower() == "manual" or not await assistant.available(db, user):
-        if rest.lower() == "manual":
-            await _on_reply(db, user, token)
-            return True
+    if rest.lower() == "manual":
+        await _on_reply(db, user, token)
+        return True
+    if not await assistant.available(db, user):
         return False
+    if not rest:
+        await _ai_ideas(db, user, token)
+        return True
     message = await actions.find_by_ref(db, user.id, token)
     if message is None:
         await reply(db, user, actions.NO_CODE.format(verb="reply") if not token
                     else f"I can't find an alert with code *{token}*.")
         return True
     try:
-        if rest:
-            email = await assistant.draft_reply_for(db, user, message, rest)
-            await reply(db, user, assistant.draft_preview(email))
-            return True
-        result = await assistant.suggest(db, user, message)
+        email = await assistant.draft_reply_for(db, user, message, rest)
     except assistant.AssistantError as exc:
         await reply(db, user, f"⚠️ {exc}")
         return True
-    lines = [f"↩️ *Reply to:* {message.subject or '(no subject)'}", ""]
-    lines += [f"*{n}.* {idea.label} – _{idea.instruction}_" for n, idea in enumerate(result.ideas, 1)]
-    lines += ["", f"Reply *1*, *2* or *3* and I'll write it. Or say what you want: */reply {message.ref} say I'll "
-                  "attend and ask for the venue*", f"_Write it yourself:_ */reply {message.ref} manual*"]
-    await reply(db, user, "\n".join(lines))
+    await reply(db, user, assistant.draft_preview(email))
     return True
 
 
-async def _ai_pick(db: AsyncSession, user: User, number: int) -> bool:
-    choice = await assistant.picked(db, user, number)
+async def _ai_pick(db: AsyncSession, user: User, arg: str) -> bool:
+    number, _, extra = arg.partition(" ")
+    choice = await assistant.picked(db, user, int(number), extra)
     if choice is None:
         return False
     message, instruction = choice
@@ -505,7 +551,8 @@ async def _ai_pick(db: AsyncSession, user: User, number: int) -> bool:
 
 async def _ai_write(db: AsyncSession, user: User, instructions: str) -> None:
     if not instructions:
-        await reply(db, user, "Tell me what to write, e.g. */write email prof@college.edu asking for leave tomorrow*")
+        await reply(db, user, "✍️ Tell me what to write, e.g.\n*/write email prof@college.edu asking for leave "
+                              "tomorrow*")
         return
     if not await assistant.available(db, user):
         await reply(db, user, AI_OFF)
@@ -521,10 +568,11 @@ async def _ai_write(db: AsyncSession, user: User, instructions: str) -> None:
 async def _ai_edit(db: AsyncSession, user: User, instructions: str) -> None:
     email = await assistant.latest_draft(db, user.id)
     if email is None:
-        await reply(db, user, "There's no draft to change. Start one with */reply CODE* or */write …*")
+        await reply(db, user, "There's no draft to change. Start one with */reply K7* or */write …*")
         return
     if not instructions:
-        await reply(db, user, "Say what to change, e.g. */edit make it more formal* or */edit add that I'll be late*")
+        await reply(db, user, "✏️ Say what to change, e.g.\n- */edit make it more formal*\n- */edit add that I'll be "
+                              "late*")
         return
     if not await assistant.available(db, user):
         await reply(db, user, AI_OFF)
@@ -539,7 +587,8 @@ async def _ai_edit(db: AsyncSession, user: User, instructions: str) -> None:
 
 async def _ai_ask(db: AsyncSession, user: User, question: str) -> None:
     if not question:
-        await reply(db, user, "Ask me about your important mail, e.g. */ask when is my exam?*")
+        await reply(db, user, "💬 Ask me about your important mail, e.g.\n- */ask when is my exam?*\n"
+                              "- */ask what do I need to pay this week?*")
         return
     if not await assistant.available(db, user):
         await reply(db, user, AI_OFF)
@@ -549,10 +598,11 @@ async def _ai_ask(db: AsyncSession, user: User, question: str) -> None:
     except assistant.AssistantError as exc:
         await reply(db, user, f"⚠️ {exc}")
         return
-    lines = [f"💬 {result.answer}"]
+    lines = [f"💬 *{wa.plain(wa.clip(question, 100))}*", "", wa.plain(result.answer)]
     if result.messages:
-        lines += ["", *[f"*#{m.ref}* {m.subject[:70]}" for m in result.messages[:3]],
-                  "", f"_Open one:_ */open {result.messages[0].ref}*"]
+        lines += ["", "📬 *From these emails*",
+                  *[f"- *#{m.ref}* {wa.plain(wa.clip(m.subject, 70))}" for m in result.messages[:3]],
+                  "", f"👉 */open {result.messages[0].ref}* to read one"]
     await reply(db, user, "\n".join(lines))
 
 
@@ -573,13 +623,17 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
                                                   User.is_active.is_(True)))
         if user is None:
             return "unknown_sender"
-        if command.kind == cmd.Kind.pick and not await assistant.picked(db, user, int(command.arg)):
+        if command.kind == cmd.Kind.pick and not await assistant.picked(db, user, int(command.arg.split(" ")[0])):
             command = cmd.Command(cmd.Kind.text, raw=command.raw)  # just a number in chat, no list open
         if command.kind in ALERT_COMMANDS:
             texts = await _alert_command(db, user, command)
             await reply(db, user, *texts)
         elif command.kind == cmd.Kind.ask:
             await _ai_ask(db, user, command.arg)
+        elif command.kind == cmd.Kind.files:
+            await _send_files(db, user, command.arg)
+        elif command.kind == cmd.Kind.ideas:
+            await _ai_ideas(db, user, command.arg)
         elif command.kind == cmd.Kind.text and not inbound.has_media:
             # Ordinary chat (or notes to self): only nudge if a draft is waiting.
             waiting = await db.scalar(select(func.count()).select_from(OutboundEmail).where(
@@ -604,7 +658,7 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
                         if not await _ai_reply(db, user, command.arg):
                             await _on_reply(db, user, command.arg)
                     case cmd.Kind.pick:
-                        await _ai_pick(db, user, int(command.arg))
+                        await _ai_pick(db, user, command.arg)
                     case cmd.Kind.write:
                         await _ai_write(db, user, command.arg)
                     case cmd.Kind.edit:

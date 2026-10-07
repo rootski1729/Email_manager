@@ -18,6 +18,7 @@ from app.api.schemas import (
     OutboundCreate,
     OutboundEmailDetail,
     ReplyIdeaOut,
+    ReplyIdeasRequest,
     ReviseRequest,
     RuleFromText,
     RuleIdeaOut,
@@ -65,11 +66,14 @@ async def status(user: CurrentUser, db: DB) -> AIStatus:
 
 
 @router.post("/messages/{message_id}/ai/replies", response_model=list[ReplyIdeaOut])
-async def reply_ideas(message_id: UUID, user: CurrentUser, db: DB) -> list[ReplyIdeaOut]:
+async def reply_ideas(
+    message_id: UUID, user: CurrentUser, db: DB, body: ReplyIdeasRequest | None = None,
+) -> list[ReplyIdeaOut]:
+    """Three reply ideas; pass `guidance` ("politely decline", "more formal") to steer them."""
     await _require_ai(db, user)
     message = await _message(db, user, message_id)
     try:
-        result = await assistant.suggest(db, user, message)
+        result = await assistant.suggest(db, user, message, body.guidance if body else None)
     except assistant.AssistantError as exc:
         raise _assistant_error(exc) from exc
     return [ReplyIdeaOut(label=i.label, instruction=i.instruction) for i in result.ideas]
