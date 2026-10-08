@@ -2,9 +2,11 @@
 
 Answers each MailSentinel prompt type with plausible JSON after a short delay, so loading states show.
 Run: python mock_ai.py  (listens on 127.0.0.1:9911; the preview's AI endpoint is http://127.0.0.1:9911/v1)
+MOCK_AI_BURST=1 sends each streamed answer in one burst after a pause, the way Azure's content filter does.
 """
 
 import json
+import os
 import re
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -62,7 +64,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.end_headers()
-            for word in re.findall(r"\S+\s*", content):  # a word at a time, like a real model
+            # MOCK_AI_BURST=1 imitates Azure's content filter: a pause, then the whole answer in one go.
+            pieces = [content] if os.environ.get("MOCK_AI_BURST") == "1" else re.findall(r"\S+\s*", content)
+            if len(pieces) == 1:
+                time.sleep(1.5)
+            for word in pieces:  # otherwise a word at a time, like a real model
                 chunk = {"choices": [{"delta": {"content": word}}]}
                 self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
                 self.wfile.flush()

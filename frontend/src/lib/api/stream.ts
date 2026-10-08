@@ -130,6 +130,18 @@ function parseJson(raw: string): Record<string, unknown> {
  * (done, stopped or error), so callers can record a finished turn. Starting again or unmounting aborts the
  * answer in flight.
  */
+/**
+ * How many characters to reveal this frame: a steady typing pace, catching up faster when the model
+ * (or Azure's content filter, which releases text in bursts) sends a lot at once.
+ */
+function revealStep(backlog: number) {
+  return Math.max(2, Math.ceil(backlog / 40));
+}
+
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
 export function useStreamingAnswer<Body>(url: string) {
   const [text, setText] = useState("");
   const [status, setStatus] = useState<StreamStatus>("idle");
@@ -139,23 +151,82 @@ export function useStreamingAnswer<Body>(url: string) {
   const controller = useRef<AbortController | null>(null);
   // Each start or reset begins a new run; a run that is no longer current never touches state.
   const runs = useRef(0);
+  // Smooth reveal: `received` is what has arrived, `shown` how much of it is on screen.
+  const received = useRef("");
+  const shown = useRef(0);
+  const frame = useRef<number | null>(null);
+  const drained = useRef<(() => void) | null>(null);
 
-  useEffect(() => () => controller.current?.abort(), []);
+  const stopRequested = useRef(false);
+
+  const reveal = useCallback(() => {
+    if (frame.current !== null) return;
+    const step = () => {
+      frame.current = null;
+      const target = received.current;
+      if (shown.current < target.length) {
+        shown.current = prefersReducedMotion()
+          ? target.length
+          : Math.min(target.length, shown.current + revealStep(target.length - shown.current));
+        setText(target.slice(0, shown.current));
+      }
+      if (shown.current < target.length) {
+        frame.current = requestAnimationFrame(step);
+      } else {
+        drained.current?.();
+        drained.current = null;
+      }
+    };
+    frame.current = requestAnimationFrame(step);
+  }, []);
+
+  /** Resolves once everything received is on screen. */
+  const untilShown = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        if (shown.current >= received.current.length) return resolve();
+        drained.current = resolve;
+        reveal();
+      }),
+    [reveal],
+  );
+
+  const halt = useCallback(() => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    drained.current?.();
+    drained.current = null;
+  }, []);
+
+  useEffect(
+    () => () => {
+      controller.current?.abort();
+      halt();
+    },
+    [halt],
+  );
 
   const stop = useCallback(() => {
+    // Also stops the typing-out after the network stream has ended.
+    stopRequested.current = true;
     controller.current?.abort();
-  }, []);
+    halt();
+  }, [halt]);
 
   const reset = useCallback(() => {
     runs.current += 1;
     controller.current?.abort();
     controller.current = null;
+    halt();
+    received.current = "";
+    shown.current = 0;
+    stopRequested.current = false;
     setText("");
     setStatus("idle");
     setError(null);
     setRefs([]);
     setStopped(false);
-  }, []);
+  }, [halt]);
 
   const start = useCallback(
     async (body: Body): Promise<StreamOutcome> => {
@@ -164,6 +235,10 @@ export function useStreamingAnswer<Body>(url: string) {
       controller.current = ctl;
       const run = ++runs.current;
       const live = () => runs.current === run;
+      halt();
+      received.current = "";
+      shown.current = 0;
+      stopRequested.current = false;
       setText("");
       setStatus("streaming");
       setError(null);
@@ -188,7 +263,8 @@ export function useStreamingAnswer<Body>(url: string) {
             const payload = parseJson(data);
             if (event === "delta" && typeof payload.text === "string") {
               acc += payload.text;
-              setText(acc);
+              received.current = acc;
+              reveal();
             } else if (event === "done") {
               const cited = Array.isArray(payload.refs) ? (payload.refs as AskRef[]) : [];
               ended = { status: "done", text: acc, refs: cited };
@@ -200,11 +276,16 @@ export function useStreamingAnswer<Body>(url: string) {
         });
       } catch (err) {
         if (ctl.signal.aborted) {
+          // Stop keeps exactly what's on screen.
+          halt();
+          const kept = received.current.slice(0, shown.current);
           if (live()) {
+            received.current = kept;
+            setText(kept);
             setStopped(true);
-            setStatus(acc ? "done" : "idle");
+            setStatus(kept ? "done" : "idle");
           }
-          return { status: "stopped", text: acc };
+          return { status: "stopped", text: kept };
         }
         ctl.abort();
         return fail(errorMessage(err));
@@ -214,13 +295,22 @@ export function useStreamingAnswer<Body>(url: string) {
       // `ended` is set inside the event callback, which TypeScript's narrowing can't see.
       const outcome = ended as StreamOutcome | null;
       if (!outcome) return fail("The answer was cut off. Try again.");
+      await untilShown(); // finish typing out what arrived before calling it done
+      if (!live()) return { status: "stopped", text: received.current.slice(0, shown.current) };
+      if (stopRequested.current || ctl.signal.aborted) {
+        const kept = received.current.slice(0, shown.current);
+        setText(kept);
+        setStopped(true);
+        setStatus(kept ? "done" : "idle");
+        return { status: "stopped", text: kept };
+      }
       if (live() && outcome.status === "done") {
         setRefs(outcome.refs);
         setStatus("done");
       }
       return outcome;
     },
-    [url],
+    [url, halt, reveal, untilShown],
   );
 
   return { text, status, error, refs, stopped, start, stop, reset };
