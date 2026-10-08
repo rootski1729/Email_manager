@@ -1,6 +1,7 @@
 """Minimal client for Azure AI Foundry / Azure OpenAI (the OpenAI-compatible v1 API)."""
 
 import json
+from collections.abc import AsyncIterator
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -106,3 +107,41 @@ async def complete_json(messages: list[dict[str, str]], *, max_tokens: int = 700
     if not isinstance(result, dict):
         raise AIUnavailable("The AI answer wasn't a JSON object")
     return result
+
+
+async def stream_text(messages: list[dict[str, str]], *, max_tokens: int = 400) -> AsyncIterator[str]:
+    """Plain-text answer, yielded piece by piece as the model writes it (server-sent events from the v1 API)."""
+    config = await ai_config()
+    if not config.ready:
+        raise AIUnavailable("AI is not configured")
+    body = {"model": config.model, "messages": messages, "max_completion_tokens": max_tokens, "stream": True}
+    url = f"{normalize_endpoint(config.endpoint)}/chat/completions"
+    try:
+        async with get_http().stream("POST", url, json=body, headers=_headers(config),
+                                     timeout=get_settings().ai_timeout_s) as resp:
+            if resp.status_code != 200:
+                raw = (await resp.aread()).decode(errors="replace")
+                code = ""
+                try:
+                    code = str(json.loads(raw).get("error", {}).get("code") or "")
+                except (ValueError, AttributeError):
+                    pass
+                log.warning("ai_stream_failed", status=resp.status_code, code=code, detail=raw[:300])
+                if code == "content_filter":
+                    raise AIUnavailable("Azure's safety filter declined this email")
+                raise AIUnavailable(f"AI request failed ({resp.status_code})")
+            async for line in resp.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    return
+                try:
+                    choices = json.loads(data).get("choices") or []
+                except ValueError:
+                    continue
+                piece = (choices[0].get("delta") or {}).get("content") if choices else None
+                if piece:
+                    yield piece
+    except httpx.TransportError as exc:
+        raise AIUnavailable("The AI service is busy or unreachable") from exc

@@ -16,7 +16,7 @@ function withAuth(request: Request): Request {
  * fetch wrapper: attaches the in-memory bearer token and, on a 401, refreshes
  * once (single-flight) and retries the original request.
  */
-async function authFetch(input: Request): Promise<Response> {
+export async function authFetch(input: Request): Promise<Response> {
   const isAuthCall = new URL(input.url, "http://local").pathname.startsWith(AUTH_PREFIX);
   const retry = isAuthCall ? null : input.clone();
   const sentWith = session.getToken();

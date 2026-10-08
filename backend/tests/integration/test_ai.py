@@ -57,7 +57,7 @@ class FakeModel:
             return {"answer": "Lab 3, at 11 AM." if follow_up else "- Viva on 20 October at 11 AM\n- Lab 3"}
         if "Answer the user's question" in system:
             ref = last.split("#", 1)[1].split(" ", 1)[0]
-            return {"answer": "Your viva is on 20 Oct at 11 AM.", "refs": [ref]}
+            return {"answer": f"Your viva is on **20 Oct at 11 AM** (#{ref})."}
         raise AssertionError(system)
 
 
@@ -65,6 +65,17 @@ class FakeModel:
 def model(monkeypatch) -> FakeModel:
     fake = FakeModel()
     monkeypatch.setattr(features, "complete_json", fake)
+
+    async def text(messages, *, json_mode=True, max_tokens=700, config=None):  # questions answer in Markdown text
+        return (await fake(messages))["answer"]
+
+    async def stream(messages, *, max_tokens=400):
+        answer = (await fake(messages))["answer"]
+        for word in answer.split(" "):
+            yield word + " "
+
+    monkeypatch.setattr(features, "complete", text)
+    monkeypatch.setattr(features, "stream_text", stream)
     return fake
 
 
@@ -207,7 +218,7 @@ async def test_whatsapp_write_and_ask(client, setup, infra, model, queued):
 
     assert await compose.handle_inbound(wa("/ask when is my viva?")) == "ask"
     answer = await last_reply()
-    assert answer.startswith("💬 *when is my viva?*") and "Your viva is on 20 Oct" in answer
+    assert answer.startswith("💬 *when is my viva?*") and "Your viva is on *20 Oct at 11 AM*" in answer
     assert "📬 *From these emails*" in answer and "Project viva slot" in answer
 
 
@@ -312,3 +323,41 @@ async def test_ask_about_one_email_and_reply_by_hand(client, setup, infra, model
     assert await compose.handle_inbound(wa(f"/ask {message.ref} when and where?")) == "ask"
     answer = await last_reply()
     assert answer.startswith("💬 *when and where?*\n_About #") and "- Lab 3" in answer
+
+
+def sse_events(text: str) -> list[tuple[str, dict]]:
+    import json
+
+    out = []
+    for block in text.replace("\r\n", "\n").split("\n\n"):
+        event = next((line[6:].strip() for line in block.split("\n") if line.startswith("event:")), "")
+        data = next((line[5:].strip() for line in block.split("\n") if line.startswith("data:")), "")
+        if event:
+            out.append((event, json.loads(data)))
+    return out
+
+
+async def test_answers_stream_word_by_word(client, setup, infra, model):
+    headers, mailbox_id = setup
+    await enable_ai(client)
+    mail(infra, "student@example.com", "Project viva slot", "Viva on 20 October at 11 AM in Lab 3.")
+    await ingest.sync_mailbox(mailbox_id)
+    async with session_factory()() as db:
+        message = await db.scalar(select(Message))
+
+    resp = await client.post(f"/api/v1/messages/{message.id}/ai/ask/stream", headers=headers,
+                             json={"question": "When and where is it?"})
+    assert resp.status_code == 200 and resp.headers["content-type"].startswith("text/event-stream")
+    events = sse_events(resp.text)
+    assert [e for e, _ in events].count("delta") > 3 and events[-1] == ("done", {})
+    assert "".join(d["text"] for e, d in events if e == "delta").strip() == "- Viva on 20 October at 11 AM\n- Lab 3"
+
+    resp = await client.post("/api/v1/ai/ask/stream", headers=headers, json={"question": "when is my viva?"})
+    events = sse_events(resp.text)
+    assert "".join(d["text"] for e, d in events if e == "delta").startswith("Your viva is on **20 Oct")
+    assert events[-1][0] == "done" and events[-1][1]["refs"][0]["message_id"] == str(message.id)
+
+    # Problems known before streaming (AI off for this user) are ordinary errors, not a broken stream.
+    await client.put("/api/v1/me/settings", headers=headers, json={"ai_enabled": False})
+    off = await client.post("/api/v1/ai/ask/stream", headers=headers, json={"question": "viva?"})
+    assert off.status_code == 503 and off.json()["code"] == "ai_unavailable"

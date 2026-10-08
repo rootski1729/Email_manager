@@ -6,6 +6,7 @@ WhatsApp or presses Send on the web, through exactly the same send path as hand-
 
 import json
 import re
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import getaddresses
@@ -253,7 +254,8 @@ class AskResult:
     messages: list[Message]
 
 
-async def ask(db: AsyncSession, user: User, question: str) -> AskResult:
+async def _mail_context(db: AsyncSession, user: User) -> tuple[str, str, list[Message]]:
+    """(context lines, today, the emails listed) for questions about all of a user's important mail."""
     rows = list((await db.scalars(select(Message).where(Message.user_id == user.id)
                                   .order_by(Message.received_at.desc()).limit(ASK_CONTEXT_MESSAGES))).all())
     zone = tz(user.timezone)
@@ -270,19 +272,32 @@ async def ask(db: AsyncSession, user: User, question: str) -> AskResult:
         lines.append(f"[date] {when} | {e.kind.value} | {e.title}")
     if not lines:
         raise AssistantError("You have no important emails yet, so there's nothing to search.")
+    return "\n".join(lines), datetime.now(zone).strftime("%A %d %B %Y"), rows
+
+
+def messages_for(refs: list[str], rows: list[Message]) -> list[Message]:
+    by_ref = {m.ref: m for m in rows if m.ref}
+    return [by_ref[r] for r in refs if r in by_ref]
+
+
+async def ask(db: AsyncSession, user: User, question: str) -> AskResult:
+    context, today, rows = await _mail_context(db, user)
     try:
-        result = await ai.ask(question=question, context="\n".join(lines),
-                              today=datetime.now(zone).strftime("%A %d %B %Y"))
+        result = await ai.ask(question=question, context=context, today=today)
     except AIUnavailable as exc:
         raise AssistantError("The AI couldn't answer just now. Try again in a minute.") from exc
-    by_ref = {m.ref: m for m in rows if m.ref}
-    return AskResult(result.answer, [by_ref[r] for r in result.refs if r in by_ref])
+    return AskResult(result.answer, messages_for(result.refs, rows))
 
 
-async def ask_about(
-    db: AsyncSession, user: User, message: Message, question: str, history: list[tuple[str, str]] | None = None,
-) -> str:
-    """A question about one email, answered from its full text and earlier thread."""
+async def ask_stream(db: AsyncSession, user: User, question: str) -> tuple[AsyncIterator[str], list[Message]]:
+    """The answer as it's written, plus the emails it may cite (looked up from the codes in the text)."""
+    context, today, rows = await _mail_context(db, user)
+    return ai.ask_stream(question=question, context=context, today=today), rows
+
+
+async def _email_question(
+    db: AsyncSession, user: User, message: Message, question: str, history: list[tuple[str, str]] | None,
+) -> dict[str, Any]:
     try:
         full = await mail_content.fetch_full(db, message)
     except mail_content.ContentError as exc:
@@ -292,12 +307,27 @@ async def ask_about(
     if reading.kind == "forward":
         body = (f"{reading.latest}\n\n[Forwarded email from {reading.forwarded_from}: "
                 f"{reading.forwarded_subject}]\n{reading.forwarded_body}")
+    return {"question": question, "subject": env.subject, "sender": _sender(env), "body": body or env.snippet or "",
+            "thread": reading.history, "today": datetime.now(tz(user.timezone)).strftime("%A %d %B %Y"),
+            "history": history}
+
+
+async def ask_about(
+    db: AsyncSession, user: User, message: Message, question: str, history: list[tuple[str, str]] | None = None,
+) -> str:
+    """A question about one email, answered from its full text and earlier thread."""
+    kwargs = await _email_question(db, user, message, question, history)
     try:
-        return await ai.ask_email(
-            question=question, subject=env.subject, sender=_sender(env), body=body or env.snippet or "",
-            thread=reading.history, today=datetime.now(tz(user.timezone)).strftime("%A %d %B %Y"), history=history)
+        return await ai.ask_email(**kwargs)
     except AIUnavailable as exc:
         raise AssistantError("The AI couldn't answer just now. Try again in a minute.") from exc
+
+
+async def ask_about_stream(
+    db: AsyncSession, user: User, message: Message, question: str, history: list[tuple[str, str]] | None = None,
+) -> AsyncIterator[str]:
+    """Same, streamed. The email is read first, so mailbox problems surface before anything streams."""
+    return ai.ask_email_stream(**await _email_question(db, user, message, question, history))
 
 
 async def reply_defaults(db: AsyncSession, user: User, message: Message) -> tuple[Mailbox, str, str]:

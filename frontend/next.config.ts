@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
   // Dev only: allow opening the dev server through a Coder port-forward URL.
   allowedDevOrigins: ["*.coder.fogteams.com"],
   poweredByHeader: false,
+  // Next's gzip buffers proxied server-sent events (streamed AI answers, live updates) until the stream ends.
+  // Compression belongs to the edge anyway: Caddy encodes every response in production (deploy/caddy).
+  compress: false,
   reactStrictMode: true,
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_ORIGIN}/api/:path*` }];

@@ -4,7 +4,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 
 import { api, unwrap } from "./client";
 import { qk } from "./keys";
-import type { ChatTurn, OutboundCreate } from "./types";
+import type { OutboundCreate } from "./types";
 
 /* AI assistant (Azure AI Foundry). Nothing here sends email except useSendEmail. */
 
@@ -53,20 +53,6 @@ export function useDraftReply() {
   });
 }
 
-/** Ask about one email (and its earlier thread). `history` is the recent conversation, oldest first. */
-export function useAskEmail() {
-  return useMutation({
-    meta: { silent: true },
-    mutationFn: ({ messageId, question, history }: { messageId: string; question: string; history: ChatTurn[] }) =>
-      unwrap(
-        api.POST("/api/v1/messages/{message_id}/ai/ask", {
-          params: { path: { message_id: messageId } },
-          body: { question, history },
-        }),
-      ),
-  });
-}
-
 /** An empty reply (sender, To and "Re:" subject filled in) to write by hand. No AI; nothing is sent. */
 export function useBlankReply() {
   return useMutation({
@@ -101,13 +87,6 @@ export function useRuleFromText() {
   return useMutation({
     meta: { silent: true },
     mutationFn: (description: string) => unwrap(api.POST("/api/v1/ai/rule", { body: { description } })),
-  });
-}
-
-export function useAskMail() {
-  return useMutation({
-    meta: { silent: true },
-    mutationFn: (question: string) => unwrap(api.POST("/api/v1/ai/ask", { body: { question } })),
   });
 }
 

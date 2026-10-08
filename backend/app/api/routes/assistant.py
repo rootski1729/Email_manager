@@ -1,9 +1,13 @@
 """AI assistant on the website: reply ideas, drafts, rules in plain English, questions; and sending email."""
 
+import json
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter
+from sse_starlette import EventSourceResponse
 
 from app.ai import features as ai
 from app.ai.client import AIUnavailable
@@ -106,6 +110,59 @@ async def ask_about_email(message_id: UUID, body: EmailAskRequest, user: Current
     except assistant.AssistantError as exc:
         raise _assistant_error(exc) from exc
     return EmailAskOut(answer=answer)
+
+
+def _sse(pieces: AsyncIterator[str], done: Callable[[str], dict[str, Any]] | None = None) -> EventSourceResponse:
+    """Stream an answer: `delta` events carry text as it's written, then `done` (or `error`)."""
+    async def events() -> AsyncIterator[dict[str, str]]:
+        text = ""
+        try:
+            async for piece in pieces:
+                text += piece
+                yield {"event": "delta", "data": json.dumps({"text": piece})}
+        except AIUnavailable:
+            yield {"event": "error", "data": json.dumps({"message": "The AI couldn't answer just now. Try again."})}
+            return
+        if not text.strip():
+            yield {"event": "error", "data": json.dumps({"message": "The AI didn't answer. Try asking again."})}
+            return
+        yield {"event": "done", "data": json.dumps(done(text) if done else {})}
+
+    return EventSourceResponse(events(), headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.post("/messages/{message_id}/ai/ask/stream", response_class=EventSourceResponse,
+             responses={200: {"content": {"text/event-stream": {}}}})
+async def ask_about_email_stream(
+    message_id: UUID, body: EmailAskRequest, user: CurrentUser, db: DB,
+) -> EventSourceResponse:
+    """Like /ai/ask, streamed as server-sent events: `delta` {text} …, then `done` {} or `error` {message}."""
+    await _require_ai(db, user)
+    message = await _message(db, user, message_id)
+    try:
+        pieces = await assistant.ask_about_stream(db, user, message, body.question,
+                                                  [(t.role, t.content) for t in body.history])
+    except assistant.AssistantError as exc:
+        raise _assistant_error(exc) from exc
+    return _sse(pieces)
+
+
+@router.post("/ai/ask/stream", response_class=EventSourceResponse,
+             responses={200: {"content": {"text/event-stream": {}}}})
+async def ask_stream(body: AskRequest, user: CurrentUser, db: DB) -> EventSourceResponse:
+    """/ai/ask, streamed: `delta` {text} …, then `done` {refs: [{message_id, ref, subject}]} or `error`."""
+    await _require_ai(db, user)
+    try:
+        pieces, rows = await assistant.ask_stream(db, user, body.question)
+    except assistant.AssistantError as exc:
+        raise _assistant_error(exc) from exc
+    cited = {m.ref: AskRef(message_id=m.id, ref=m.ref, subject=m.subject).model_dump(mode="json")
+             for m in rows if m.ref}
+
+    def done(text: str) -> dict[str, Any]:
+        return {"refs": [cited[r] for r in ai.refs_in(text) if r in cited]}
+
+    return _sse(pieces, done)
 
 
 @router.post("/messages/{message_id}/reply-draft", response_model=DraftOut)

@@ -42,18 +42,35 @@ def answer(messages: list[dict]) -> dict:
         return {"name": "College mail", "explanation": "Emails from akgec.ac.in",
                 "condition": {"field": "from.domain", "op": "domain_matches", "value": ["akgec.ac.in"]}}
     if "understand one email" in system:
-        return {"answer": f"From “{subject}”:\n- {last.strip().rstrip('?')}: see the email text\n- Nothing else is needed."}
+        return {"answer": ("Your technical round moved to **Friday 10 Oct, 3:00 PM IST** on Microsoft Teams.\n\n"
+                           "- The meeting link comes in a separate invite\n- Keep your **college ID** handy\n"
+                           "- Reply to Riya if the time doesn't work")}
     if "Answer the user's question" in system:
         ref = (re.search(r"#(\w+) \|", last) or [None, ""])[1]
-        return {"answer": "Your next important date is in this email.", "refs": [ref] if ref else []}
+        return {"answer": f"Your interview is on **Fri 10 Oct, 3:00 PM IST** on Teams (#{ref})."}
     return {"answer": "ok"}
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        result = answer(body["messages"])
+        # JSON mode gets the object; plain-text requests (questions) get the Markdown answer itself.
+        content = json.dumps(result) if body.get("response_format") else result.get("answer", "")
+        if body.get("stream"):
+            time.sleep(0.6)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            for word in re.findall(r"\S+\s*", content):  # a word at a time, like a real model
+                chunk = {"choices": [{"delta": {"content": word}}]}
+                self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+                self.wfile.flush()
+                time.sleep(0.06)
+            self.wfile.write(b"data: [DONE]\n\n")
+            return
         time.sleep(0.8)
-        data = json.dumps({"choices": [{"message": {"content": json.dumps(answer(body["messages"]))}}]}).encode()
+        data = json.dumps({"choices": [{"message": {"content": content}}]}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))

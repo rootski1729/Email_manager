@@ -110,3 +110,11 @@ def files_line(files: list[dict[str, Any]], *, max_names: int = 2) -> str:
     more = f" +{len(files) - max_names} more" if len(files) > max_names else ""
     label = "1 file" if len(files) == 1 else f"{len(files)} files"
     return f"📎 {label}: {', '.join(names)}{more}"
+
+
+def from_markdown(text: str) -> str:
+    """AI answers are short Markdown; WhatsApp uses *bold* and "- " bullets instead."""
+    text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text.strip())
+    text = re.sub(r"__(.+?)__", r"*\1*", text)
+    text = re.sub(r"^#{1,6}\s*(.+)$", r"*\1*", text, flags=re.M)
+    return re.sub(r"^\s*[*•]\s+", "- ", text, flags=re.M)

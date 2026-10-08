@@ -4,6 +4,7 @@
 
 A PAGE is a path, optionally followed by steps:  /messages/<id>@click:Reply with AI|fill:Steer the ideas=formal|wait:1500
 Steps: click:<visible text>  fill:<placeholder or label>=<value>  press:<key>  hover:<visible text>  mouse:<x>,<y>  wait:<ms>
+       snap:<label>  (an extra screenshot mid-steps, e.g. while an answer streams; saved as <shot>@<label>.png)
 Env: FULL=1 for full-page shots, PHONE=0 to skip the 390px phone shot, API_LOG=path of the API log (for the OTP).
 """
 
@@ -29,7 +30,7 @@ def name_of(spec: str) -> str:
     return name if len(name) <= 90 else f"{name[:80]}_{hashlib.sha1(spec.encode()).hexdigest()[:8]}"
 
 
-async def run_steps(page: Page, steps: list[str]) -> None:
+async def run_steps(page: Page, steps: list[str], shot: str = "") -> None:
     for step in steps:
         kind, _, arg = step.partition(":")
         if kind == "click":
@@ -56,6 +57,9 @@ async def run_steps(page: Page, steps: list[str]) -> None:
             await page.mouse.move(float(x), float(y), steps=8)
         elif kind == "wait":
             await page.wait_for_timeout(int(arg))
+        elif kind == "snap":
+            await page.screenshot(path=f"{shot}@{re.sub(r'[^A-Za-z0-9]+', '_', arg)}.png", full_page=FULL)
+            continue
         await page.wait_for_timeout(400)
 
 
@@ -69,10 +73,11 @@ async def shoot(page: Page, spec: str, mode: str) -> None:
         await page.add_init_script(f"try {{ localStorage.setItem('theme', '{mode}') }} catch {{}}")
         await page.goto(BASE + path, wait_until="load", timeout=90_000)
         await page.wait_for_timeout(3000)
+        shot = f"{OUT}/{mode}-{tag}{name_of(spec)}"
         if steps:
-            await run_steps(page, steps.split("|"))
+            await run_steps(page, steps.split("|"), shot)
             await page.wait_for_timeout(1500)
-        await page.screenshot(path=f"{OUT}/{mode}-{tag}{name_of(spec)}.png", full_page=FULL)
+        await page.screenshot(path=f"{shot}.png", full_page=FULL)
 
 
 async def otp_login(page: Page) -> None:

@@ -151,10 +151,69 @@ async def test_rule_from_text_retries_an_invalid_condition(model) -> None:
         await ai.rule_from_text("??")
 
 
-async def test_ask_returns_codes(model) -> None:
-    model({"answer": "Your exam is on 15 Oct.", "refs": ["#k7", " ", "32"]})
+async def test_ask_answers_in_markdown_and_finds_the_codes(monkeypatch) -> None:
+    prompts: list[str] = []
+
+    async def fake_complete(messages, *, json_mode=True, max_tokens=700, config=None):
+        prompts.append(messages[0]["content"])
+        assert json_mode is False
+        return "Your exam is on **15 Oct** (#k7).\n- Admit card: #32"
+
+    monkeypatch.setattr(ai, "complete", fake_complete)
     answer = await ai.ask(question="when is my exam", context="#K7 | …", today="Monday")
-    assert answer.refs == ["K7", "32"]
+    assert answer.refs == ["K7", "32"] and answer.answer.startswith("Your exam is on **15 Oct**")
+    assert "at most 70 words" in prompts[0] and "**bold**" in prompts[0]
+
+
+class StreamResponse:
+    def __init__(self, status: int, lines: list[str]) -> None:
+        self.status_code, self.lines = status, lines
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def aread(self) -> bytes:
+        return "\n".join(self.lines).encode()
+
+    async def aiter_lines(self):
+        for line in self.lines:
+            yield line
+
+
+async def test_stream_text_yields_pieces_and_stops_at_done(monkeypatch) -> None:
+    config = AIConfig(endpoint="https://me.openai.azure.com", api_key="k", model="m", enabled=True, source="database")
+    monkeypatch.setattr(ai_client, "ai_config", _async(config))
+    chunks = ['data: {"choices":[{"delta":{"content":"Your "}}]}', "", ": keep-alive",
+              'data: {"choices":[{"delta":{"content":"exam"}}]}', 'data: {"choices":[]}', "data: [DONE]",
+              'data: {"choices":[{"delta":{"content":"ignored"}}]}']
+    seen: dict = {}
+
+    class Http:
+        def stream(self, method, url, **kwargs):
+            seen.update(kwargs["json"])
+            return StreamResponse(200, chunks)
+
+    monkeypatch.setattr(ai_client, "get_http", lambda: Http())
+    assert [p async for p in ai_client.stream_text([])] == ["Your ", "exam"]
+    assert seen["stream"] is True
+
+    class Filtered:
+        def stream(self, method, url, **kwargs):
+            return StreamResponse(400, ['{"error": {"code": "content_filter"}}'])
+
+    monkeypatch.setattr(ai_client, "get_http", lambda: Filtered())
+    with pytest.raises(AIUnavailable, match="safety filter"):
+        [p async for p in ai_client.stream_text([])]
+
+
+def test_markdown_becomes_whatsapp_formatting() -> None:
+    from app.notify import wa
+
+    assert wa.from_markdown("Exam on **15 Oct**.\n* Bring ID\n## Venue\n- Hall B") == \
+        "Exam on *15 Oct*.\n- Bring ID\n*Venue*\n- Hall B"
 
 
 def test_readable_preview_skips_greeting_history_and_footer() -> None:

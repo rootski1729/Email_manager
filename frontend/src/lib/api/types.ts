@@ -67,6 +67,7 @@ export type Draft = S["DraftOut"];
 export type ReplyIdea = S["ReplyIdeaOut"];
 export type RuleIdea = S["RuleIdeaOut"];
 export type AskOut = S["AskOut"];
+export type AskRef = S["AskRef"];
 export type ChatTurn = S["ChatTurn"];
 export type OutboundCreate = S["OutboundCreate"];
 

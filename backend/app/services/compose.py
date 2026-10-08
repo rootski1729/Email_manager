@@ -604,14 +604,14 @@ async def _ai_ask(db: AsyncSession, user: User, question: str) -> None:
             return
         await reply(db, user, "\n".join([
             f"💬 *{wa.plain(wa.clip(rest, 100))}*", f"_About #{one.ref} · {wa.plain(wa.clip(one.subject, 70))}_", "",
-            wa.plain(answer), "", f"👉 */reply {one.ref}* · */open {one.ref}* · ask more: */ask {one.ref} …*"]))
+            wa.from_markdown(answer), "", f"👉 */reply {one.ref}* · */open {one.ref}* · ask more: */ask {one.ref} …*"]))
         return
     try:
         result = await assistant.ask(db, user, question)
     except assistant.AssistantError as exc:
         await reply(db, user, f"⚠️ {exc}")
         return
-    lines = [f"💬 *{wa.plain(wa.clip(question, 100))}*", "", wa.plain(result.answer)]
+    lines = [f"💬 *{wa.plain(wa.clip(question, 100))}*", "", wa.from_markdown(result.answer)]
     if result.messages:
         lines += ["", "📬 *From these emails*",
                   *[f"- *#{m.ref}* {wa.plain(wa.clip(m.subject, 70))}" for m in result.messages[:3]],
