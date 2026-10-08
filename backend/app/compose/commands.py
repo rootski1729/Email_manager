@@ -66,7 +66,7 @@ _REF_ARG = re.compile(r"^#?([2-9a-hjkmnp-z]{2,6})$", re.I)
 # Words that act on a quoted alert, with or without the slash: "remind 2h", "open", "mute".
 QUOTE_ACTIONS = {"open": "/open", "full": "/open", "read": "/open", "show": "/open", "reply": "/reply",
                  "remind": "/remind", "snooze": "/remind", "mute": "/mute", "thread": "/thread",
-                 "files": "/files", "attachments": "/files", "ideas": "/ideas", "suggest": "/ideas"}
+                 "files": "/files", "attachments": "/files", "ideas": "/ideas", "suggest": "/ideas", "ask": "/ask"}
 _PICK = re.compile(r"^([1-5])(?:\s*[.:)\-]?\s+(\S.*))?$", re.S)
 
 
@@ -308,5 +308,6 @@ HELP = (
     "- */mute K7* · no more alerts from this sender (*/mute K7 domain* for all of them)\n"
     "- */muted* · */unmute someone@x.com*\n\n"
     "💬 *Ask*\n"
-    "- */ask when is my exam?* · answers from your important mail"
+    "- */ask when is my exam?* · answers from your important mail\n"
+    "- */ask K7 what documents do I need?* · about one email"
 )

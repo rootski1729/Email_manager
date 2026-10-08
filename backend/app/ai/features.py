@@ -239,3 +239,34 @@ async def ask(*, question: str, context: str, today: str) -> Answer:
         raise AIUnavailable("empty answer")
     refs = [str(r).lstrip("#").upper() for r in data.get("refs", []) if str(r).strip()][:5]
     return Answer(answer, refs)
+
+
+# ---------------------------------------------------------------- questions about one email
+
+
+async def ask_email(
+    *, question: str, subject: str, sender: str, body: str, thread: str, today: str,
+    history: list[tuple[str, str]] | None = None,
+) -> str:
+    """Answer a question about one email (and its earlier thread), e.g. "what documents do I need?"."""
+    block = _email_block(subject=subject, sender=sender, body=body)
+    if thread.strip():
+        block += "\n<earlier_messages>\n" + thread.strip()[:MAX_EMAIL_CHARS] + "\n</earlier_messages>"
+    messages = [
+        {"role": "system", "content": (
+            f"Today is {today}. You help the reader understand one email. Answer only from the email inside "
+            "<email> and its earlier messages; if they don't say, say so plainly. Be short and concrete: at most "
+            "5 sentences, or a short list with '- ' items for steps, documents or dates. Plain text, same language "
+            'as the question. Reply in JSON: {"answer": "..."}. ' + UNTRUSTED)},
+        {"role": "user", "content": block},
+        {"role": "assistant", "content": '{"answer": "I have read the email. What would you like to know?"}'},
+    ]
+    for role, content in (history or [])[-6:]:
+        text = content[:1500]
+        messages.append({"role": role, "content": json.dumps({"answer": text}) if role == "assistant" else text})
+    messages.append({"role": "user", "content": question})
+    data = await complete_json(messages, max_tokens=500)
+    answer = _body(data.get("answer"), 1500)
+    if not answer:
+        raise AIUnavailable("empty answer")
+    return answer

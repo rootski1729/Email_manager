@@ -779,6 +779,21 @@ class AskRequest(BaseModel):
     question: str = Field(min_length=2, max_length=500)
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=2000)
+
+
+class EmailAskRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=500)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=12,
+                                    description="Earlier questions and answers about this email, oldest first")
+
+
+class EmailAskOut(BaseModel):
+    answer: str
+
+
 class AskRef(BaseModel):
     message_id: UUID
     ref: str | None

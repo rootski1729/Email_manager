@@ -15,6 +15,8 @@ from app.api.schemas import (
     AskRequest,
     DraftOut,
     DraftRequest,
+    EmailAskOut,
+    EmailAskRequest,
     OutboundCreate,
     OutboundEmailDetail,
     ReplyIdeaOut,
@@ -91,6 +93,31 @@ async def draft_reply(message_id: UUID, body: DraftRequest, user: CurrentUser, d
     out = _draft_out(email)
     await db.rollback()  # the website keeps the draft; no server-side draft row is needed
     return out
+
+
+@router.post("/messages/{message_id}/ai/ask", response_model=EmailAskOut)
+async def ask_about_email(message_id: UUID, body: EmailAskRequest, user: CurrentUser, db: DB) -> EmailAskOut:
+    """Ask about one email ("what documents do I need?"); answered from its full text and earlier thread."""
+    await _require_ai(db, user)
+    message = await _message(db, user, message_id)
+    try:
+        answer = await assistant.ask_about(db, user, message, body.question,
+                                           [(t.role, t.content) for t in body.history])
+    except assistant.AssistantError as exc:
+        raise _assistant_error(exc) from exc
+    return EmailAskOut(answer=answer)
+
+
+@router.post("/messages/{message_id}/reply-draft", response_model=DraftOut)
+async def reply_draft(message_id: UUID, user: CurrentUser, db: DB) -> DraftOut:
+    """An empty reply (sender, To and Subject filled in) to write yourself. Works without AI; nothing is sent."""
+    message = await _message(db, user, message_id)
+    try:
+        mailbox, to, subject = await assistant.reply_defaults(db, user, message)
+    except assistant.AssistantError as exc:
+        raise _assistant_error(exc) from exc
+    return DraftOut(mailbox_id=mailbox.id, from_address=mailbox.address, to=[to], cc=[], subject=subject, body="",
+                    reply_to_message_id=message.id)
 
 
 @router.post("/ai/compose", response_model=DraftOut)

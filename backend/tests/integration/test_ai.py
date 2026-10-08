@@ -51,6 +51,10 @@ class FakeModel:
             return {"name": "College exams", "explanation": "Mail from univ.edu about exams",
                     "condition": {"all": [{"field": "from.domain", "op": "domain_matches", "value": ["univ.edu"]},
                                           {"field": "subject", "op": "contains", "value": ["exam", "viva"]}]}}
+        if "understand one email" in system:
+            assert "<email>" in messages[1]["content"] and "Viva on 20 October" in messages[1]["content"]
+            follow_up = len(messages) > 4  # earlier questions and answers were passed along
+            return {"answer": "Lab 3, at 11 AM." if follow_up else "- Viva on 20 October at 11 AM\n- Lab 3"}
         if "Answer the user's question" in system:
             ref = last.split("#", 1)[1].split(" ", 1)[0]
             return {"answer": "Your viva is on 20 Oct at 11 AM.", "refs": [ref]}
@@ -275,3 +279,36 @@ async def test_website_reply_with_ai_rule_from_text_and_send(client, setup, infr
     assert saved.status_code == 201, saved.text
     answer = (await client.post("/api/v1/ai/ask", headers=headers, json={"question": "when is my viva?"})).json()
     assert answer["refs"][0]["message_id"] == str(message.id)
+
+
+async def test_ask_about_one_email_and_reply_by_hand(client, setup, infra, model, queued):
+    headers, mailbox_id = setup
+    await enable_ai(client)
+    mail(infra, "student@example.com", "Project viva slot", "Viva on 20 October at 11 AM in Lab 3.")
+    await ingest.sync_mailbox(mailbox_id)
+    async with session_factory()() as db:
+        message = await db.scalar(select(Message))
+
+    first = await client.post(f"/api/v1/messages/{message.id}/ai/ask", headers=headers,
+                              json={"question": "When and where is it?"})
+    assert first.status_code == 200, first.text
+    assert first.json()["answer"] == "- Viva on 20 October at 11 AM\n- Lab 3"
+    follow = await client.post(f"/api/v1/messages/{message.id}/ai/ask", headers=headers, json={
+        "question": "Which room again?",
+        "history": [{"role": "user", "content": "When and where is it?"},
+                    {"role": "assistant", "content": first.json()["answer"]}]})
+    assert follow.json()["answer"] == "Lab 3, at 11 AM."
+
+    # Writing a reply yourself needs no AI: sender, To and Subject come filled in.
+    draft = (await client.post(f"/api/v1/messages/{message.id}/reply-draft", headers=headers)).json()
+    assert draft["to"] == ["notices@exam.univ.edu"] and draft["subject"] == "Re: Project viva slot"
+    assert draft["body"] == "" and draft["from_address"] == "student@example.com"
+    sent = await client.post("/api/v1/outbound-emails", headers=headers, json={
+        "mailbox_id": draft["mailbox_id"], "to": draft["to"], "subject": draft["subject"],
+        "body": "I'll be there.", "reply_to_message_id": str(message.id)})
+    assert sent.status_code == 202 and await compose.send_outbound(UUID(queued[0])) == "sent"
+
+    # WhatsApp: /ask with a code asks about that email only.
+    assert await compose.handle_inbound(wa(f"/ask {message.ref} when and where?")) == "ask"
+    answer = await last_reply()
+    assert answer.startswith("💬 *when and where?*\n_About #") and "- Lab 3" in answer

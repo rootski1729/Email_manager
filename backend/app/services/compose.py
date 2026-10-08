@@ -588,10 +588,23 @@ async def _ai_edit(db: AsyncSession, user: User, instructions: str) -> None:
 async def _ai_ask(db: AsyncSession, user: User, question: str) -> None:
     if not question:
         await reply(db, user, "💬 Ask me about your important mail, e.g.\n- */ask when is my exam?*\n"
-                              "- */ask what do I need to pay this week?*")
+                              "- */ask what do I need to pay this week?*\n- */ask K7 what documents do I need?* "
+                              "(about one email)")
         return
     if not await assistant.available(db, user):
         await reply(db, user, AI_OFF)
+        return
+    token, _, rest = question.partition(" ")
+    one = await actions.find_by_ref(db, user.id, token) if rest.strip() and cmd.normalize_ref(token) else None
+    if one is not None:  # /ask K7 what documents do I need?  → about that email only
+        try:
+            answer = await assistant.ask_about(db, user, one, rest.strip())
+        except assistant.AssistantError as exc:
+            await reply(db, user, f"⚠️ {exc}")
+            return
+        await reply(db, user, "\n".join([
+            f"💬 *{wa.plain(wa.clip(rest, 100))}*", f"_About #{one.ref} · {wa.plain(wa.clip(one.subject, 70))}_", "",
+            wa.plain(answer), "", f"👉 */reply {one.ref}* · */open {one.ref}* · ask more: */ask {one.ref} …*"]))
         return
     try:
         result = await assistant.ask(db, user, question)

@@ -1,0 +1,2 @@
+FROM mcr.microsoft.com/playwright/python:v1.55.0-noble
+RUN pip install --break-system-packages -q playwright==1.55.0

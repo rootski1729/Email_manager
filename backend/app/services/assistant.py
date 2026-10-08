@@ -277,3 +277,33 @@ async def ask(db: AsyncSession, user: User, question: str) -> AskResult:
         raise AssistantError("The AI couldn't answer just now. Try again in a minute.") from exc
     by_ref = {m.ref: m for m in rows if m.ref}
     return AskResult(result.answer, [by_ref[r] for r in result.refs if r in by_ref])
+
+
+async def ask_about(
+    db: AsyncSession, user: User, message: Message, question: str, history: list[tuple[str, str]] | None = None,
+) -> str:
+    """A question about one email, answered from its full text and earlier thread."""
+    try:
+        full = await mail_content.fetch_full(db, message)
+    except mail_content.ContentError as exc:
+        raise AssistantError(str(exc)) from exc
+    env, reading = full.env, full.reading
+    body = reading.latest
+    if reading.kind == "forward":
+        body = (f"{reading.latest}\n\n[Forwarded email from {reading.forwarded_from}: "
+                f"{reading.forwarded_subject}]\n{reading.forwarded_body}")
+    try:
+        return await ai.ask_email(
+            question=question, subject=env.subject, sender=_sender(env), body=body or env.snippet or "",
+            thread=reading.history, today=datetime.now(tz(user.timezone)).strftime("%A %d %B %Y"), history=history)
+    except AIUnavailable as exc:
+        raise AssistantError("The AI couldn't answer just now. Try again in a minute.") from exc
+
+
+async def reply_defaults(db: AsyncSession, user: User, message: Message) -> tuple[Mailbox, str, str]:
+    """(sending mailbox, To, Subject) for replying to an email by hand."""
+    mailbox = await sending_mailbox(db, user.id, message.mailbox_id)
+    subject = message.subject or ""
+    if not re.match(r"^\s*re\s*:", subject, re.I):
+        subject = f"Re: {subject}".strip()
+    return mailbox, reply_address(message, None), subject
