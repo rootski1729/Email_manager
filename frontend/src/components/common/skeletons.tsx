@@ -55,7 +55,7 @@ export function MailRowSkeleton({ detailed = false, className }: { detailed?: bo
   );
 }
 
-/** Rows for a card on Home ("Today's important emails", "Coming up"). */
+/** Rows for a card on Home ("Coming up"). */
 export function MailRowsSkeleton({ rows = 3, square = false }: { rows?: number; square?: boolean }) {
   return (
     <Busy className="space-y-1 py-1">
@@ -181,43 +181,91 @@ export function TimelineSkeleton() {
 
 /* ---------- whole pages (route loading.tsx and first loads) ---------- */
 
+/** Home's four number cards: a round icon, a big number, a label and a change line. */
+export function KpiRowSkeleton() {
+  return (
+    <Busy label="Loading your numbers" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      {Array.from({ length: 4 }, (_, i) => (
+        <div
+          key={i}
+          className="flex flex-col gap-3 rounded-2xl bg-card p-4 ring-1 ring-border sm:flex-row sm:items-center sm:gap-4 sm:p-5"
+        >
+          <Skeleton className="size-11 shrink-0 rounded-full sm:size-14" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-7 w-14" />
+            <Skeleton className="h-3.5 w-24 max-w-full" />
+            <Skeleton className="h-3 w-28 max-w-full" />
+          </div>
+        </div>
+      ))}
+    </Busy>
+  );
+}
+
+function ChartCardSkeleton({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <div className={cn("flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-border sm:p-5", className)}>
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3.5 w-48 max-w-full" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Home's two rows of charts: three rings beside an area chart, then a line chart beside bars. */
+export function ChartRowsSkeleton() {
+  return (
+    <Busy label="Loading charts" className="space-y-6">
+      <div className="grid gap-6 xl:grid-cols-12">
+        <ChartCardSkeleton className="xl:col-span-5">
+          <div className="flex flex-1 items-center justify-between gap-2 sm:px-2">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="flex flex-1 flex-col items-center gap-3">
+                <Skeleton className="size-[5.5rem] rounded-full sm:size-28" />
+                <Skeleton className="h-3.5 w-16" />
+              </div>
+            ))}
+          </div>
+        </ChartCardSkeleton>
+        <ChartCardSkeleton className="xl:col-span-7">
+          <Skeleton className="h-56 rounded-xl sm:h-60" />
+        </ChartCardSkeleton>
+      </div>
+      <div className="grid gap-6 xl:grid-cols-12">
+        <ChartCardSkeleton className="xl:col-span-7">
+          <Skeleton className="h-64 rounded-xl" />
+        </ChartCardSkeleton>
+        <ChartCardSkeleton className="xl:col-span-5">
+          <div className="space-y-4 py-2">
+            {[0.9, 0.7, 0.5, 0.35].map((w, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-3 w-16 shrink-0" />
+                <Skeleton className="h-5 rounded-md" style={{ width: `${w * 100}%` }} />
+              </div>
+            ))}
+          </div>
+        </ChartCardSkeleton>
+      </div>
+    </Busy>
+  );
+}
+
 export function DashboardSkeleton() {
   return (
     <Busy label="Loading Home" className="space-y-6">
-      <HeaderSkeleton />
-      <Skeleton className="h-[76px] rounded-2xl" />
-      <div className="grid gap-3 sm:grid-cols-3">
-        {Array.from({ length: 3 }, (_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3.5">
-            <Skeleton className="size-9 shrink-0 rounded-xl" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-3.5 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <Skeleton className="h-11 rounded-xl" />
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border bg-card py-3">
-          <div className="space-y-2 px-4 pt-1 pb-2">
-            <Skeleton className="h-4 w-44" />
-            <Skeleton className="h-3.5 w-60 max-w-full" />
-          </div>
-          <div className="px-1">
-            <MailRowsSkeleton rows={4} />
-          </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2.5">
+          <Skeleton className="h-8 w-40 rounded-lg" />
+          <Skeleton className="h-4 w-64 max-w-full" />
         </div>
-        <div className="rounded-2xl border bg-card py-3">
-          <div className="space-y-2 px-4 pt-1 pb-2">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-3.5 w-64 max-w-full" />
-          </div>
-          <div className="px-1">
-            <MailRowsSkeleton rows={3} square />
-          </div>
-        </div>
+        <Skeleton className="h-[60px] w-full rounded-2xl sm:w-64" />
       </div>
+      <Skeleton className="h-5 w-72 max-w-full rounded-md" />
+      <KpiRowSkeleton />
+      <Skeleton className="h-[88px] rounded-2xl" />
+      <ChartRowsSkeleton />
     </Busy>
   );
 }

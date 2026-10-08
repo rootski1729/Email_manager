@@ -19,11 +19,14 @@ export function ComingUp({ className }: { className?: string }) {
   const upcoming = all.filter((e) => e.status === "upcoming").slice(0, 3);
 
   return (
-    <Card className={cn("gap-2 py-3", className)}>
-      <div className="px-4 pt-1">
-        <h2 className="text-base font-semibold tracking-tight">Coming up</h2>
+    <section aria-labelledby="coming-up-title" className={cn("min-w-0 space-y-3", className)}>
+      <div className="min-w-0">
+        <h2 id="coming-up-title" className="text-lg font-semibold tracking-tight">
+          Coming up
+        </h2>
         <p className="text-sm text-muted-foreground">Dates from your email. We&apos;ll remind you on WhatsApp.</p>
       </div>
+      <Card className="gap-2 pt-2 pb-3 shadow-xs">
       <div className="px-1">
         {events.isPending ? (
           <MailRowsSkeleton rows={3} square />
@@ -75,6 +78,7 @@ export function ComingUp({ className }: { className?: string }) {
           <ArrowRight className="size-4 transition-transform duration-200 group-hover/more:translate-x-0.5" aria-hidden />
         </Link>
       </div>
-    </Card>
+      </Card>
+    </section>
   );
 }

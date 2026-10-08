@@ -77,7 +77,14 @@ export function MessagesView() {
   const now = useNow();
   const mailboxId = params.get("mailbox") ?? "";
   const ruleId = params.get("rule") ?? "";
-  const [q, setQ] = useState(params.get("q") ?? "");
+  const paramQ = params.get("q") ?? "";
+  const [q, setQ] = useState(paramQ);
+  // A search from the top bar while already here changes ?q=; take it over as the new search.
+  const [seenQ, setSeenQ] = useState(paramQ);
+  if (paramQ !== seenQ) {
+    setSeenQ(paramQ);
+    setQ(paramQ);
+  }
   const debouncedQ = useDebounced(q.trim(), 350);
 
   const filters: MessageFilters = {

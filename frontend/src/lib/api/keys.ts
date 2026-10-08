@@ -1,7 +1,9 @@
 export const qk = {
   me: ["me"] as const,
   settings: ["settings"] as const,
+  stats: ["stats"] as const,
   overview: ["stats", "overview"] as const,
+  dashboard: (days: number) => ["stats", "dashboard", days] as const,
   mailboxes: ["mailboxes"] as const,
   imapPresets: ["mailboxes", "imap-presets"] as const,
   mailboxConnection: (id: string) => ["mailboxes", "connection", id] as const,

@@ -423,6 +423,38 @@ class Overview(BaseModel):
     series: list[DayStat]
 
 
+class ActivityDay(BaseModel):
+    date: str = Field(description="YYYY-MM-DD in the user's timezone")
+    important: int = Field(description="Important emails received that day")
+    alerts: int = Field(description="WhatsApp alerts and reminders that went out")
+    emails_sent: int = Field(description="Emails sent from MailSentinel")
+
+
+class NamedCount(BaseModel):
+    name: str
+    count: int
+    address: str | None = None
+
+
+class DashboardStats(BaseModel):
+    """Numbers for the dashboard over a period, with the previous period for comparison."""
+
+    period_days: int
+    important: int
+    important_prev: int
+    alerts: int
+    alerts_prev: int
+    emails_sent: int
+    emails_sent_prev: int
+    upcoming: int = Field(description="Dates coming up in the next 30 days")
+    delivery_rate: float | None = Field(description="Share of WhatsApp messages that went out (0-1)")
+    read_rate: float | None = Field(description="Share of delivered alerts that were read on WhatsApp (0-1)")
+    summarized_rate: float | None = Field(description="Share of important emails with an AI summary (0-1)")
+    activity: list[ActivityDay]
+    by_rule: list[NamedCount] = Field(description="Important emails per rule, most first")
+    top_senders: list[NamedCount]
+
+
 class WahaSession(BaseModel):
     status: str = Field(description="WORKING, SCAN_QR_CODE, STARTING, STOPPED, FAILED, MISSING, UNREACHABLE")
     me: str | None = Field(default=None, description="Paired WhatsApp id, e.g. 919876543210@c.us")

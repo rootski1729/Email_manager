@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, CheckCircle2, Info } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, Info } from "lucide-react";
 import Link from "next/link";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,7 +28,7 @@ export function StatusLine() {
   const mailboxes = useQuery(mailboxesQuery);
   const events = useQuery(eventsQuery());
 
-  if (overview.isPending || mailboxes.isPending) return <Skeleton className="h-[76px] rounded-2xl" />;
+  if (overview.isPending || mailboxes.isPending) return <Skeleton className="h-5 w-72 max-w-full rounded-md" />;
   if (overview.isError || mailboxes.isError) return null;
 
   const o = overview.data;
@@ -84,8 +84,24 @@ export function StatusLine() {
   const active = boxes.filter((m) => m.status === "active").length;
   const allGood = needsYou === 0 && !issues.some((i) => i.key === "waha");
 
+  // Nothing to say beyond "it works": one quiet line instead of a card.
+  if (allGood && issues.length === 0) {
+    return (
+      <p aria-live="polite" className="flex animate-rise items-start gap-2 text-sm text-muted-foreground">
+        <span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-tint-green text-tint-green-ink" aria-hidden>
+          <Check className="size-3" strokeWidth={3} />
+        </span>
+        <span className="text-pretty">
+          <span className="font-medium text-foreground">All good — WhatsApp alerts are on.</span> Watching {active}{" "}
+          {active === 1 ? "mailbox" : "mailboxes"} for {o.rules_enabled} {o.rules_enabled === 1 ? "kind" : "kinds"} of
+          important email.
+        </span>
+      </p>
+    );
+  }
+
   return (
-    <section aria-live="polite" className="animate-rise rounded-2xl border bg-card px-4 py-4 sm:px-5">
+    <section aria-live="polite" className="animate-rise rounded-2xl bg-card px-4 py-4 shadow-xs ring-1 ring-border sm:px-5">
       <div className="flex items-center gap-3">
         <span
           className={cn(

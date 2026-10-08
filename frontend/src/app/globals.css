@@ -6,6 +6,7 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-canvas: var(--canvas);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -107,6 +108,8 @@
    * focus adds the iris ring.
    */
   --background: #fcfcfd;
+  /* Dashboard canvas: a cool grey behind white cards, so they float. */
+  --canvas: #f5f5f8;
   --foreground: #18181f;
   --card: #ffffff;
   --card-foreground: #18181f;
@@ -189,6 +192,7 @@
 .dark {
   /* Near-black neutrals with the same iris accent. */
   --background: #0b0b0f;
+  --canvas: #0b0b0f;
   --foreground: #ededf2;
   --card: #131318;
   --card-foreground: #ededf2;
@@ -282,6 +286,14 @@
   }
 }
 
+/* Horizontal carousels: still scrollable by touch, wheel and keyboard, without a visible scrollbar. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
@@ -343,6 +355,15 @@
   & > :nth-child(6) { animation-delay: 175ms; }
   & > :nth-child(7) { animation-delay: 210ms; }
   & > :nth-child(n + 8) { animation-delay: 245ms; }
+}
+
+/* Donut rings draw in from empty (the arc's full length is passed in as --ring-len). */
+@keyframes ms-ring {
+  from { stroke-dashoffset: var(--ring-len); }
+}
+@utility animate-ring {
+  animation: ms-ring 900ms var(--ease-soft) backwards;
+  transition: stroke-dashoffset 600ms var(--ease-soft);
 }
 
 /* Interactive cards: a hairline that warms to iris, a soft shadow and a 1px lift on hover. */

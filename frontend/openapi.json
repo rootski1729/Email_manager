@@ -9515,6 +9515,134 @@
         ]
       }
     },
+    "/api/v1/stats/dashboard": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Dashboard",
+        "description": "Everything the dashboard shows for the last `days` days, compared with the `days` before.",
+        "operationId": "dashboard_api_v1_stats_dashboard_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 7,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/stats/timeseries": {
       "get": {
         "tags": [
@@ -15724,6 +15852,38 @@
         "type": "object",
         "title": "Actions"
       },
+      "ActivityDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date",
+            "description": "YYYY-MM-DD in the user's timezone"
+          },
+          "important": {
+            "type": "integer",
+            "title": "Important",
+            "description": "Important emails received that day"
+          },
+          "alerts": {
+            "type": "integer",
+            "title": "Alerts",
+            "description": "WhatsApp alerts and reminders that went out"
+          },
+          "emails_sent": {
+            "type": "integer",
+            "title": "Emails Sent",
+            "description": "Emails sent from MailSentinel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "important",
+          "alerts",
+          "emails_sent"
+        ],
+        "title": "ActivityDay"
+      },
       "AdminCreate": {
         "properties": {
           "username": {
@@ -16999,6 +17159,120 @@
           "ok"
         ],
         "title": "ComponentHealth"
+      },
+      "DashboardStats": {
+        "properties": {
+          "period_days": {
+            "type": "integer",
+            "title": "Period Days"
+          },
+          "important": {
+            "type": "integer",
+            "title": "Important"
+          },
+          "important_prev": {
+            "type": "integer",
+            "title": "Important Prev"
+          },
+          "alerts": {
+            "type": "integer",
+            "title": "Alerts"
+          },
+          "alerts_prev": {
+            "type": "integer",
+            "title": "Alerts Prev"
+          },
+          "emails_sent": {
+            "type": "integer",
+            "title": "Emails Sent"
+          },
+          "emails_sent_prev": {
+            "type": "integer",
+            "title": "Emails Sent Prev"
+          },
+          "upcoming": {
+            "type": "integer",
+            "title": "Upcoming",
+            "description": "Dates coming up in the next 30 days"
+          },
+          "delivery_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Rate",
+            "description": "Share of WhatsApp messages that went out (0-1)"
+          },
+          "read_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Rate",
+            "description": "Share of delivered alerts that were read on WhatsApp (0-1)"
+          },
+          "summarized_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summarized Rate",
+            "description": "Share of important emails with an AI summary (0-1)"
+          },
+          "activity": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityDay"
+            },
+            "type": "array",
+            "title": "Activity"
+          },
+          "by_rule": {
+            "items": {
+              "$ref": "#/components/schemas/NamedCount"
+            },
+            "type": "array",
+            "title": "By Rule",
+            "description": "Important emails per rule, most first"
+          },
+          "top_senders": {
+            "items": {
+              "$ref": "#/components/schemas/NamedCount"
+            },
+            "type": "array",
+            "title": "Top Senders"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period_days",
+          "important",
+          "important_prev",
+          "alerts",
+          "alerts_prev",
+          "emails_sent",
+          "emails_sent_prev",
+          "upcoming",
+          "delivery_rate",
+          "read_rate",
+          "summarized_rate",
+          "activity",
+          "by_rule",
+          "top_senders"
+        ],
+        "title": "DashboardStats",
+        "description": "Numbers for the dashboard over a period, with the previous period for comparison."
       },
       "DayCount": {
         "properties": {
@@ -19426,6 +19700,35 @@
         },
         "type": "object",
         "title": "MuteRequest"
+      },
+      "NamedCount": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "NamedCount"
       },
       "NotOf-Input": {
         "properties": {

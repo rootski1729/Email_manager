@@ -1,21 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { Brand, BrandMark } from "@/components/common/brand";
-import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { BrandMark } from "@/components/common/brand";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { RealtimeProvider } from "@/lib/realtime/realtime-provider";
 import { cn } from "@/lib/utils";
 import { AppSidebar } from "./app-sidebar";
-import { ConnectionIndicator } from "./connection-indicator";
 import { MobileNav } from "./mobile-nav";
-import { ThemeToggle } from "./theme-toggle";
-import { UserMenu } from "./user-menu";
+import { TopBar } from "./top-bar";
 
 function ShellSkeleton() {
   return (
@@ -49,7 +45,8 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
   const { status } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const wide = pathname === "/messages" || pathname?.startsWith("/messages/");
+  const dashboard = pathname === "/dashboard";
+  const wide = dashboard || pathname === "/messages" || pathname?.startsWith("/messages/");
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -70,24 +67,14 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
           Skip to content
         </a>
         <AppSidebar />
-        <SidebarInset className="min-w-0">
-          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur-md md:px-4">
-            <SidebarTrigger className="hidden md:inline-flex" />
-            <Separator orientation="vertical" className="mr-1 hidden md:block data-vertical:h-4 data-vertical:self-center" />
-            <Link href="/dashboard" aria-label="Home" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring md:hidden">
-              <Brand />
-            </Link>
-            <div className="ml-auto flex items-center gap-1.5">
-              <ConnectionIndicator />
-              <ThemeToggle />
-              <UserMenu />
-            </div>
-          </header>
+        <SidebarInset className={cn("min-w-0", dashboard && "bg-canvas")}>
+          <TopBar className={dashboard ? "border-transparent bg-canvas/90" : "bg-background/85"} />
           <main
             id="main"
             className={cn(
-              "mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:px-8 md:pt-10 md:pb-16",
-              // Mail pages put an Assistant beside the content on wide screens, so they get more room there.
+              "mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:px-8 md:pt-8 md:pb-16",
+              // Mail pages put an Assistant beside the content on wide screens, and the dashboard sets cards side by
+              // side, so they get more room there.
               wide && "xl:max-w-7xl",
             )}
           >

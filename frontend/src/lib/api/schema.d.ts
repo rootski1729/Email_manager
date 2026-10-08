@@ -1140,6 +1140,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stats/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard
+         * @description Everything the dashboard shows for the last `days` days, compared with the `days` before.
+         */
+        get: operations["dashboard_api_v1_stats_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stats/timeseries": {
         parameters: {
             query?: never;
@@ -1887,6 +1907,29 @@ export interface components {
         Actions: {
             notify?: components["schemas"]["NotifyAction"] | null;
         };
+        /** ActivityDay */
+        ActivityDay: {
+            /**
+             * Date
+             * @description YYYY-MM-DD in the user's timezone
+             */
+            date: string;
+            /**
+             * Important
+             * @description Important emails received that day
+             */
+            important: number;
+            /**
+             * Alerts
+             * @description WhatsApp alerts and reminders that went out
+             */
+            alerts: number;
+            /**
+             * Emails Sent
+             * @description Emails sent from MailSentinel
+             */
+            emails_sent: number;
+        };
         /** AdminCreate */
         AdminCreate: {
             /** Username */
@@ -2336,6 +2379,55 @@ export interface components {
             ok: boolean;
             /** Detail */
             detail?: string | null;
+        };
+        /**
+         * DashboardStats
+         * @description Numbers for the dashboard over a period, with the previous period for comparison.
+         */
+        DashboardStats: {
+            /** Period Days */
+            period_days: number;
+            /** Important */
+            important: number;
+            /** Important Prev */
+            important_prev: number;
+            /** Alerts */
+            alerts: number;
+            /** Alerts Prev */
+            alerts_prev: number;
+            /** Emails Sent */
+            emails_sent: number;
+            /** Emails Sent Prev */
+            emails_sent_prev: number;
+            /**
+             * Upcoming
+             * @description Dates coming up in the next 30 days
+             */
+            upcoming: number;
+            /**
+             * Delivery Rate
+             * @description Share of WhatsApp messages that went out (0-1)
+             */
+            delivery_rate: number | null;
+            /**
+             * Read Rate
+             * @description Share of delivered alerts that were read on WhatsApp (0-1)
+             */
+            read_rate: number | null;
+            /**
+             * Summarized Rate
+             * @description Share of important emails with an AI summary (0-1)
+             */
+            summarized_rate: number | null;
+            /** Activity */
+            activity: components["schemas"]["ActivityDay"][];
+            /**
+             * By Rule
+             * @description Important emails per rule, most first
+             */
+            by_rule: components["schemas"]["NamedCount"][];
+            /** Top Senders */
+            top_senders: components["schemas"]["NamedCount"][];
         };
         /** DayCount */
         DayCount: {
@@ -3228,6 +3320,15 @@ export interface components {
              * @enum {string}
              */
             scope: "address" | "domain";
+        };
+        /** NamedCount */
+        NamedCount: {
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
+            /** Address */
+            address?: string | null;
         };
         /** NotOf */
         "NotOf-Input": {
@@ -11864,6 +11965,107 @@ export interface operations {
                 content: {
                     "application/problem+json": unknown;
                     "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    dashboard_api_v1_stats_dashboard_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardStats"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Too Many Requests */

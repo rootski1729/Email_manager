@@ -80,7 +80,7 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
             ),
           );
           void qc.invalidateQueries({ queryKey: qk.messagesAll });
-          void qc.invalidateQueries({ queryKey: qk.overview });
+          void qc.invalidateQueries({ queryKey: qk.stats });
           void qc.invalidateQueries({ queryKey: qk.rules });
           // New important mail may carry dates for the deadline radar, and completes onboarding steps.
           void qc.invalidateQueries({ queryKey: qk.eventLists });
@@ -95,7 +95,7 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
         case "notification.updated":
           void qc.invalidateQueries({ queryKey: qk.notificationsAll });
           void qc.invalidateQueries({ queryKey: ["messages", "detail"] });
-          void qc.invalidateQueries({ queryKey: qk.overview });
+          void qc.invalidateQueries({ queryKey: qk.stats });
           break;
         case "mailbox.updated": {
           const u = data as MailboxUpdatedEvent;
@@ -207,7 +207,7 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
         attempt += 1;
         await wait(delay, ctrl.signal);
         // Catch up on anything missed while disconnected.
-        void qc.invalidateQueries({ queryKey: qk.overview });
+        void qc.invalidateQueries({ queryKey: qk.stats });
       }
     };
     void run();

@@ -3,6 +3,7 @@
 import type { ConditionJson } from "@/lib/rules/types";
 import {
   infiniteQueryOptions,
+  keepPreviousData,
   queryOptions,
   useInfiniteQuery,
   useMutation,
@@ -48,6 +49,16 @@ export const overviewQuery = queryOptions({
   queryFn: () => unwrap(api.GET("/api/v1/stats/overview")),
   refetchInterval: 60_000,
 });
+
+/** The dashboard's numbers for the last `days` days (with the `days` before, for comparison). */
+export const dashboardQuery = (days: number) =>
+  queryOptions({
+    queryKey: qk.dashboard(days),
+    queryFn: () => unwrap(api.GET("/api/v1/stats/dashboard", { params: { query: { days } } })),
+    refetchInterval: 60_000,
+    // Switching the period keeps the old numbers on screen until the new ones arrive (no skeleton flash).
+    placeholderData: keepPreviousData,
+  });
 
 export const mailboxesQuery = queryOptions({
   queryKey: qk.mailboxes,

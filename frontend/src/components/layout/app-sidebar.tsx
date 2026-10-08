@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { MouseEvent } from "react";
 
-import { Brand } from "@/components/common/brand";
+import { BrandMark } from "@/components/common/brand";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 import { mailboxesQuery } from "@/lib/api/queries";
 import { useAuth } from "@/lib/auth/auth-provider";
+import { APP_NAME } from "@/lib/config";
 import { maskPhone } from "@/lib/format";
 import { NAV, isActive } from "./nav-items";
 
@@ -45,9 +46,17 @@ export function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild className="hover:bg-transparent active:bg-transparent [&_svg]:size-7">
+            <SidebarMenuButton
+              size="lg"
+              asChild
+              className="h-14 gap-2.5 hover:bg-transparent active:bg-transparent group-data-[collapsible=icon]:[&_svg]:size-7 [&_svg]:size-9"
+            >
               <Link href="/dashboard" aria-label="Home" onClick={onNavigate}>
-                <Brand className="text-foreground" />
+                <BrandMark />
+                <span className="grid min-w-0 leading-tight">
+                  <span className="truncate text-lg font-bold tracking-tight text-foreground">{APP_NAME}</span>
+                  <span className="truncate text-xs text-muted-foreground">Important mail, on WhatsApp</span>
+                </span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -56,7 +65,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu className="gap-1">
               {NAV.map((item) => {
                 const active = isActive(pathname, item);
                 const badge = badges[item.href];
@@ -66,7 +75,8 @@ export function AppSidebar() {
                       asChild
                       isActive={active}
                       tooltip={item.label}
-                      className="h-9 gap-2.5 px-2.5 text-sidebar-foreground [&_svg]:text-sidebar-foreground/70 [&_svg]:transition-colors hover:[&_svg]:text-sidebar-foreground data-active:[&_svg]:text-sidebar-primary"
+                      // The current page is a filled soft-iris pill with a short accent bar at its left edge.
+                      className="relative h-10 gap-3 px-3 text-sidebar-foreground before:absolute before:inset-y-2.5 before:left-0 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary before:opacity-0 before:transition-opacity data-active:font-semibold data-active:before:opacity-100 group-data-[collapsible=icon]:before:hidden [&_svg]:text-sidebar-foreground/70 [&_svg]:transition-colors hover:[&_svg]:text-sidebar-foreground data-active:[&_svg]:text-sidebar-primary"
                     >
                       <Link href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined}>
                         <item.icon className="size-4.5!" />
@@ -75,7 +85,7 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                     {badge ? (
                       <SidebarMenuBadge
-                        className="top-2! rounded-full bg-sidebar-primary px-1.5 text-sidebar-primary-foreground peer-hover/menu-button:text-sidebar-primary-foreground peer-data-active/menu-button:text-sidebar-primary-foreground"
+                        className="top-2.5! right-2! rounded-full bg-sidebar-primary px-1.5 text-sidebar-primary-foreground peer-hover/menu-button:text-sidebar-primary-foreground peer-data-active/menu-button:text-sidebar-primary-foreground"
                         aria-label={`${badge} need${badge === 1 ? "s" : ""} attention`}
                       >
                         {badge}
