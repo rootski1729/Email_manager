@@ -10,7 +10,7 @@ import { formatCompact } from "@/lib/format";
 /** Three plain numbers for the last seven days. No chart, no jargon. */
 export function WeekSummary() {
   const overview = useQuery(overviewQuery);
-  if (overview.isPending) return <Skeleton className="h-28 rounded-xl" />;
+  if (overview.isPending) return <Skeleton className="h-[132px] rounded-2xl" />;
   if (overview.isError) return null;
   const week = overview.data.series.slice(-7);
   const total = week.reduce(
@@ -23,7 +23,7 @@ export function WeekSummary() {
     { label: "Sent to WhatsApp", value: total.sent },
   ];
   return (
-    <Card className="gap-3 py-4">
+    <Card className="animate-rise gap-3 py-4">
       <div className="px-4">
         <h2 className="text-base font-semibold tracking-tight">This week</h2>
         <p className="text-sm text-muted-foreground">The last 7 days at a glance.</p>

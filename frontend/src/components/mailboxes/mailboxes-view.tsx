@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { PageHeader } from "@/components/common/page-header";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TileGridSkeleton } from "@/components/common/skeletons";
 import { mailboxesQuery } from "@/lib/api/queries";
 import { AddMailboxButton, AddMailboxDialog } from "./add-mailbox-dialog";
 import { MailboxCard } from "./mailbox-card";
@@ -55,11 +55,7 @@ export function MailboxesView() {
         actions={mailboxes.data?.length ? <AddMailboxButton onClick={openAdd} /> : null}
       />
       {mailboxes.isPending ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {Array.from({ length: 2 }, (_, i) => (
-            <Skeleton key={i} className="h-44 rounded-xl" />
-          ))}
-        </div>
+        <TileGridSkeleton count={2} tall className="gap-4 sm:grid-cols-1 md:grid-cols-2" />
       ) : mailboxes.isError ? (
         <ErrorState error={mailboxes.error} onRetry={() => void mailboxes.refetch()} />
       ) : mailboxes.data.length === 0 ? (
@@ -71,7 +67,7 @@ export function MailboxesView() {
           <AddMailboxButton onClick={openAdd} />
         </EmptyState>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="stagger grid gap-4 md:grid-cols-2">
           {mailboxes.data.map((m) => (
             <MailboxCard key={m.id} mailbox={m} />
           ))}

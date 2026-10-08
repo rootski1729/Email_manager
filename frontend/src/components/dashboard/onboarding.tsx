@@ -76,7 +76,7 @@ export function Onboarding() {
   return (
     <section
       aria-labelledby="onboarding-title"
-      className="rounded-xl border bg-card px-4 py-4 text-card-foreground sm:px-5 sm:py-5"
+      className="animate-rise rounded-2xl border bg-card px-4 py-4 text-card-foreground sm:px-5 sm:py-5"
     >
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1 space-y-3">

@@ -8,20 +8,44 @@ import { cn } from "@/lib/utils";
 import { useSendTestAlert } from "./test-alert-button";
 
 const tile =
-  "group flex h-full items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left outline-none transition-colors hover:border-input hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring disabled:opacity-60";
+  "lift group flex h-full items-center gap-3 rounded-2xl border bg-card px-4 py-3.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60";
 
-function TileBody({ icon: Icon, title, hint, busy }: { icon: LucideIcon; title: string; hint: string; busy?: boolean }) {
+/** Each action gets its own soft hue (tokens `--tint-*`), so the three read as distinct at a glance. */
+const CHIP = {
+  iris: "bg-tint-iris text-tint-iris-ink",
+  teal: "bg-tint-teal text-tint-teal-ink",
+  amber: "bg-tint-amber text-tint-amber-ink",
+} as const;
+
+function TileBody({
+  icon: Icon,
+  title,
+  hint,
+  busy,
+  tint,
+}: {
+  icon: LucideIcon;
+  title: string;
+  hint: string;
+  busy?: boolean;
+  tint: keyof typeof CHIP;
+}) {
   return (
     <>
-      <span className="flex shrink-0 text-muted-foreground transition-colors group-hover:text-brand-ink">
-        {busy ? <Spinner className="size-5" /> : <Icon className="size-5" aria-hidden />}
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 ease-(--ease-soft) group-hover:scale-105 motion-reduce:group-hover:scale-100",
+          CHIP[tint],
+        )}
+      >
+        {busy ? <Spinner className="size-[18px]" /> : <Icon className="size-[18px]" aria-hidden />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium">{title}</span>
         <span className="block text-sm text-muted-foreground text-pretty">{hint}</span>
       </span>
       <ArrowRight
-        className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+        className="size-4 shrink-0 text-muted-foreground transition-[color,transform] duration-200 group-hover:translate-x-0.5 group-hover:text-foreground"
         aria-hidden
       />
     </>
@@ -32,20 +56,20 @@ function TileBody({ icon: Icon, title, hint, busy }: { icon: LucideIcon; title: 
 export function QuickActions({ className }: { className?: string }) {
   const test = useSendTestAlert();
   return (
-    <ul className={cn("grid gap-3 sm:grid-cols-3", className)} aria-label="Quick actions">
+    <ul className={cn("stagger grid gap-3 sm:grid-cols-3", className)} aria-label="Quick actions">
       <li>
         <Link href="/mailboxes?add=1" className={tile}>
-          <TileBody icon={Inbox} title="Add a mailbox" hint="Gmail, Outlook, Yahoo…" />
+          <TileBody icon={Inbox} tint="iris" title="Add a mailbox" hint="Gmail, Outlook, Yahoo…" />
         </Link>
       </li>
       <li>
         <Link href="/rules" className={tile}>
-          <TileBody icon={Eye} title="Choose what to watch" hint="Exams, jobs, bank…" />
+          <TileBody icon={Eye} tint="teal" title="Choose what to watch" hint="Exams, jobs, bank…" />
         </Link>
       </li>
       <li>
         <button type="button" className={cn(tile, "w-full")} onClick={test.send} disabled={test.pending}>
-          <TileBody icon={FlaskConical} title="Send me a test alert" hint="See what an alert looks like" busy={test.pending} />
+          <TileBody icon={FlaskConical} tint="amber" title="Send me a test alert" hint="See what an alert looks like" busy={test.pending} />
         </button>
       </li>
     </ul>

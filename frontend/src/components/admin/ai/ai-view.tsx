@@ -198,7 +198,7 @@ export function AiView() {
         ) : null}
       </PageHeader>
       {q.isPending ? (
-        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-2xl" />
       ) : q.isError ? (
         <ErrorState error={q.error} onRetry={() => void q.refetch()} />
       ) : (

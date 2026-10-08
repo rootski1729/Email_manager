@@ -6,7 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 import { ErrorState } from "@/components/common/error-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TileGridSkeleton } from "@/components/common/skeletons";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { errorMessage } from "@/lib/api/errors";
@@ -43,8 +43,8 @@ function PackCard({ pack, rule }: { pack: RulePack; rule?: Rule }) {
   return (
     <li
       className={cn(
-        "relative flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors",
-        on ? "border-primary/45" : "hover:border-input",
+        "relative flex flex-col gap-3 rounded-2xl border bg-card p-4 transition-[border-color,box-shadow,background-color] duration-200",
+        on ? "border-primary/45 shadow-[0_8px_22px_-16px_var(--lift-shadow)]" : "hover:border-(--lift-border) hover:shadow-lift",
       )}
     >
       <div className="flex items-start gap-3">
@@ -91,18 +91,14 @@ export function StarterPacks() {
 
   if (packs.isPending || rules.isPending) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2">
-        {Array.from({ length: 4 }, (_, i) => (
-          <Skeleton key={i} className="h-32 rounded-xl" />
-        ))}
-      </div>
+      <TileGridSkeleton count={4} />
     );
   }
   if (packs.isError) {
     return <ErrorState error={packs.error} title="Couldn't load the ready-made topics" onRetry={() => void packs.refetch()} />;
   }
   return (
-    <ul className="grid gap-3 sm:grid-cols-2">
+    <ul className="stagger grid gap-3 sm:grid-cols-2">
       {packs.data.map((p) => (
         <PackCard key={p.id} pack={p} rule={byPack.get(p.id)} />
       ))}

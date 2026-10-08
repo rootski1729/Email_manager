@@ -12,7 +12,7 @@ export function MailAssistant({ className }: { className?: string }) {
   const available = useAiAvailable();
   if (!available) return null;
   return (
-    <aside aria-label="Assistant" className={cn("rounded-xl border bg-card", className)}>
+    <aside aria-label="Assistant" className={cn("rounded-2xl border bg-card", className)}>
       <h2 className="flex items-center gap-2 border-b px-4 py-3 text-base font-semibold tracking-tight">
         <Sparkles className="size-4 text-brand-ink" aria-hidden /> Assistant
       </h2>

@@ -34,10 +34,10 @@ function ShellSkeleton() {
       <div className="flex-1 p-4 md:p-10">
         <Skeleton className="h-8 w-56" />
         <Skeleton className="mt-3 h-4 w-80 max-w-full" />
-        <Skeleton className="mt-8 h-24 rounded-xl" />
+        <Skeleton className="mt-8 h-24 rounded-2xl" />
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
       </div>

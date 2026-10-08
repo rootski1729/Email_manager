@@ -19,8 +19,8 @@ export function EditTemplateView({ id }: { id: string }) {
       <div className="space-y-6">
         <Skeleton className="h-10 w-64" />
         <div className="grid gap-6 xl:grid-cols-[1fr_24rem]">
-          <Skeleton className="h-[560px] rounded-xl" />
-          <Skeleton className="h-[480px] rounded-xl" />
+          <Skeleton className="h-[560px] rounded-2xl" />
+          <Skeleton className="h-[480px] rounded-2xl" />
         </div>
       </div>
     );

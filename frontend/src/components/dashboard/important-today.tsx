@@ -6,11 +6,11 @@ import Link from "next/link";
 
 import { RefBadge } from "@/components/common/ref-badge";
 import { RelativeTime } from "@/components/common/relative-time";
+import { SenderAvatar } from "@/components/common/sender-avatar";
+import { MailRowsSkeleton } from "@/components/common/skeletons";
 import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { messagesQuery } from "@/lib/api/queries";
 import { dayKey } from "@/lib/datetime";
-import { initials } from "@/lib/format";
 import { useNow } from "@/lib/hooks/use-now";
 import { useZone } from "@/lib/hooks/use-zone";
 import { useRealtime } from "@/lib/realtime/realtime-provider";
@@ -36,19 +36,11 @@ function EmailRow({ r }: { r: Row }) {
       <Link
         href={`/messages/${r.id}`}
         className={cn(
-          "flex items-start gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring",
+          "flex items-start gap-3 rounded-xl px-3 py-2.5 outline-none transition-colors duration-200 hover:bg-muted/70 focus-visible:ring-3 focus-visible:ring-ring/50",
           r.fresh && "animate-in fade-in slide-in-from-top-1",
         )}
       >
-        <span
-          aria-hidden
-          className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold text-secondary-foreground",
-            r.fresh && "ring-2 ring-primary/40",
-          )}
-        >
-          {initials(r.from)}
-        </span>
+        <SenderAvatar name={r.from} className={cn(r.fresh && "ring-2 ring-primary/40")} />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <span className="truncate text-sm font-medium">{r.from}</span>
@@ -129,14 +121,10 @@ export function ImportantToday() {
       </div>
       <div className="px-1">
         {latest.isPending && feed.length === 0 ? (
-          <div className="space-y-2 px-3 py-2">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-lg" />
-            ))}
-          </div>
+          <MailRowsSkeleton rows={3} />
         ) : shown.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+          <div className="flex animate-rise flex-col items-center gap-2 px-4 py-8 text-center">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-tint-iris text-tint-iris-ink">
               <MailCheck className="size-5" aria-hidden />
             </span>
             <p className="max-w-xs text-sm text-muted-foreground text-pretty">
@@ -144,7 +132,7 @@ export function ImportantToday() {
             </p>
           </div>
         ) : (
-          <ul aria-live="polite">
+          <ul aria-live="polite" className="stagger">
             {shown.map((r) => (
               <EmailRow key={r.key} r={r} />
             ))}
@@ -155,9 +143,10 @@ export function ImportantToday() {
         <div className="border-t px-4 pt-3">
           <Link
             href="/messages"
-            className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring"
+            className="group/more inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            See all important mail <ArrowRight className="size-4" aria-hidden />
+            See all important mail{" "}
+            <ArrowRight className="size-4 transition-transform duration-200 group-hover/more:translate-x-0.5" aria-hidden />
           </Link>
         </div>
       ) : null}

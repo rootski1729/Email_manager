@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { ListSkeleton } from "@/components/common/stat";
+import { MessagesSkeleton } from "@/components/common/skeletons";
 import { MessagesView } from "@/components/messages/messages-view";
 
 export const metadata: Metadata = { title: "Important mail" };
 
 export default function MessagesPage() {
   return (
-    <Suspense fallback={<ListSkeleton rows={6} />}>
+    <Suspense fallback={<MessagesSkeleton />}>
       <MessagesView />
     </Suspense>
   );

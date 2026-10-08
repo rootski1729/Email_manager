@@ -467,7 +467,7 @@ export function TemplateEditor({ template }: { template?: EmailTemplate }) {
 
         <aside className="xl:sticky xl:top-20">
           {template && !dirty && preview.isPending ? (
-            <Skeleton className="h-[520px] rounded-xl" />
+            <Skeleton className="h-[520px] rounded-2xl" />
           ) : (
             <TemplatePreviewCard
               command={useServerPreview && preview.data ? preview.data.command : `/email ${commandName}`}

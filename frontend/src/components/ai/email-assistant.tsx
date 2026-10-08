@@ -62,7 +62,7 @@ export function EmailAssistant({
     <section
       ref={card}
       aria-label="Assistant"
-      className={cn("flex scroll-mt-20 flex-col overflow-hidden rounded-xl border bg-card", className)}
+      className={cn("flex scroll-mt-20 flex-col overflow-hidden rounded-2xl border bg-card", className)}
     >
       <Tabs
         value={active}

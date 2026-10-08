@@ -34,7 +34,7 @@ export default function LoginPage() {
           <p className="mt-2 mb-8 text-muted-foreground text-pretty">
             Sign in with your WhatsApp number. No password needed.
           </p>
-          <div className="rounded-xl border bg-card p-5 shadow-xs sm:p-6">
+          <div className="rounded-2xl border bg-card p-5 shadow-xs sm:p-6">
             <Suspense fallback={<Skeleton className="h-40 w-full" />}>
               <LoginForm />
             </Suspense>

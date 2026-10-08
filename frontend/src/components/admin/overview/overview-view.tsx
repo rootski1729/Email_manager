@@ -50,8 +50,8 @@ function OverviewSkeleton() {
         ))}
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
-        <Skeleton className="h-80 rounded-xl lg:col-span-2" />
-        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-2xl lg:col-span-2" />
+        <Skeleton className="h-80 rounded-2xl" />
       </div>
     </div>
   );

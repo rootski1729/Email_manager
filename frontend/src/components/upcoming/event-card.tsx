@@ -82,11 +82,11 @@ export function EventCard({
       id={`event-${event.id}`}
       aria-label={event.title}
       className={cn(
-        "group/event relative scroll-mt-24 overflow-hidden rounded-xl border bg-card transition-shadow",
+        "group/event relative scroll-mt-24 overflow-hidden rounded-2xl border bg-card transition-[box-shadow,border-color] duration-200",
         next && "border-primary/40",
         suggested && "border-dashed",
         // Compact cards sit inside another card: no second frame, just the row.
-        compact ? "rounded-none border-0 bg-transparent px-0 py-2.5" : "p-4",
+        compact ? "rounded-none border-0 bg-transparent px-0 py-2.5" : "p-4 hover:border-(--lift-border) hover:shadow-lift",
       )}
     >
       <div className="flex gap-3">

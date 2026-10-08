@@ -31,7 +31,7 @@ export function DashboardView() {
       <PageHeader
         title={greeting}
         description="Here's what's happening with your important email."
-        className="pb-0"
+        className="greeting-wash pb-0"
       />
       <StatusLine />
       <Onboarding />

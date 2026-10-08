@@ -189,7 +189,7 @@ export function WhatsAppView() {
         </CardHeader>
         <CardContent>
           {waha.isPending ? (
-            <Skeleton className="h-40 rounded-xl" />
+            <Skeleton className="h-40 rounded-2xl" />
           ) : waha.isError ? (
             <ErrorState error={waha.error} onRetry={() => void waha.refetch()} />
           ) : (

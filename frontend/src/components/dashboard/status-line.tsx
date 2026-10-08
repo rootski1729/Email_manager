@@ -28,7 +28,7 @@ export function StatusLine() {
   const mailboxes = useQuery(mailboxesQuery);
   const events = useQuery(eventsQuery());
 
-  if (overview.isPending || mailboxes.isPending) return <Skeleton className="h-[76px] rounded-xl" />;
+  if (overview.isPending || mailboxes.isPending) return <Skeleton className="h-[76px] rounded-2xl" />;
   if (overview.isError || mailboxes.isError) return null;
 
   const o = overview.data;
@@ -85,16 +85,16 @@ export function StatusLine() {
   const allGood = needsYou === 0 && !issues.some((i) => i.key === "waha");
 
   return (
-    <section aria-live="polite" className="rounded-xl border bg-card px-4 py-4 sm:px-5">
-      <div className="flex items-start gap-3">
+    <section aria-live="polite" className="animate-rise rounded-2xl border bg-card px-4 py-4 sm:px-5">
+      <div className="flex items-center gap-3">
         <span
           className={cn(
-            "mt-0.5 flex shrink-0",
-            allGood ? "text-success" : needsYou ? "text-warning" : "text-info",
+            "flex size-8 shrink-0 items-center justify-center rounded-full",
+            allGood ? "bg-tint-green text-tint-green-ink" : needsYou ? "bg-tint-amber text-tint-amber-ink" : "bg-tint-sky text-tint-sky-ink",
           )}
           aria-hidden
         >
-          {allGood ? <CheckCircle2 className="size-5" /> : needsYou ? <AlertTriangle className="size-5" /> : <Info className="size-5" />}
+          {allGood ? <CheckCircle2 className="size-[18px]" /> : needsYou ? <AlertTriangle className="size-[18px]" /> : <Info className="size-[18px]" />}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-base font-semibold tracking-tight">
@@ -115,7 +115,7 @@ export function StatusLine() {
         </div>
       </div>
       {issues.length ? (
-        <ul className="mt-2 divide-y pl-8">
+        <ul className="mt-2 divide-y pl-11">
           {issues.map((i) => (
             <li
               key={i.key}
@@ -125,9 +125,10 @@ export function StatusLine() {
               {i.href && i.action ? (
                 <Link
                   href={i.href}
-                  className="inline-flex shrink-0 items-center gap-1 self-start rounded-md font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring sm:self-auto"
+                  className="group/act inline-flex shrink-0 items-center gap-1 self-start rounded-md font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 sm:self-auto"
                 >
-                  {i.action} <ArrowRight className="size-4" aria-hidden />
+                  {i.action}{" "}
+                  <ArrowRight className="size-4 transition-transform duration-200 group-hover/act:translate-x-0.5" aria-hidden />
                 </Link>
               ) : null}
             </li>

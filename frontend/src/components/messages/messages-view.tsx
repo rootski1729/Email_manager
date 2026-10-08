@@ -11,7 +11,8 @@ import { ErrorState } from "@/components/common/error-state";
 import { PageHeader } from "@/components/common/page-header";
 import { RefBadge } from "@/components/common/ref-badge";
 import { RelativeTime } from "@/components/common/relative-time";
-import { ListSkeleton } from "@/components/common/stat";
+import { SenderAvatar } from "@/components/common/sender-avatar";
+import { MailListSkeleton } from "@/components/common/skeletons";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,7 +20,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { mailboxesQuery, messagesQuery, rulesQuery, type MessageFilters } from "@/lib/api/queries";
 import type { Message } from "@/lib/api/types";
 import { addDays, dayKey, formatDayKey } from "@/lib/datetime";
-import { initials } from "@/lib/format";
 import { useDebounced } from "@/lib/hooks/use-debounced";
 import { useNow } from "@/lib/hooks/use-now";
 import { useZone } from "@/lib/hooks/use-zone";
@@ -30,13 +30,8 @@ const ALL = "__all";
 function MessageRow({ m }: { m: Message }) {
   const from = m.from_name || m.from_address;
   return (
-    <li className="relative flex gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50 has-[a:focus-visible]:bg-muted/50">
-      <span
-        aria-hidden
-        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold text-secondary-foreground"
-      >
-        {initials(from)}
-      </span>
+    <li className="group/row relative flex gap-3 px-4 py-3.5 transition-colors duration-200 hover:bg-accent/45 has-[a:focus-visible]:bg-accent/45">
+      <SenderAvatar name={from} className="mt-0.5" />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
           <span className="truncate text-sm font-medium">{from}</span>
@@ -45,7 +40,7 @@ function MessageRow({ m }: { m: Message }) {
         <div className="flex items-center gap-1.5">
           <Link
             href={`/messages/${m.id}`}
-            className="min-w-0 truncate text-[0.95rem] outline-none after:absolute after:inset-0 focus-visible:underline"
+            className="min-w-0 truncate text-[0.95rem] outline-none transition-colors after:absolute after:inset-0 group-hover/row:text-accent-foreground focus-visible:underline"
           >
             {m.subject || "(no subject)"}
           </Link>
@@ -176,7 +171,7 @@ export function MessagesView() {
           </div>
 
           {messages.isPending ? (
-            <ListSkeleton rows={6} />
+            <MailListSkeleton />
           ) : messages.isError ? (
             <ErrorState error={messages.error} onRetry={() => void messages.refetch()} />
           ) : items.length === 0 ? (
@@ -204,13 +199,13 @@ export function MessagesView() {
               </EmptyState>
             )
           ) : (
-            <div className="space-y-6">
+            <div className="animate-rise space-y-6">
               {groups.map((g) => (
                 <section key={g.key} aria-label={dayLabel(g.key, today)}>
                   <h2 className="mb-2 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                     {dayLabel(g.key, today)}
                   </h2>
-                  <ul className="divide-y overflow-hidden rounded-xl border bg-card">
+                  <ul className="stagger divide-y overflow-hidden rounded-2xl border bg-card">
                     {g.items.map((m) => (
                       <MessageRow key={m.id} m={m} />
                     ))}

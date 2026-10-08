@@ -17,7 +17,7 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <Empty className={cn("rounded-xl border border-dashed bg-card/60 py-12", className)}>
+    <Empty className={cn("rounded-2xl border border-dashed bg-card/60 py-12", className)}>
       <EmptyHeader>
         <EmptyMedia>
           <div className="flex size-14 items-center justify-center rounded-xl border bg-card text-brand-ink">

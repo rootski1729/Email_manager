@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { ErrorState } from "@/components/common/error-state";
 import { PageHeader, Section } from "@/components/common/page-header";
+import { FormCardSkeleton } from "@/components/common/skeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,10 +43,10 @@ function LinkRow({ href, icon: Icon, title, hint }: { href: string; icon: Lucide
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-xl border bg-card p-4 outline-none transition-colors hover:border-input hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring"
+      className="lift group flex items-center gap-3 rounded-2xl border bg-card p-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
-        <Icon className="size-5" aria-hidden />
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-tint-iris text-tint-iris-ink">
+        <Icon className="size-[18px]" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-medium">{title}</span>
@@ -81,28 +82,42 @@ export function SettingsView() {
 
       <Section id="notifications" title="Notifications">
         {s ? (
-          <NotificationSettingsCard
-            key={JSON.stringify([s.quiet_hours, s.digest, s.daily_cap, s.weekly_recap])}
-            settings={s}
-          />
+          <div className="stagger space-y-3">
+            <NotificationSettingsCard
+              key={JSON.stringify([s.quiet_hours, s.digest, s.daily_cap, s.weekly_recap])}
+              settings={s}
+            />
+            <AssistantSettingsCard settings={s} />
+            <AiSettingsCard settings={s} />
+            <MutedSendersCard key={s.muted_senders.join("\n")} settings={s} />
+          </div>
         ) : (
-          <Skeleton className="h-80 rounded-xl" />
-        )}
-        {s ? <AssistantSettingsCard settings={s} /> : <Skeleton className="h-28 rounded-xl" />}
-        {s ? <AiSettingsCard settings={s} /> : null}
-        {s ? (
-          <MutedSendersCard key={s.muted_senders.join("\n")} settings={s} />
-        ) : (
-          <Skeleton className="h-48 rounded-xl" />
+          <div className="space-y-3" aria-busy="true" aria-label="Loading your settings">
+            <FormCardSkeleton rows={4} />
+            <FormCardSkeleton rows={1} />
+            <FormCardSkeleton rows={2} />
+          </div>
         )}
       </Section>
 
       <Section id="send" title="Sending email">
-        {s ? <ComposeSettingsCard settings={s} /> : <Skeleton className="h-28 rounded-xl" />}
+        {s ? (
+          <div className="animate-rise">
+            <ComposeSettingsCard settings={s} />
+          </div>
+        ) : (
+          <FormCardSkeleton rows={1} />
+        )}
       </Section>
 
       <Section id="account" title="Account">
-        {me.data ? <ProfileCard key={me.data.id} user={me.data} /> : <Skeleton className="h-64 rounded-xl" />}
+        {me.data ? (
+          <div className="animate-rise">
+            <ProfileCard key={me.data.id} user={me.data} />
+          </div>
+        ) : (
+          <FormCardSkeleton rows={3} />
+        )}
         <div className="grid gap-6 sm:grid-cols-2">
           <Card>
             <CardHeader>
@@ -134,7 +149,7 @@ export function SettingsView() {
               <CardTitle className="flex items-center justify-between gap-2">
                 Your plan
                 {me.data ? (
-                  <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-secondary-foreground capitalize">
+                  <span className="rounded-full bg-tint-iris px-2 py-0.5 text-xs font-medium text-tint-iris-ink capitalize">
                     {me.data.plan}
                   </span>
                 ) : null}
@@ -142,7 +157,7 @@ export function SettingsView() {
             </CardHeader>
             <CardContent>
               {s ? (
-                <dl className="divide-y text-sm">
+                <dl className="animate-rise divide-y text-sm">
                   {Object.entries(s.plan_limits ?? {}).map(([k, v]) => (
                     <div key={k} className="flex items-center justify-between gap-3 py-1.5">
                       <dt className="text-muted-foreground">{prettyKey(k)}</dt>

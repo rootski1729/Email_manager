@@ -48,7 +48,7 @@ export function NotificationCard({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} asChild>
-      <li className={cn("rounded-xl border bg-card", n.status === "dead" && "border-destructive/30")}>
+      <li className={cn("rounded-2xl border bg-card", n.status === "dead" && "border-destructive/30")}>
         <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex flex-wrap items-center gap-2">

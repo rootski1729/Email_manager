@@ -54,7 +54,7 @@ export function MailboxCard({ mailbox }: { mailbox: Mailbox }) {
   return (
     <article
       className={cn(
-        "flex flex-col gap-4 rounded-xl border bg-card p-4",
+        "flex flex-col gap-4 rounded-2xl border bg-card p-4",
         needsReauth && "border-warning/40",
         broken && "border-destructive/40",
       )}

@@ -280,8 +280,8 @@ export function RuleTester({ ruleId }: { ruleId?: string }) {
   if (ruleId && linked.isPending) {
     return (
       <div className="grid gap-6 lg:grid-cols-2">
-        <Skeleton className="h-96 rounded-xl" />
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-2xl" />
+        <Skeleton className="h-96 rounded-2xl" />
       </div>
     );
   }

@@ -355,9 +355,9 @@ export function GoogleView() {
       </PageHeader>
       {q.isPending ? (
         <div className="space-y-4">
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-40 rounded-xl" />
-          <Skeleton className="h-48 rounded-xl" />
+          <Skeleton className="h-32 rounded-2xl" />
+          <Skeleton className="h-40 rounded-2xl" />
+          <Skeleton className="h-48 rounded-2xl" />
         </div>
       ) : q.isError ? (
         <ErrorState error={q.error} onRetry={() => void q.refetch()} />

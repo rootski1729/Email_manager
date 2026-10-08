@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircleQuestion, RotateCw, Square } from "lucide-react";
+import { RotateCw, Sparkles, Square } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 
@@ -24,6 +24,7 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
   const streaming = stream.status === "streaming";
   const done = stream.status === "done";
   const showAnswer = stream.text.length > 0;
+  const ready = question.trim().length >= 2;
 
   function ask(q: string) {
     asked.current = q;
@@ -39,10 +40,15 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
           if (q.length >= 2 && !streaming) ask(q);
         }}
       >
-        <InputGroup className={compact ? undefined : "h-11 shadow-xs"}>
+        <InputGroup
+          className={cn(
+            "hover:border-(--lift-border)",
+            !compact && "h-12 bg-card pl-1 shadow-xs dark:bg-card",
+          )}
+        >
           {compact ? null : (
             <InputGroupAddon>
-              <MessageCircleQuestion />
+              <Sparkles className="size-[18px] text-brand-ink" aria-hidden />
             </InputGroupAddon>
           )}
           <InputGroupInput
@@ -64,9 +70,14 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
             ) : (
               <InputGroupButton
                 type="submit"
-                // In a card, a disabled button would grey the whole box out; empty questions are ignored anyway.
-                disabled={compact ? undefined : question.trim().length < 2}
-                className={cn(compact && question.trim().length < 2 && "text-muted-foreground/60")}
+                // Iris once there's a question to send; a quiet chip until then. Empty questions are ignored anyway,
+                // so the button never looks disabled.
+                variant={ready ? "default" : compact ? "ghost" : "secondary"}
+                aria-disabled={!ready || undefined}
+                className={cn(
+                  compact ? "h-7 rounded-lg px-2.5" : "h-8 rounded-lg px-3.5",
+                  !ready && "text-muted-foreground hover:text-muted-foreground",
+                )}
               >
                 Ask
               </InputGroupButton>
@@ -77,7 +88,7 @@ export function AskBox({ compact = false }: { compact?: boolean }) {
       {streaming && !showAnswer ? <Thinking /> : null}
       {showAnswer ? (
         <div
-          className={cn("space-y-3 text-sm", !compact && "rounded-xl border bg-card px-4 py-3")}
+          className={cn("space-y-3 text-sm", !compact && "animate-rise rounded-2xl border bg-card px-4 py-3")}
           aria-live="polite"
         >
           <AnswerMarkdown text={stream.text} streaming={streaming} refs={done ? stream.refs : []} />

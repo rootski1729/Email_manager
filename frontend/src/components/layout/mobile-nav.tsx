@@ -13,8 +13,8 @@ export function MobileNav() {
   const { setOpenMobile } = useSidebar();
   const inMore = !NAV_MOBILE.some((n) => isActive(pathname, n)) && NAV.some((n) => isActive(pathname, n));
   const item =
-    "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 pt-1.5 pb-1.5 text-[11px] font-medium outline-none focus-visible:bg-accent";
-  const pill = "flex h-7 w-11 items-center justify-center rounded-lg transition-colors";
+    "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 pt-1.5 pb-1.5 text-[11px] font-medium outline-none transition-colors focus-visible:bg-accent active:[&>span:first-child]:scale-95";
+  const pill = "flex h-7 w-12 items-center justify-center rounded-full transition-[background-color,color,transform] duration-200";
   return (
     <nav
       aria-label="Primary"
@@ -27,6 +27,10 @@ export function MobileNav() {
             key={n.href}
             href={n.href}
             aria-current={active ? "page" : undefined}
+            // A tap shouldn't leave a focus ring behind (see AppSidebar); keyboard activation keeps focus.
+            onClick={(e) => {
+              if (e.detail > 0) e.currentTarget.blur();
+            }}
             className={cn(item, active ? "text-foreground" : "text-muted-foreground")}
           >
             <span className={cn(pill, active && "bg-accent text-brand-ink")}>

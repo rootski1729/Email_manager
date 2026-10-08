@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { ErrorState } from "@/components/common/error-state";
 import { PageHeader } from "@/components/common/page-header";
+import { TimelineSkeleton } from "@/components/common/skeletons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,21 +24,6 @@ import { MiniCalendar } from "./mini-calendar";
 import { SuggestionsSection } from "./suggestions-section";
 import { Timeline } from "./timeline";
 import { UpcomingEmpty } from "./upcoming-empty";
-
-function TimelineSkeleton() {
-  return (
-    <div className="space-y-6" aria-busy="true" aria-label="Loading events">
-      {[2, 1].map((n, i) => (
-        <div key={i} className="space-y-3">
-          <Skeleton className="h-5 w-24" />
-          {Array.from({ length: n }, (_, j) => (
-            <Skeleton key={j} className="h-28 w-full rounded-xl" />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function nextUpcoming(events: EventItem[], zone: string, now: number): EventItem | undefined {
   const today = dayKey(now, zone);
@@ -126,7 +112,7 @@ export function UpcomingView() {
           ) : isEmpty ? (
             <UpcomingEmpty onAdd={() => openAdd()} />
           ) : (
-            <>
+            <div className="animate-rise space-y-6">
               <SuggestionsSection events={suggested} />
               {day ? (
                 <div className="flex items-center gap-2 text-sm">
@@ -140,13 +126,13 @@ export function UpcomingView() {
               {shown.length ? (
                 <Timeline events={shown} nextId={next?.id} />
               ) : (
-                <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
                   {day
                     ? "Nothing confirmed on this day."
                     : "No confirmed dates yet. Confirm a suggestion above, or add one yourself."}
                 </p>
               )}
-            </>
+            </div>
           )}
         </div>
 
@@ -155,7 +141,7 @@ export function UpcomingView() {
             {events.data ? (
               <MiniCalendar events={[...suggested, ...upcoming]} selected={day} onSelect={setDay} />
             ) : (
-              <Skeleton className="h-80 rounded-xl" />
+              <Skeleton className="h-80 rounded-2xl" />
             )}
           </div>
           <CalendarFeedCard />

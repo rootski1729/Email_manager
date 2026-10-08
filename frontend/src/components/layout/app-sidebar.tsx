@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { MouseEvent } from "react";
 
 import { Brand } from "@/components/common/brand";
 import {
@@ -31,6 +32,13 @@ export function AppSidebar() {
   const mailboxes = useQuery(mailboxesQuery);
   const attention = mailboxes.data?.filter((m) => m.status === "reauth_required" || m.status === "error").length ?? 0;
   const badges: Record<string, number> = { "/mailboxes": attention };
+  // After a pointer click, drop focus from the nav link: otherwise the next key press (scrolling with the arrow
+  // keys, say) makes the browser treat that focus as keyboard focus and the ring appears on the clicked item.
+  // Keyboard activation (detail === 0) keeps focus where it is.
+  const onNavigate = (e: MouseEvent<HTMLAnchorElement>) => {
+    setOpenMobile(false);
+    if (e.detail > 0) e.currentTarget.blur();
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border">
@@ -38,7 +46,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild className="hover:bg-transparent active:bg-transparent [&_svg]:size-7">
-              <Link href="/dashboard" aria-label="Home" onClick={() => setOpenMobile(false)}>
+              <Link href="/dashboard" aria-label="Home" onClick={onNavigate}>
                 <Brand className="text-foreground" />
               </Link>
             </SidebarMenuButton>
@@ -58,9 +66,9 @@ export function AppSidebar() {
                       asChild
                       isActive={active}
                       tooltip={item.label}
-                      className="h-9 gap-2.5 px-2.5 text-sidebar-foreground [&_svg]:text-sidebar-foreground/70 data-active:[&_svg]:text-sidebar-primary"
+                      className="h-9 gap-2.5 px-2.5 text-sidebar-foreground [&_svg]:text-sidebar-foreground/70 [&_svg]:transition-colors hover:[&_svg]:text-sidebar-foreground data-active:[&_svg]:text-sidebar-primary"
                     >
-                      <Link href={item.href} onClick={() => setOpenMobile(false)} aria-current={active ? "page" : undefined}>
+                      <Link href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined}>
                         <item.icon className="size-4.5!" />
                         <span>{item.label}</span>
                       </Link>

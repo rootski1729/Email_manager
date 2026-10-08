@@ -217,7 +217,7 @@ export function WhatsAppDeliveries({
   const alerts = notifications.filter((n) => n.kind !== "reminder");
   const reminders = notifications.filter((n) => n.kind === "reminder");
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-2xl border bg-card p-4">
       <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
         <MessageCircle className="size-4 text-wa" aria-hidden /> On your WhatsApp
       </h2>

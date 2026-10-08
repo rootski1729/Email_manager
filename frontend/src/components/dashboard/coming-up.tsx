@@ -4,10 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, CalendarClock } from "lucide-react";
 import Link from "next/link";
 
+import { MailRowsSkeleton } from "@/components/common/skeletons";
 import { CountdownChip, EventWhen } from "@/components/upcoming/event-when";
 import { kindMeta } from "@/components/upcoming/event-kinds";
 import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { eventsQuery } from "@/lib/api/deadlines";
 import { errorMessage } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
@@ -26,16 +26,12 @@ export function ComingUp({ className }: { className?: string }) {
       </div>
       <div className="px-1">
         {events.isPending ? (
-          <div className="space-y-2 px-3 py-2">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-lg" />
-            ))}
-          </div>
+          <MailRowsSkeleton rows={3} square />
         ) : events.isError ? (
           <p className="px-3 py-4 text-sm text-destructive">{errorMessage(events.error)}</p>
         ) : upcoming.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+          <div className="flex animate-rise flex-col items-center gap-2 px-4 py-8 text-center">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-tint-teal text-tint-teal-ink">
               <CalendarClock className="size-5" aria-hidden />
             </span>
             <p className="max-w-xs text-sm text-muted-foreground text-pretty">
@@ -43,11 +39,11 @@ export function ComingUp({ className }: { className?: string }) {
             </p>
           </div>
         ) : (
-          <ul>
+          <ul className="stagger">
             {upcoming.map((e, i) => {
               const meta = kindMeta(e.kind);
               return (
-                <li key={e.id} className="relative flex items-start gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/60 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring">
+                <li key={e.id} className="relative flex items-start gap-3 rounded-xl px-3 py-2.5 transition-colors duration-200 hover:bg-muted/70 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50">
                     <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", meta.tile)}>
                       <meta.icon className="size-4" aria-hidden />
                       <span className="sr-only">{meta.label}</span>
@@ -56,7 +52,7 @@ export function ComingUp({ className }: { className?: string }) {
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <Link
                           href={`/upcoming#event-${e.id}`}
-                          className="min-w-0 truncate text-sm font-medium outline-none after:absolute after:inset-0 after:rounded-lg"
+                          className="min-w-0 truncate text-sm font-medium outline-none after:absolute after:inset-0 after:rounded-xl"
                         >
                           {e.title}
                         </Link>
@@ -73,9 +69,10 @@ export function ComingUp({ className }: { className?: string }) {
       <div className="border-t px-4 pt-3">
         <Link
           href="/upcoming"
-          className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring"
+          className="group/more inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-ink outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          See everything coming up <ArrowRight className="size-4" aria-hidden />
+          See everything coming up{" "}
+          <ArrowRight className="size-4 transition-transform duration-200 group-hover/more:translate-x-0.5" aria-hidden />
         </Link>
       </div>
     </Card>

@@ -19,8 +19,8 @@ export function EditRuleView({ id }: { id: string }) {
       <div className="space-y-6">
         <Skeleton className="h-10 w-64" />
         <div className="grid gap-6 xl:grid-cols-[1fr_22rem]">
-          <Skeleton className="h-[520px] rounded-xl" />
-          <Skeleton className="h-80 rounded-xl" />
+          <Skeleton className="h-[520px] rounded-2xl" />
+          <Skeleton className="h-80 rounded-2xl" />
         </div>
       </div>
     );

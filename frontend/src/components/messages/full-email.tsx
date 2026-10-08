@@ -315,5 +315,9 @@ export function FullEmail({
       />
     );
   }
-  return <Content messageId={messageId} c={content.data} />;
+  return (
+    <div className="animate-rise">
+      <Content messageId={messageId} c={content.data} />
+    </div>
+  );
 }

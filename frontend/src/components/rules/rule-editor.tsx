@@ -410,7 +410,7 @@ export function RuleEditor({ rule }: { rule?: Rule }) {
               {state.editor === "simple" ? (
                 <SimpleEditor value={state.simple} onChange={(v) => set("simple", v)} showIssues={showIssues} />
               ) : fields.isPending ? (
-                <Skeleton className="h-40 w-full rounded-xl" />
+                <Skeleton className="h-40 w-full rounded-2xl" />
               ) : (
                 <>
                   <BuilderContext.Provider value={builder}>
@@ -481,7 +481,7 @@ export function RuleEditor({ rule }: { rule?: Rule }) {
           </Card>
 
           <Collapsible open={moreOpen} onOpenChange={setMoreOpen}>
-            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-xl border bg-card px-4 py-3 text-left text-sm font-medium outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring">
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-2xl border bg-card px-4 py-3 text-left text-sm font-medium outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring">
               <span>
                 More options
                 <span className="block text-xs font-normal text-muted-foreground">

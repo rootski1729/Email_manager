@@ -46,7 +46,7 @@ function RuleCard({ rule }: { rule: Rule }) {
   return (
     <li
       className={cn(
-        "relative flex items-start gap-4 rounded-xl border bg-card p-4 transition-colors hover:border-input has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring",
+        "lift relative flex items-start gap-4 rounded-2xl border bg-card p-4 has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50",
         !rule.enabled && "bg-muted/40",
       )}
     >
@@ -55,7 +55,7 @@ function RuleCard({ rule }: { rule: Rule }) {
           <Link
             href={`/rules/${rule.id}`}
             className={cn(
-              "truncate font-medium outline-none after:absolute after:inset-0 after:rounded-xl",
+              "truncate font-medium outline-none after:absolute after:inset-0 after:rounded-2xl",
               !rule.enabled && "text-muted-foreground",
             )}
           >
@@ -104,7 +104,7 @@ function SortableRow({ rule, index }: { rule: Rule; index: number }) {
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "flex items-center gap-3 rounded-xl border bg-card py-2 pr-4 pl-1",
+        "flex items-center gap-3 rounded-2xl border bg-card py-2 pr-4 pl-1",
         isDragging && "z-10 shadow-lg ring-2 ring-primary/50",
       )}
     >
@@ -220,7 +220,7 @@ export function RulesList() {
             <ReorderList rules={rules.data} />
           </div>
         ) : custom.length === 0 ? (
-          <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed bg-card/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed bg-card/60 p-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground text-pretty">
               Nothing yet. For example: anything from <span className="font-medium text-foreground">univ.edu</span> whose
               subject mentions <span className="font-medium text-foreground">admit card</span>.
@@ -228,7 +228,7 @@ export function RulesList() {
             {newButton}
           </div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="stagger space-y-3">
             {custom.map((r) => (
               <RuleCard key={r.id} rule={r} />
             ))}
