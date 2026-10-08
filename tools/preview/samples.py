@@ -21,7 +21,38 @@ def _msg(frm: str, subject: str, text: str, *, html: str | None = None, headers:
     return bytes(m)
 
 
+GITHUB_TEXT = """tanmay-fg left a comment (acme/reporting-service#518)
+
+**Correction to my review above, after checking my own work.**
+
+Aftab's review thread on line 683 (`Success (status=200)... response=...`) found something more serious: the new
+response logging logs **live auth tokens in plaintext**.
+
+I'd fold both suggestions into one fix (mask known PII *and* secret-shaped keys: `token`, `password`, `secret`).
+
+--
+Reply to this email directly or view it on GitHub:
+https://github.com/acme/reporting-service/pull/518#issuecomment-1
+"""
+
+GITHUB_HTML = """<p></p>
+<p><b>tanmay-fg</b> left a comment <a href="https://github.com/acme/reporting-service/pull/518">(acme/reporting-service#518)</a></p>
+<p dir="auto"><strong>Correction to my review above, after checking my own work.</strong></p>
+<p dir="auto">Aftab's review thread on line 683 (<code class="notranslate">Success (status=200)... response=...</code>)
+found something more serious: the new response logging logs <strong>live auth tokens in plaintext</strong>.</p>
+<ul dir="auto"><li>Masks known PII</li><li>Masks secret-shaped keys: <code>token</code>, <code>password</code>,
+<code>secret</code></li></ul>
+<p dir="auto">The dependency-failure logic itself is still solid.</p>
+<p style="font-size:small;-webkit-text-size-adjust:none;color:#666;">&mdash;<br>Reply to this email directly,
+<a href="https://github.com/acme/reporting-service/pull/518#issuecomment-1">view it on GitHub</a>, or
+<a href="https://github.com/notifications/unsubscribe">unsubscribe</a>.<br>You are receiving this because you
+were mentioned.<img src="https://github.com/notifications/beacon/x.gif" height="1" width="1" alt=""></p>
+<script>alert("this must never run")</script>
+"""
+
 SAMPLES = {
+    "github_comment": _msg("Tanmay <notifications@github.com>", "Re: [acme/reporting-service] Add call logging (PR #518)",
+                           GITHUB_TEXT, html=GITHUB_HTML, headers={"In-Reply-To": "<pr518@github.com>"}),
     "gmail_reply": _msg("Riya Sharma <riya@infosys.com>", "Re: Interview schedule: Software Engineer", """Hi Asha,
 
 Thanks for confirming. We've moved your technical round to Friday 10 October at 3:00 PM IST on Microsoft Teams.

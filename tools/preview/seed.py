@@ -44,7 +44,7 @@ async def main(token_file: str) -> None:
         db.add(mailbox)
         db.add(Rule(id=uuid4(), user_id=user.id, name="Important", position=0, condition={
             "field": "from.domain", "op": "domain_matches",
-            "value": ["infosys.com", "akgec.ac.in", "gmail.com", "coursera.org"]}))
+            "value": ["infosys.com", "akgec.ac.in", "gmail.com", "coursera.org", "github.com"]}))
         db.add(AppSetting(key=AI_KEY, value={"endpoint": "http://127.0.0.1:9911/v1", "model": "mock", "enabled": True},
                           secret=vault().encrypt_json({"api_key": "preview"})))
         await db.commit()

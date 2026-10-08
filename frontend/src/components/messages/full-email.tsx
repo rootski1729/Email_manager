@@ -28,7 +28,12 @@ import type { EmailFile, MessageContent, ThreadMessage } from "@/lib/api/types";
 import { humanSize } from "@/lib/compose";
 import { cn } from "@/lib/utils";
 
-/* The whole email on the message page: plain text only (never the email's HTML), links made clickable. */
+import { EmailHtmlFrame } from "./email-html-frame";
+
+/*
+ * The whole email on the message page: its own formatting when it has HTML (sanitised by the API, shown in a
+ * sandboxed frame), otherwise the plain text with links made clickable.
+ */
 
 const URL_RE = /\bhttps?:\/\/[^\s<>"]+/gi;
 const TRAILING = /[.,;:!?'")\]}>]+$/;
@@ -259,7 +264,9 @@ function Content({ messageId, c }: { messageId: string; c: MessageContent }) {
   const text = c.text.trim();
   return (
     <>
-      {isForward ? (
+      {c.html ? (
+        <EmailHtmlFrame html={c.html} remoteImages={c.remote_images ?? 0} />
+      ) : isForward ? (
         <>
           {c.note?.trim() ? <EmailText text={c.note} /> : null}
           <div className={cn(c.note?.trim() && "mt-6 border-t pt-5")}>

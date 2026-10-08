@@ -19007,6 +19007,23 @@
             ],
             "title": "Forwarded Subject"
           },
+          "html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html",
+            "description": "The formatted email, sanitised (no scripts, forms or unsafe links). Render it in a sandboxed iframe. Remote images are held back as data-ms-src until the reader chooses to load them."
+          },
+          "remote_images": {
+            "type": "integer",
+            "title": "Remote Images",
+            "default": 0
+          },
           "thread": {
             "items": {
               "$ref": "#/components/schemas/ThreadMessageOut"

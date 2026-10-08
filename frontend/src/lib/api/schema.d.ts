@@ -3096,6 +3096,16 @@ export interface components {
             /** Forwarded Subject */
             forwarded_subject?: string | null;
             /**
+             * Html
+             * @description The formatted email, sanitised (no scripts, forms or unsafe links). Render it in a sandboxed iframe. Remote images are held back as data-ms-src until the reader chooses to load them.
+             */
+            html?: string | null;
+            /**
+             * Remote Images
+             * @default 0
+             */
+            remote_images: number;
+            /**
              * Thread
              * @description Earlier messages in the thread, newest first
              */

@@ -378,6 +378,10 @@ class MessageContent(BaseModel):
     note: str | None = Field(default=None, description="Forwards: the note the forwarder added")
     forwarded_from: str | None = None
     forwarded_subject: str | None = None
+    html: str | None = Field(default=None, description=(
+        "The formatted email, sanitised (no scripts, forms or unsafe links). Render it in a sandboxed iframe. "
+        "Remote images are held back as data-ms-src until the reader chooses to load them."))
+    remote_images: int = 0
     thread: list[ThreadMessageOut] = Field(description="Earlier messages in the thread, newest first")
     attachments: list[EmailFileOut]
     web_url: str | None = None

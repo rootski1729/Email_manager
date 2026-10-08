@@ -12,6 +12,7 @@ from app.core.security import vault
 from app.models import Mailbox, Message
 from app.providers import get_provider
 from app.providers.base import ProviderError, ReauthRequired
+from app.providers.html_view import SafeHtml, safe_email_html
 from app.providers.mime import AttachmentPart, attachment_parts
 from app.providers.reading import Reading, ThreadMessage, read_email, thread_messages
 from app.rules.envelope import Envelope
@@ -33,6 +34,10 @@ class FullEmail:
 
     def files(self) -> list[AttachmentPart]:
         return attachment_parts(self.raw)
+
+    def html(self) -> SafeHtml | None:
+        """The formatted (HTML) version, cleaned; quoted history is dropped from replies."""
+        return safe_email_html(self.raw, drop_quotes=self.reading.kind == "reply")
 
 
 async def fetch_full(db: AsyncSession, message: Message) -> FullEmail:

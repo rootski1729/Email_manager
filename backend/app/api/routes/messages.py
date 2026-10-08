@@ -151,7 +151,9 @@ async def get_message_content(message_id: UUID, user: CurrentUser, db: DB) -> Me
     files = [EmailFileOut(index=i, name=a.name or f"attachment-{i + 1}", mime_type=a.mime_type, size=a.size)
              for i, a in enumerate(env.attachments)]
     shown = {f["index"] for f in wa.meaningful_files([{**f.model_dump(), "type": f.mime_type} for f in files])}
+    formatted = full.html()
     return MessageContent(
+        html=formatted.html if formatted else None, remote_images=formatted.remote_images if formatted else 0,
         kind=reading.kind, subject=env.subject, from_name=env.from_name, from_address=env.from_address,
         to=env.to, cc=env.cc, received_at=env.received_at,
         text=(reading.forwarded_body if reading.kind == "forward" else reading.latest) or env.snippet or "",
