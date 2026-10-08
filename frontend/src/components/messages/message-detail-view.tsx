@@ -1,13 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, MoreHorizontal, Reply, SearchX, Sparkles, Trash2 } from "lucide-react";
+import { ExternalLink, MoreHorizontal, Reply, SearchX, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ReplyWithAiPanel } from "@/components/ai/reply-with-ai";
+import { EmailAssistant, type AssistantTab } from "@/components/ai/email-assistant";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAiAvailable } from "@/lib/api/ai";
+import { aiStatusQuery } from "@/lib/api/ai";
 import { ApiError } from "@/lib/api/errors";
 import { destinationsQuery, messageContentQuery, messageQuery, useDeleteMessage } from "@/lib/api/queries";
 import { initials } from "@/lib/format";
@@ -41,8 +41,10 @@ export function MessageDetailView({ id }: { id: string }) {
   const destinations = useQuery(destinationsQuery);
   const remove = useDeleteMessage();
   const [deleting, setDeleting] = useState(false);
-  const aiAvailable = useAiAvailable();
-  const [replying, setReplying] = useState(false);
+  const aiStatus = useQuery(aiStatusQuery);
+  const aiAvailable = aiStatus.data?.available ?? false;
+  const [tab, setTab] = useState<AssistantTab>("ask");
+  const [focusReply, setFocusReply] = useState(0);
   const destMap = useMemo(() => new Map((destinations.data ?? []).map((d) => [d.id, d])), [destinations.data]);
 
   if (message.isPending) {
@@ -88,18 +90,14 @@ export function MessageDetailView({ id }: { id: string }) {
       </PageHeader>
 
       <div className="flex flex-wrap gap-2">
-        {m.web_url ? (
-          <Button asChild>
-            <a href={m.web_url} target="_blank" rel="noreferrer noopener">
-              Open in {provider} <ExternalLink />
-            </a>
-          </Button>
-        ) : null}
-        {aiAvailable ? (
-          <Button variant="outline" onClick={() => setReplying((v) => !v)} aria-expanded={replying}>
-            <Sparkles /> Reply with AI
-          </Button>
-        ) : null}
+        <Button
+          onClick={() => {
+            setTab("reply");
+            setFocusReply((n) => n + 1);
+          }}
+        >
+          <Reply /> Reply
+        </Button>
         <RemindMenu messageId={m.id} />
         <MuteMenu messageId={m.id} fromAddress={m.from_address} />
         <DropdownMenu>
@@ -109,6 +107,13 @@ export function MessageDetailView({ id }: { id: string }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {m.web_url ? (
+              <DropdownMenuItem asChild>
+                <a href={m.web_url} target="_blank" rel="noreferrer noopener">
+                  <ExternalLink /> Open in {provider}
+                </a>
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(true)}>
               <Trash2 /> Remove from MailSentinel
             </DropdownMenuItem>
@@ -116,11 +121,13 @@ export function MessageDetailView({ id }: { id: string }) {
         </DropdownMenu>
       </div>
 
-      {aiAvailable && replying ? <ReplyWithAiPanel messageId={m.id} onClose={() => setReplying(false)} /> : null}
-
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div className="min-w-0 space-y-6">
-          <article className="rounded-xl border bg-card p-4 sm:p-6">
+      {/*
+        Wide screens: the email (with its dates and alerts) on the left, the Assistant beside it.
+        Narrower: one column, with the Assistant straight after the email (the left column is `contents`).
+      */}
+      <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start">
+        <div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-6">
+          <article className="order-1 min-w-0 rounded-xl border bg-card p-4 sm:p-6">
             <div className="flex items-start gap-3">
               <span
                 aria-hidden
@@ -161,12 +168,10 @@ export function MessageDetailView({ id }: { id: string }) {
             </div>
           </article>
 
-          <WhatsAppDeliveries notifications={m.notifications} destinations={destMap} />
-        </div>
-
-        <div className="min-w-0 space-y-6">
-          <DetectedDates messageId={m.id} events={m.events ?? []} />
-          <div className="rounded-xl border bg-card p-4">
+          <div className="order-3 min-w-0">
+            <DetectedDates messageId={m.id} events={m.events ?? []} />
+          </div>
+          <div className="order-3 rounded-xl border bg-card p-4">
             <h2 className="text-base font-semibold tracking-tight">Why it&apos;s important</h2>
             <p className="text-sm text-muted-foreground">It matched {m.matches.length === 1 ? "this" : "these"}:</p>
             <ul className="mt-3 flex flex-wrap gap-2">
@@ -188,7 +193,24 @@ export function MessageDetailView({ id }: { id: string }) {
               ))}
             </ul>
           </div>
+          <div className="order-3 min-w-0">
+            <WhatsAppDeliveries notifications={m.notifications} destinations={destMap} />
+          </div>
         </div>
+
+        {aiStatus.isPending ? (
+          <Skeleton className="order-2 h-64 rounded-xl" />
+        ) : (
+          <EmailAssistant
+            key={m.id}
+            messageId={m.id}
+            aiAvailable={aiAvailable}
+            tab={tab}
+            onTabChange={setTab}
+            focusReply={focusReply}
+            className="order-2 xl:sticky xl:top-20 xl:max-h-[calc(100dvh-6.5rem)]"
+          />
+        )}
       </div>
 
       <ConfirmDialog

@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Brand } from "@/components/common/brand";
 import { LandingCta, NavAuthLink } from "@/components/landing/landing-cta";
+import { HeroStage, TiltPhone } from "@/components/landing/hero-stage";
 import { PhoneMock } from "@/components/landing/phone-mock";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { APP_NAME } from "@/lib/config";
@@ -57,7 +58,7 @@ export default function LandingPage() {
       </header>
 
       <main className="flex-1">
-        <section className="border-b border-hero-border bg-linear-to-b from-hero to-background text-hero-foreground">
+        <HeroStage className="border-b border-hero-border bg-linear-to-b from-hero to-background text-hero-foreground">
           <div className="mx-auto grid max-w-6xl items-center gap-14 px-4 pt-16 pb-20 sm:px-6 lg:grid-cols-[1.15fr_1fr] lg:gap-10 lg:pt-24 lg:pb-28">
             <div>
               <span className="inline-flex items-center gap-2 text-sm font-medium text-brand-ink">
@@ -77,16 +78,18 @@ export default function LandingPage() {
                 <LandingCta />
                 <a
                   href="#how"
-                  className="inline-flex h-11 items-center rounded-lg px-4 text-[15px] font-medium text-hero-foreground outline-none hover:bg-hero-border/60 focus-visible:ring-3 focus-visible:ring-ring"
+                  className="inline-flex h-11 items-center rounded-lg px-4 text-[15px] font-medium text-hero-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring"
                 >
-                  How it works
+                  <span className="landing-link pb-0.5">How it works</span>
                 </a>
               </div>
               <p className="mt-5 text-sm text-hero-muted">No password — sign in with a code on WhatsApp.</p>
             </div>
-            <PhoneMock text={SAMPLE} time="10:02" />
+            <TiltPhone>
+              <PhoneMock text={SAMPLE} time="10:02" />
+            </TiltPhone>
           </div>
-        </section>
+        </HeroStage>
 
         <section id="how" className="scroll-mt-16">
           <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
@@ -94,13 +97,17 @@ export default function LandingPage() {
             <p className="mt-3 max-w-xl text-lg text-muted-foreground">Then forget about it. We&apos;ll tap you on the shoulder when it matters.</p>
             <ol className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
               {STEPS.map((s, i) => (
-                <li key={s.title} className="border-t pt-6">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold tracking-wider text-brand-ink uppercase">Step {i + 1}</span>
-                    <s.icon className="size-5 text-muted-foreground" aria-hidden />
+                <li key={s.title} className="landing-step isolate border-t pt-6">
+                  <div className="landing-step-body">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold tracking-wider text-brand-ink uppercase">Step {i + 1}</span>
+                      <span className="landing-icon -m-1.5 rounded-lg p-1.5 text-muted-foreground">
+                        <s.icon className="size-5" aria-hidden />
+                      </span>
+                    </div>
+                    <h3 className="mt-5 text-lg font-semibold tracking-tight">{s.title}</h3>
+                    <p className="mt-2 text-[0.95rem] leading-relaxed text-muted-foreground">{s.body}</p>
                   </div>
-                  <h3 className="mt-5 text-lg font-semibold tracking-tight">{s.title}</h3>
-                  <p className="mt-2 text-[0.95rem] leading-relaxed text-muted-foreground">{s.body}</p>
                 </li>
               ))}
             </ol>
@@ -110,8 +117,10 @@ export default function LandingPage() {
         <section className="border-t bg-card">
           <div className="mx-auto grid max-w-6xl gap-x-10 gap-y-12 px-4 py-24 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
             {FEATURES.map((f) => (
-              <div key={f.title}>
-                <f.icon className="size-5 text-brand-ink" aria-hidden />
+              <div key={f.title} className="landing-feature -m-3 rounded-xl p-3 sm:-m-5 sm:p-5">
+                <span className="landing-icon -m-1.5 flex w-fit rounded-lg p-1.5 text-brand-ink">
+                  <f.icon className="size-5" aria-hidden />
+                </span>
                 <h3 className="mt-4 font-semibold tracking-tight">{f.title}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
               </div>
@@ -130,7 +139,7 @@ export default function LandingPage() {
               </div>
               <Link
                 href="/login"
-                className="inline-flex h-11 shrink-0 items-center rounded-lg bg-brand px-5 text-[15px] font-medium text-brand-foreground shadow-xs outline-none hover:bg-brand/90 focus-visible:ring-3 focus-visible:ring-ring"
+                className="landing-shine inline-flex h-11 shrink-0 items-center rounded-lg bg-brand px-5 text-[15px] font-medium text-brand-foreground shadow-xs outline-none focus-visible:ring-3 focus-visible:ring-ring"
               >
                 Get started
               </Link>
@@ -143,7 +152,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <Brand className="text-foreground" />
           <span>Important email, straight to WhatsApp.</span>
-          <Link href="/login" className="rounded-md font-medium text-foreground/80 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring">
+          <Link href="/login" className="landing-link rounded-xs font-medium text-foreground/80 outline-none focus-visible:ring-3 focus-visible:ring-ring">
             Sign in
           </Link>
         </div>

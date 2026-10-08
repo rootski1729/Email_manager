@@ -57,14 +57,14 @@ function WriteForm({ onClose }: { onClose: () => void }) {
 }
 
 /** "Write with AI" button plus its dialog. Renders nothing when AI isn't available. */
-export function WriteWithAiButton() {
+export function WriteWithAiButton({ label = "Write with AI", className }: { label?: string; className?: string }) {
   const available = useAiAvailable();
   const [open, setOpen] = useState(false);
   if (!available) return null;
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
-        <Sparkles /> Write with AI
+      <Button variant="outline" onClick={() => setOpen(true)} className={className}>
+        <Sparkles /> {label}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">

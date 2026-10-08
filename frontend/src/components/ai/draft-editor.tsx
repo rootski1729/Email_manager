@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useReviseDraft, useSendEmail } from "@/lib/api/ai";
 import { errorMessage } from "@/lib/api/errors";
 import type { Draft } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 
 function addresses(value: string) {
   return value
@@ -34,10 +35,27 @@ function fieldsOf(d: Draft): Fields {
 }
 
 /**
- * An AI draft the user edits, revises and sends. Nothing is sent until Send is pressed.
- * Used by "Reply with AI" on a message and by "Write with AI".
+ * A draft the user edits, revises with AI and sends. Nothing is sent until Send is pressed.
+ * Used by the Assistant's Reply tab on a message and by "Write with AI".
  */
-export function DraftEditor({ draft, onSent, onDiscard }: { draft: Draft; onSent: () => void; onDiscard: () => void }) {
+export function DraftEditor({
+  draft,
+  onSent,
+  onDiscard,
+  handwritten = false,
+  canRevise = true,
+  notify = true,
+}: {
+  draft: Draft;
+  onSent: () => void;
+  onDiscard: () => void;
+  /** An empty draft to write by hand: the body gets focus, and "Change it…" waits until there's text. */
+  handwritten?: boolean;
+  /** False when AI is off: no "Change it…". */
+  canRevise?: boolean;
+  /** Show the "Sending…" toast (off when the caller shows its own sent state). */
+  notify?: boolean;
+}) {
   const id = useId();
   const [base, setBase] = useState(draft);
   const [fields, setFields] = useState<Fields>(() => fieldsOf(draft));
@@ -47,6 +65,7 @@ export function DraftEditor({ draft, onSent, onDiscard }: { draft: Draft; onSent
   const send = useSendEmail();
   const busy = revise.isPending || send.isPending;
   const showCc = base.cc.length > 0 || fields.cc.trim() !== "";
+  const showChange = canRevise && (!handwritten || fields.body.trim() !== "");
 
   const set = <K extends keyof Fields>(key: K, value: Fields[K]) => setFields((f) => ({ ...f, [key]: value }));
 
@@ -97,6 +116,10 @@ export function DraftEditor({ draft, onSent, onDiscard }: { draft: Draft; onSent
       },
       {
         onSuccess: () => {
+          if (!notify) {
+            onSent();
+            return;
+          }
           toast("Sending…", {
             description: (
               <Link href="/sent" className="underline underline-offset-2">
@@ -138,35 +161,39 @@ export function DraftEditor({ draft, onSent, onDiscard }: { draft: Draft; onSent
           value={fields.body}
           onChange={(e) => set("body", e.target.value)}
           disabled={busy}
+          autoFocus={handwritten}
+          placeholder={handwritten ? "Write your reply…" : undefined}
           className="min-h-40"
         />
       </Field>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submitChange();
-        }}
-      >
-        <InputGroup>
-          <InputGroupAddon>
-            <Wand2 />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={change}
-            onChange={(e) => setChange(e.target.value)}
-            placeholder="Change it… e.g. shorter, more formal"
-            aria-label="Ask the AI to change the draft"
-            maxLength={2000}
-            disabled={busy}
-          />
-          <InputGroupAddon align="inline-end">
-            <InputGroupButton type="submit" disabled={!change.trim() || busy}>
-              {revise.isPending ? <Spinner /> : null} Change
-            </InputGroupButton>
-          </InputGroupAddon>
-        </InputGroup>
-      </form>
+      {showChange ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitChange();
+          }}
+        >
+          <InputGroup>
+            <InputGroupAddon>
+              <Wand2 />
+            </InputGroupAddon>
+            <InputGroupInput
+              value={change}
+              onChange={(e) => setChange(e.target.value)}
+              placeholder="Change it… e.g. shorter, more formal"
+              aria-label="Ask the AI to change the draft"
+              maxLength={2000}
+              disabled={busy}
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton type="submit" disabled={busy} className={cn(!change.trim() && "text-muted-foreground/60")}>
+                {revise.isPending ? <Spinner /> : null} Change
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+        </form>
+      ) : null}
 
       {problem ? (
         <p role="alert" className="text-sm text-destructive">

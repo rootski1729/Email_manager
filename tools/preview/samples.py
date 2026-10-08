@@ -9,6 +9,7 @@ def _msg(frm: str, subject: str, text: str, *, html: str | None = None, headers:
     m = EmailMessage()
     m["From"], m["To"], m["Subject"] = frm, "asha@gmail.com", subject
     m["Date"] = "Wed, 07 Oct 2026 10:15:00 +0530"
+    m["Message-ID"] = f"<{abs(hash(subject)) % 10**12}@preview.example>"
     for k, v in (headers or {}).items():
         m[k] = v
     m.set_content(text)

@@ -10,6 +10,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { RealtimeProvider } from "@/lib/realtime/realtime-provider";
+import { cn } from "@/lib/utils";
 import { AppSidebar } from "./app-sidebar";
 import { ConnectionIndicator } from "./connection-indicator";
 import { MobileNav } from "./mobile-nav";
@@ -48,6 +49,7 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
   const { status } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const wide = pathname === "/messages" || pathname?.startsWith("/messages/");
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -81,7 +83,14 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
               <UserMenu />
             </div>
           </header>
-          <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:px-8 md:pt-10 md:pb-16">
+          <main
+            id="main"
+            className={cn(
+              "mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:px-8 md:pt-10 md:pb-16",
+              // Mail pages put an Assistant beside the content on wide screens, so they get more room there.
+              wide && "xl:max-w-7xl",
+            )}
+          >
             {children}
           </main>
         </SidebarInset>

@@ -23,6 +23,7 @@ import { initials } from "@/lib/format";
 import { useDebounced } from "@/lib/hooks/use-debounced";
 import { useNow } from "@/lib/hooks/use-now";
 import { useZone } from "@/lib/hooks/use-zone";
+import { MailAssistant } from "./mail-assistant";
 
 const ALL = "__all";
 
@@ -120,112 +121,117 @@ export function MessagesView() {
         title="Important mail"
         description="Every email that matched what you watch for. Open one to set a reminder or mute the sender."
       />
-      <div className="mb-5 flex flex-col gap-2 sm:flex-row">
-        <InputGroup className="h-10 sm:max-w-sm">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by subject or sender"
-            aria-label="Search important mail"
-            maxLength={200}
-          />
-          {q ? (
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={() => setQ("")}>
-                <X />
-              </InputGroupButton>
-            </InputGroupAddon>
-          ) : null}
-        </InputGroup>
-        {showMailboxFilter ? (
-          <Select value={mailboxId || ALL} onValueChange={(v) => setParam("mailbox", v)}>
-            <SelectTrigger className="h-10! w-full sm:w-48" aria-label="Show mail from">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All mailboxes</SelectItem>
-              {(mailboxes.data ?? []).map((m) => (
-                <SelectItem key={m.id} value={m.id}>
-                  {m.display_name || m.address}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : null}
-        {showRuleFilter ? (
-          <Select value={ruleId || ALL} onValueChange={(v) => setParam("rule", v)}>
-            <SelectTrigger className="h-10! w-full sm:w-48" aria-label="Show mail caught by">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Everything I watch</SelectItem>
-              {(rules.data ?? []).map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  {r.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : null}
-      </div>
-
-      {messages.isPending ? (
-        <ListSkeleton rows={6} />
-      ) : messages.isError ? (
-        <ErrorState error={messages.error} onRetry={() => void messages.refetch()} />
-      ) : items.length === 0 ? (
-        filtered ? (
-          <EmptyState icon={Search} title="Nothing found" description="Try other words, or show everything again.">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setQ("");
-                router.replace(pathname, { scroll: false });
-              }}
-            >
-              Show everything
-            </Button>
-          </EmptyState>
-        ) : (
-          <EmptyState
-            icon={MailCheck}
-            title="No important mail yet"
-            description="When a new email matches what you watch for, it shows up here and on your WhatsApp."
-          >
-            <Button asChild>
-              <Link href="/rules">Choose what to watch</Link>
-            </Button>
-          </EmptyState>
-        )
-      ) : (
-        <div className="space-y-6">
-          {groups.map((g) => (
-            <section key={g.key} aria-label={dayLabel(g.key, today)}>
-              <h2 className="mb-2 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                {dayLabel(g.key, today)}
-              </h2>
-              <ul className="divide-y overflow-hidden rounded-xl border bg-card">
-                {g.items.map((m) => (
-                  <MessageRow key={m.id} m={m} />
-                ))}
-              </ul>
-            </section>
-          ))}
-          <div className="flex justify-center">
-            {messages.hasNextPage ? (
-              <Button variant="outline" onClick={() => void messages.fetchNextPage()} disabled={messages.isFetchingNextPage}>
-                {messages.isFetchingNextPage ? <Spinner /> : null}
-                Show older emails
-              </Button>
-            ) : (
-              <p className="text-xs text-muted-foreground">That&apos;s everything.</p>
-            )}
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start xl:gap-8">
+        <div className="min-w-0">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row">
+            <InputGroup className="h-10 sm:max-w-sm">
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              <InputGroupInput
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search by subject or sender"
+                aria-label="Search important mail"
+                maxLength={200}
+              />
+              {q ? (
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={() => setQ("")}>
+                    <X />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              ) : null}
+            </InputGroup>
+            {showMailboxFilter ? (
+              <Select value={mailboxId || ALL} onValueChange={(v) => setParam("mailbox", v)}>
+                <SelectTrigger className="h-10! w-full sm:w-48" aria-label="Show mail from">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All mailboxes</SelectItem>
+                  {(mailboxes.data ?? []).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.display_name || m.address}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {showRuleFilter ? (
+              <Select value={ruleId || ALL} onValueChange={(v) => setParam("rule", v)}>
+                <SelectTrigger className="h-10! w-full sm:w-48" aria-label="Show mail caught by">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Everything I watch</SelectItem>
+                  {(rules.data ?? []).map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
           </div>
+
+          {messages.isPending ? (
+            <ListSkeleton rows={6} />
+          ) : messages.isError ? (
+            <ErrorState error={messages.error} onRetry={() => void messages.refetch()} />
+          ) : items.length === 0 ? (
+            filtered ? (
+              <EmptyState icon={Search} title="Nothing found" description="Try other words, or show everything again.">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setQ("");
+                    router.replace(pathname, { scroll: false });
+                  }}
+                >
+                  Show everything
+                </Button>
+              </EmptyState>
+            ) : (
+              <EmptyState
+                icon={MailCheck}
+                title="No important mail yet"
+                description="When a new email matches what you watch for, it shows up here and on your WhatsApp."
+              >
+                <Button asChild>
+                  <Link href="/rules">Choose what to watch</Link>
+                </Button>
+              </EmptyState>
+            )
+          ) : (
+            <div className="space-y-6">
+              {groups.map((g) => (
+                <section key={g.key} aria-label={dayLabel(g.key, today)}>
+                  <h2 className="mb-2 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                    {dayLabel(g.key, today)}
+                  </h2>
+                  <ul className="divide-y overflow-hidden rounded-xl border bg-card">
+                    {g.items.map((m) => (
+                      <MessageRow key={m.id} m={m} />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+              <div className="flex justify-center">
+                {messages.hasNextPage ? (
+                  <Button variant="outline" onClick={() => void messages.fetchNextPage()} disabled={messages.isFetchingNextPage}>
+                    {messages.isFetchingNextPage ? <Spinner /> : null}
+                    Show older emails
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">That&apos;s everything.</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+        <MailAssistant className="hidden xl:sticky xl:top-20 xl:block" />
+      </div>
     </div>
   );
 }

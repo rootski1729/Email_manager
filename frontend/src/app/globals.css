@@ -234,6 +234,303 @@
   animation: ms-pulse 2s ease-out infinite;
 }
 
+/*
+ * Landing page (/) only: a quiet 3D hero and hover highlights. Decoration uses iris at low strength so it
+ * never competes with the copy; everything that moves is transform or opacity.
+ */
+@layer components {
+  .landing-hero {
+    --grid-line: color-mix(in oklab, var(--brand) 26%, transparent);
+    --glow: color-mix(in oklab, var(--brand) 18%, transparent);
+    --glare: rgb(255 255 255 / 0.5);
+    --cell: 48px;
+    /* Where the floor's vanishing point and the glow sit: centred, or under the phone on wide screens. */
+    --focus-x: 50%;
+  }
+  .dark .landing-hero {
+    --grid-line: color-mix(in oklab, var(--brand-ink) 13%, transparent);
+    --glow: color-mix(in oklab, var(--brand) 22%, transparent);
+    --glare: rgb(255 255 255 / 0.07);
+  }
+
+  .landing-scene {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    contain: strict;
+  }
+  .landing-glow {
+    position: absolute;
+    left: var(--focus-x);
+    bottom: -10%;
+    width: min(64rem, 160vw);
+    height: 85%;
+    translate: -50% 0;
+    background: radial-gradient(closest-side, var(--glow), transparent);
+  }
+  /* The floor: a grid plane hinged at the bottom edge and tipped away, so it recedes to a horizon. */
+  .landing-floor {
+    position: absolute;
+    left: calc(var(--focus-x) - 80%);
+    width: 160%;
+    bottom: 0;
+    height: 56%;
+    perspective: 420px;
+    perspective-origin: 50% 0%;
+    transform: translate3d(calc(var(--mx, 0) * -14px), 0, 0);
+    transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 2%, #000 55%, #000 82%, transparent);
+    mask-image: linear-gradient(to bottom, transparent 2%, #000 55%, #000 82%, transparent);
+  }
+  .landing-floor-plane {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 260%;
+    overflow: hidden;
+    transform-origin: 50% 100%;
+    transform: rotateX(70deg);
+    -webkit-mask-image: radial-gradient(60% 100% at 50% 100%, #000 30%, transparent 75%);
+    mask-image: radial-gradient(60% 100% at 50% 100%, #000 30%, transparent 75%);
+  }
+  .landing-floor-grid {
+    position: absolute;
+    inset: calc(var(--cell) * -1) 0 0;
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell);
+    background-position: center top;
+    animation: landing-drift 7s linear infinite;
+    will-change: transform;
+  }
+  .landing-hero[data-paused] .landing-floor-grid {
+    animation-play-state: paused;
+  }
+
+  /* The phone leans towards the pointer (a few degrees), with a glare that follows; it lifts on hover. */
+  .landing-tilt {
+    perspective: 1100px;
+  }
+  .landing-tilt-body {
+    position: relative;
+    transform: rotateX(calc(var(--my, 0) * -4deg)) rotateY(calc(var(--mx, 0) * 5deg))
+      translate3d(0, var(--lift, 0px), 0);
+    transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+    will-change: transform;
+  }
+  .landing-tilt-body::before {
+    content: "";
+    position: absolute;
+    inset: 12% 8% -1%;
+    z-index: -1;
+    border-radius: 2.5rem;
+    box-shadow: 0 36px 70px -20px color-mix(in oklab, var(--brand) 32%, rgb(16 16 24 / 0.35));
+    opacity: 0;
+    transition: opacity 0.25s ease-out;
+  }
+  .landing-glare {
+    position: absolute;
+    inset: 0;
+    border-radius: 2.25rem;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: var(--pa, 0);
+    transition: opacity 0.4s ease-out;
+  }
+  .landing-glare::before {
+    content: "";
+    position: absolute;
+    left: -50%;
+    top: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 50% 50%, var(--glare), transparent 32%);
+    transform: translate3d(calc(var(--mx, 0) * 22%), calc(var(--my, 0) * 18%), 0);
+    transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  @media (hover: hover) {
+    .landing-tilt:hover {
+      --lift: -6px;
+    }
+    .landing-tilt:hover .landing-tilt-body::before {
+      opacity: 1;
+    }
+  }
+
+  /* Steps: the top hairline draws in iris, a faint wash rises from it, the icon takes the accent. */
+  .landing-step {
+    position: relative;
+  }
+  .landing-step::before,
+  .landing-step::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+  .landing-step::before {
+    inset: -1px 0 auto;
+    height: 1px;
+    background: linear-gradient(to right, var(--brand), color-mix(in oklab, var(--brand) 0%, transparent));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .landing-step::after {
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(90% 70% at 0% 0%, color-mix(in oklab, var(--brand) 7%, transparent), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.25s ease-out;
+  }
+  .landing-step-body,
+  .landing-icon {
+    transition: transform 0.22s ease-out, color 0.22s ease-out, background-color 0.22s ease-out;
+  }
+
+  /* Features: a hairline card appears around the item, lifted a touch, with a tinted icon. */
+  .landing-feature {
+    position: relative;
+    border: 1px solid transparent;
+    transition: transform 0.22s ease-out, border-color 0.22s ease-out, background-color 0.22s ease-out,
+      box-shadow 0.22s ease-out;
+  }
+
+  @media (hover: hover) {
+    .landing-step:hover::before {
+      transform: scaleX(1);
+    }
+    .landing-step:hover::after {
+      opacity: 1;
+    }
+    .landing-step:hover .landing-step-body {
+      transform: translate3d(0, -2px, 0);
+    }
+    .landing-step:hover .landing-icon,
+    .landing-feature:hover .landing-icon {
+      color: var(--brand-ink);
+      background-color: var(--accent);
+    }
+    .landing-feature:hover {
+      transform: translate3d(0, -3px, 0);
+      border-color: color-mix(in oklab, var(--brand) 22%, var(--border));
+      background-color: var(--popover);
+      box-shadow: 0 12px 28px -14px color-mix(in oklab, var(--brand) 30%, transparent);
+    }
+  }
+
+  /* Primary buttons: a light sweep, a small lift and an iris shadow (also on keyboard focus). */
+  .landing-shine {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.2s ease-out;
+  }
+  .landing-shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.28) 50%, transparent 70%);
+    transform: translateX(-110%);
+    pointer-events: none;
+  }
+  .landing-shine svg {
+    transition: transform 0.2s ease-out;
+  }
+  .landing-shine:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px -8px color-mix(in oklab, var(--brand) 65%, transparent);
+  }
+  .landing-shine:focus-visible::after {
+    transform: translateX(110%);
+    transition: transform 0.7s ease-out;
+  }
+  @media (hover: hover) {
+    .landing-shine:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px -8px color-mix(in oklab, var(--brand) 65%, transparent);
+    }
+    .landing-shine:hover::after {
+      transform: translateX(110%);
+      transition: transform 0.7s ease-out;
+    }
+    .landing-shine:hover svg {
+      transform: translateX(2px);
+    }
+  }
+
+  /* Secondary links: colour shifts to iris and an underline draws in from the left. */
+  .landing-link {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1px;
+    transition: color 0.2s ease-out, background-size 0.25s ease-out;
+  }
+  .landing-link:focus-visible,
+  :focus-visible > .landing-link {
+    color: var(--brand-ink);
+    background-size: 100% 1px;
+  }
+  @media (hover: hover) {
+    .landing-link:hover,
+    :hover > .landing-link {
+      color: var(--brand-ink);
+      background-size: 100% 1px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .landing-hero {
+      --focus-x: calc(50% + min(19rem, 21vw));
+    }
+  }
+
+  /* Phones: a lower, quieter floor and finer grid. */
+  @media (max-width: 639px) {
+    .landing-hero {
+      --cell: 40px;
+    }
+    .landing-floor {
+      height: 42%;
+      opacity: 0.7;
+    }
+    .landing-glow {
+      height: 55%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-floor-grid {
+      animation: none;
+    }
+    .landing-floor,
+    .landing-tilt-body,
+    .landing-step-body,
+    .landing-feature,
+    .landing-shine,
+    .landing-shine svg {
+      transform: none !important;
+    }
+    .landing-glare,
+    .landing-shine::after {
+      display: none;
+    }
+  }
+}
+
+@keyframes landing-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, var(--cell), 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

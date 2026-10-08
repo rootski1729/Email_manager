@@ -5,6 +5,7 @@ data. Nothing the model writes is sent anywhere without the user confirming it f
 """
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -128,8 +129,12 @@ async def draft_reply(
             {"subject": previous.subject, "body": previous.body}, ensure_ascii=False)})
         messages.append({"role": "user", "content": f"Change the draft like this: {instructions}"})
     data = await complete_json(messages, max_tokens=900)
-    reply_subject = _clean(data.get("subject"), 300) or (subject if subject.lower().startswith("re:")
-                                                       else f"Re: {subject}")
+    # A reply keeps the conversation's subject so it threads; the model may only add to it.
+    original = re.sub(r"^\s*((re|fwd?|fw)\s*:\s*)+", "", subject, flags=re.I).strip()
+    expected = f"Re: {original}" if original else "Re:"
+    reply_subject = _clean(data.get("subject"), 300)
+    if not reply_subject or original.lower() not in reply_subject.lower():
+        reply_subject = expected
     text = _body(data.get("body"))
     if not text:
         raise AIUnavailable("empty draft")

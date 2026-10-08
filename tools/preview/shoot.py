@@ -8,6 +8,7 @@ Env: FULL=1 for full-page shots, PHONE=0 to skip the 390px phone shot, API_LOG=p
 """
 
 import asyncio
+import hashlib
 import os
 import re
 import sys
@@ -23,7 +24,9 @@ PUBLIC = ("/", "/login", "/admin/login")
 
 
 def name_of(spec: str) -> str:
-    return re.sub(r"[^A-Za-z0-9]+", "_", spec.strip("/")).strip("_")[:90] or "home"
+    name = re.sub(r"[^A-Za-z0-9]+", "_", spec.strip("/")).strip("_") or "home"
+    # Long step lists would collide once cut short, so a cut name ends with a hash of the whole spec.
+    return name if len(name) <= 90 else f"{name[:80]}_{hashlib.sha1(spec.encode()).hexdigest()[:8]}"
 
 
 async def run_steps(page: Page, steps: list[str]) -> None:
@@ -41,9 +44,10 @@ async def run_steps(page: Page, steps: list[str]) -> None:
             await page.get_by_text(arg, exact=False).first.hover()
         elif kind == "fill":
             label, _, value = arg.partition("=")
-            box = page.get_by_placeholder(label)
-            if not await box.count():
-                box = page.get_by_label(label)
+            # Placeholder first, then a text box by its accessible name (a section may share the label).
+            for box in (page.get_by_placeholder(label), page.get_by_role("textbox", name=label), page.get_by_label(label)):
+                if await box.count() and await box.first.is_visible():
+                    break
             await box.first.fill(value)
         elif kind == "press":
             await page.keyboard.press(arg)

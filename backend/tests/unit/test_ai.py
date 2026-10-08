@@ -121,6 +121,9 @@ async def test_reply_ideas_and_drafts(model) -> None:
     ideas = await ai.suggest_replies(subject="Viva", sender="a@b", body="Come at 10", user_name="Asha")
     assert [i.label for i in ideas] == ["Accept", "Ask venue", "Decline"]
 
+    model({"subject": "Re: your email", "body": "Hi"})  # a made-up subject never replaces the real one
+    assert (await ai.draft_reply(subject="RE: Fwd: Viva", sender="a@b", body="x", instructions="ok",
+                                 user_name=None)).subject == "Re: Viva"
     fake = model({"body": "Dear Sir,\n\nI'll attend.\n\nAsha"})
     draft = await ai.draft_reply(subject="Viva", sender="a@b", body="Come", instructions="accept",
                                  user_name="Asha", previous=ai.Draft("Re: Viva", "old", [], []))

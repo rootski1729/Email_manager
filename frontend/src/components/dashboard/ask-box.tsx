@@ -4,13 +4,18 @@ import { MessageCircleQuestion } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { AnswerText } from "@/components/ai/answer-text";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { useAiAvailable, useAskMail } from "@/lib/api/ai";
 import { errorMessage } from "@/lib/api/errors";
+import { cn } from "@/lib/utils";
 
-/** "Ask about your mail": one question in, one answer out, with links to the emails it used. */
-export function AskBox() {
+/**
+ * "Ask about your mail": one question in, one answer out, with links to the emails it used.
+ * `compact` fits it inside a card (the mail list's Assistant): a smaller box and no card around the answer.
+ */
+export function AskBox({ compact = false }: { compact?: boolean }) {
   const available = useAiAvailable();
   const ask = useAskMail();
   const [question, setQuestion] = useState("");
@@ -25,19 +30,26 @@ export function AskBox() {
           if (q.length >= 2 && !ask.isPending) ask.mutate(q);
         }}
       >
-        <InputGroup className="h-11 shadow-xs">
-          <InputGroupAddon>
-            <MessageCircleQuestion />
-          </InputGroupAddon>
+        <InputGroup className={compact ? undefined : "h-11 shadow-xs"}>
+          {compact ? null : (
+            <InputGroupAddon>
+              <MessageCircleQuestion />
+            </InputGroupAddon>
+          )}
           <InputGroupInput
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ask about your mail, e.g. When is my exam?"
+            placeholder={compact ? "e.g. When is my exam?" : "Ask about your mail, e.g. When is my exam?"}
             aria-label="Ask about your mail"
             maxLength={500}
           />
           <InputGroupAddon align="inline-end">
-            <InputGroupButton type="submit" disabled={question.trim().length < 2 || ask.isPending}>
+            <InputGroupButton
+              type="submit"
+              // In a card, a disabled button would grey the whole box out; empty questions are ignored anyway.
+              disabled={compact ? undefined : question.trim().length < 2 || ask.isPending}
+              className={cn(compact && question.trim().length < 2 && "text-muted-foreground/60")}
+            >
               {ask.isPending ? <Spinner /> : null} Ask
             </InputGroupButton>
           </InputGroupAddon>
@@ -48,9 +60,17 @@ export function AskBox() {
           {errorMessage(ask.error)}
         </p>
       ) : null}
+      {compact && ask.isPending ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <Spinner /> Thinking…
+        </p>
+      ) : null}
       {ask.data ? (
-        <div className="space-y-2 rounded-xl border bg-card px-4 py-3 text-sm" aria-live="polite">
-          <p className="whitespace-pre-line text-pretty">{ask.data.answer}</p>
+        <div
+          className={cn("space-y-2 text-sm", !compact && "rounded-xl border bg-card px-4 py-3")}
+          aria-live="polite"
+        >
+          <AnswerText text={ask.data.answer} />
           {ask.data.refs.length ? (
             <ul className="flex flex-col gap-1">
               {ask.data.refs.map((r) => (
