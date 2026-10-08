@@ -1,5 +1,9 @@
 # MailSentinel — Design
 
+> **Historical record.** This is the original phase-by-phase design log (including the early audit and the
+> questions that were open at the time). For how MailSentinel works today, read
+> [ARCHITECTURE.md](ARCHITECTURE.md).
+
 > Status: **implemented (v0.1)** · Last updated: 2026-10-05 · See §18 for what changed during implementation
 > Working name for the rewrite of "EmailFilter Pro". The name can change; nothing depends on it.
 
