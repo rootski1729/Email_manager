@@ -313,8 +313,14 @@ async def turn(
     async def show_results(args: dict[str, Any]) -> dict[str, Any]:
         nonlocal chosen
         numbers = [int(n) for n in (args.get("numbers") or []) if str(n).isdigit()]
-        chosen = [n for n in numbers if 1 <= n <= len(session.results)]
-        return {"showing": chosen}
+        picked = list(dict.fromkeys(n for n in numbers if 1 <= n <= len(session.results)))
+        # The chosen ones become 1..k, so the list the person sees and the numbers they answer with agree.
+        session.results = [session.results[n - 1] for n in picked] + \
+            [h for n, h in enumerate(session.results, 1) if n not in picked]
+        chosen = list(range(1, len(picked) + 1))
+        return {"shown": [_public(n, h) for n, h in enumerate(session.results[:len(picked)], 1)],
+                "note": (f"These are now numbered 1..{len(picked)} as listed here; use these numbers." if picked
+                         else "No list is shown.")}
 
     async def recent_alerts(args: dict[str, Any]) -> dict[str, Any]:
         limit = max(1, min(int(args.get("limit") or 8), 15))

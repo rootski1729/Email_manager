@@ -166,3 +166,15 @@ async def test_the_same_email_in_two_mailboxes_is_shown_once(monkeypatch) -> Non
     outcome = await mail_search.search_all(None, SimpleNamespace(id="u"), SearchQuery(words=("offer",)))
     assert [h.subject.strip().lower() for h in outcome.hits] == ["offer", "older"]
     assert outcome.searched == ["b1@x.io", "b2@x.io"]
+
+
+def test_a_reply_to_your_own_email_goes_to_who_you_wrote_to() -> None:
+    from app.models import Message
+    from app.services.assistant import reply_address
+
+    own = {"me@x.io", "me@work.io"}
+    sent = Message(from_address="Me@x.io", to_addresses=["me@work.io", "abhi@acme.io"], headers={})
+    received = Message(from_address="abhi@acme.io", to_addresses=["me@x.io"], headers={"reply-to": ["Abhi <a@b.io>"]})
+    assert reply_address(sent, None, own) == "abhi@acme.io"
+    assert reply_address(received, None, own) == "a@b.io"
+    assert reply_address(sent, None) == "Me@x.io"  # without knowing the person's addresses, the sender

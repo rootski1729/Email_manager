@@ -70,7 +70,16 @@ def _sender(env: Envelope) -> str:
     return f"{env.from_name} <{env.from_address}>".strip()
 
 
-def reply_address(message: Message, env: Envelope | None) -> str:
+async def own_addresses(db: AsyncSession, user_id: UUID) -> set[str]:
+    return {a.lower() for a in (await db.scalars(select(Mailbox.address).where(Mailbox.user_id == user_id))).all()}
+
+
+def reply_address(message: Message, env: Envelope | None, own: set[str] | frozenset[str] = frozenset()) -> str:
+    """Who a reply goes to: Reply-To, else the sender; for an email the person sent, the person they wrote to."""
+    if message.from_address.lower() in own:
+        others = [a for a in (message.to_addresses or []) if a.lower() not in own]
+        if others:
+            return others[0]
     reply_to = ((message.headers or {}).get("reply-to") or [None])[0]
     if reply_to:
         parsed = [a for _, a in getaddresses([reply_to]) if a]
@@ -176,13 +185,16 @@ async def draft_reply_for(
 ) -> OutboundEmail:
     env = await fetch_email(db, message)
     mailbox = await sending_mailbox(db, user.id, message.mailbox_id)
+    own = await own_addresses(db, user.id)
+    if message.from_address.lower() in own:  # their own sent email: this is a follow-up to its recipient
+        instructions = f"(This is an email I sent; write a follow-up to its recipient.) {instructions}"
     try:
         draft = await ai.draft_reply(subject=env.subject, sender=_sender(env), body=env.body_text or env.snippet,
                                      instructions=instructions, user_name=user.display_name)
     except AIUnavailable as exc:
         hint = f" Or write it yourself: /reply {message.ref} manual" if source == "whatsapp" else ""
         raise AssistantError(f"The AI couldn't write the reply just now. Try again in a minute.{hint}") from exc
-    return await create_draft(db, user, mailbox=mailbox, to=[reply_address(message, env)], cc=[],
+    return await create_draft(db, user, mailbox=mailbox, to=[reply_address(message, env, own)], cc=[],
                               subject=draft.subject, body=draft.body, reply_to=message, source=source)
 
 
@@ -337,4 +349,4 @@ async def reply_defaults(db: AsyncSession, user: User, message: Message) -> tupl
     subject = message.subject or ""
     if not re.match(r"^\s*re\s*:", subject, re.I):
         subject = f"Re: {subject}".strip()
-    return mailbox, reply_address(message, None), subject
+    return mailbox, reply_address(message, None, await own_addresses(db, user.id)), subject

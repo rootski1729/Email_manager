@@ -257,3 +257,31 @@ async def test_nothing_found_retries_loosely_and_only_fitting_results_are_shown(
     assert {r["subject"] for r in found["results"]} >= {"API rate limits for the partner integration"}
     answer = await last_reply()
     assert answer.startswith("Nothing here is about a contract") and "*1.*" not in answer  # no pointless list
+
+
+async def test_only_the_chosen_results_are_listed_and_numbered_from_one(
+        client, setup, infra, model, monkeypatch):  # noqa: F811
+    await enable_ai(client)
+    seed_mailbox(infra)
+    shown: list[dict[str, Any]] = []
+
+    async def scripted(messages, tools, *, max_tokens=600):
+        last = messages[-1]
+        if last["role"] == "user":
+            return {"tool_calls": [{"id": "s1", "type": "function", "function": {
+                "name": "search_mail", "arguments": json.dumps({"sender": "abhi"})}}]}
+        data = json.loads(last["content"])
+        if "results" in data:  # keep only the lunch email, whatever number it had
+            n = next(r["n"] for r in data["results"] if r["subject"] == "Lunch on Friday?")
+            return {"tool_calls": [{"id": "r1", "type": "function", "function": {
+                "name": "show_results", "arguments": json.dumps({"numbers": [n]})}}]}
+        shown.extend(data["shown"])
+        return {"content": "Abhi asked you to lunch."}
+
+    monkeypatch.setattr(agent_module, "complete_tools", scripted)
+    assert await compose.handle_inbound(wa("/what did abhi want")) == "unknown_command"
+    answer = await last_reply()
+    assert [s["n"] for s in shown] == [1] and "*1.* *Abhi Kumar*" in answer and "Lunch on Friday?" in answer
+    assert "*2.*" not in answer and "API rate limits" not in answer
+    assert await compose.handle_inbound(wa("1")) == "pick"
+    assert (await last_reply()).startswith("📖 *Lunch on Friday?*")
