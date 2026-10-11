@@ -269,7 +269,7 @@ async def turn(
     # ---- tools
 
     async def search_mail(args: dict[str, Any]) -> dict[str, Any]:
-        nonlocal searched
+        nonlocal searched, chosen
         recipient = str(args.get("recipient") or "")
         if recipient.lower() in own:
             recipient = ""  # "sent to me" isn't a useful filter, and it would miss mail where they were in Cc
@@ -295,7 +295,7 @@ async def turn(
                 outcome = await mail_search.search_all(db, user, relaxed, mailbox=mailbox)
         except mail_search.SearchError as exc:
             return {"error": str(exc)}
-        searched = True
+        searched, chosen = True, None  # a new search replaces any earlier choice
         session.results = [h.to_dict() for h in outcome.hits]
         found = [_public(n, h) for n, h in enumerate(session.results, 1)]
         await notify("results", {"items": found})
@@ -304,6 +304,10 @@ async def turn(
         if relaxed is not None:
             answer["note"] = (f"Nothing matched exactly, so these match more loosely ({relaxed.describe()}). "
                               "Check whether any really fit.")
+        if found:
+            answer["next"] = ("Before answering, call show_results with the numbers that really fit the request "
+                              "([] if none): a name inside a company or group name, an ad, or a mass mailing "
+                              "doesn't fit. Only those are shown.")
         return answer
 
     async def show_results(args: dict[str, Any]) -> dict[str, Any]:
