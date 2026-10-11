@@ -143,6 +143,17 @@ def _system_prompt(user: User, mailboxes: list[Mailbox], channel: str) -> str:
     )
 
 
+def _asked_mailbox(value: Any, said: str) -> str | None:
+    """Only limit a search to one mailbox if the person mentioned it ("in my college mail", "gmail")."""
+    wanted = str(value or "").strip().lower()
+    if not wanted:
+        return None
+    said = said.lower()
+    local, _, domain = wanted.partition("@")
+    hints = {local, domain, domain.split(".")[0]} - {"", "com", "mail"}
+    return wanted if any(h in said for h in hints) else None
+
+
 def _date(value: Any) -> date | None:
     try:
         return date.fromisoformat(str(value)[:10]) if value else None
@@ -197,7 +208,7 @@ async def turn(
             has_attachment=args.get("has_attachment") if isinstance(args.get("has_attachment"), bool) else None)
         await notify("status", {"text": f"Searching your mail: {query.describe()}"})
         try:
-            outcome = await mail_search.search_all(db, user, query, mailbox=args.get("mailbox") or None)
+            outcome = await mail_search.search_all(db, user, query, mailbox=_asked_mailbox(args.get("mailbox"), text))
         except mail_search.SearchError as exc:
             return {"error": str(exc)}
         found = []
@@ -255,7 +266,9 @@ async def turn(
             return {"error": str(exc)}
         result.opened.append(message)
         await notify("opened", {"n": n, "message_id": str(message.id), "code": message.ref})
-        return {"opened": n, "code": message.ref, "note": "The person now sees the full email."}
+        return {"opened": n, "code": message.ref,
+                "note": "The full email is now shown to the person. Don't describe its contents (you haven't read "
+                        "it); just say it's open, or use read_email first if they asked a question about it."}
 
     async def draft_reply(args: dict[str, Any]) -> dict[str, Any]:
         found = hit_for(args)

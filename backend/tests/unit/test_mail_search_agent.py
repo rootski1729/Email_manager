@@ -110,3 +110,12 @@ async def test_the_last_step_has_no_tools_and_must_answer(monkeypatch) -> None:
     monkeypatch.setattr(agent_module, "complete_tools", Script({"content": "  "}))
     with pytest.raises(AIUnavailable):
         await run_agent([{"role": "user", "content": "x"}], [])
+
+
+def test_a_mailbox_filter_needs_the_person_to_mention_it() -> None:
+    from app.services.mail_agent import _asked_mailbox
+
+    assert _asked_mailbox("rahul@fogteams.com", "find the offer email") is None
+    assert _asked_mailbox("rahul@fogteams.com", "find it in my fogteams mail") == "rahul@fogteams.com"
+    assert _asked_mailbox("rahuljoshi9271@gmail.com", "check my gmail") == "rahuljoshi9271@gmail.com"
+    assert _asked_mailbox("", "anything") is None
