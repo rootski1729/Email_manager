@@ -4,7 +4,10 @@ import re
 import ssl
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from email.parser import HeaderParser
+from email.utils import getaddresses
 from typing import Any, Literal
 from uuid import UUID
 
@@ -15,11 +18,25 @@ from app.core.config import get_settings
 from app.core.logging import log
 from app.providers.base import ProviderError, ReauthRequired
 from app.providers.mime import envelope_from_bytes
+from app.providers.search import SearchQuery, imap_criteria
 from app.rules.envelope import Envelope
 
 MAX_MESSAGES_PER_SYNC = 200
 MAX_FULL_BYTES = 8 * 1024 * 1024
 MAX_RAW_BYTES = 40 * 1024 * 1024  # opening one email in full (attachments included)
+MAX_PEOPLE_SCAN = 300  # newest candidates checked by name when the server's FROM/TO search is exact-only
+_FETCH_UID = re.compile(rb"\bUID (\d+)")
+
+
+def _mentions(values: list[str], needle: str) -> bool:
+    """True if any name or address in these header values contains `needle` (empty needle: always)."""
+    needle = " ".join(needle.lower().split())
+    if not needle:
+        return True
+    for name, address in getaddresses([str(v) for v in values]):
+        if needle in " ".join(name.lower().split()) or needle in address.lower():
+            return True
+    return False
 _UIDVALIDITY = re.compile(rb"UIDVALIDITY (\d+)")
 _UIDNEXT = re.compile(rb"UIDNEXT (\d+)")
 _SIZE = re.compile(rb"RFC822\.SIZE (\d+)")
@@ -78,8 +95,8 @@ class ImapSession:
     def credentials(self) -> dict[str, Any]:
         return self._creds.model_dump()
 
-    async def _search(self, criteria: str) -> list[int]:
-        resp = await self._client.uid_search(criteria, charset=None)
+    async def _search(self, criteria: str, *, utf8: bool = False) -> list[int]:
+        resp = await self._client.uid_search(criteria, charset="UTF-8" if utf8 else None)
         if not _ok(resp):
             raise ProviderError(f"IMAP search failed: {resp.result}")
         uids: list[int] = []
@@ -107,6 +124,41 @@ class ImapSession:
         uids = uids[:MAX_MESSAGES_PER_SYNC]
         new_last = max([0 if reset else last_uid, *uids])
         return [str(u) for u in uids], {"uidvalidity": self.uidvalidity, "last_uid": new_last}
+
+    async def search(self, query: SearchQuery, limit: int) -> list[str]:
+        """Newest first, in the inbox (IMAP SEARCH: every term must match)."""
+        criteria, utf8 = imap_criteria(query)
+        uids = await self._search(criteria, utf8=utf8)
+        if not uids and (query.sender or query.recipient):
+            # Some servers match FROM/TO only against a full address ("abhi" finds nothing for
+            # "Abhi Kumar <abhi@acme.io>"), so search on the other terms and match people here instead.
+            loose = replace(query, sender="", recipient="")
+            if loose.is_empty:
+                loose = replace(loose, after=datetime.now(UTC).date() - timedelta(days=365))
+            criteria, utf8 = imap_criteria(loose)
+            candidates = sorted(await self._search(criteria, utf8=utf8), reverse=True)[:MAX_PEOPLE_SCAN]
+            uids = await self._match_people(candidates, query.sender, query.recipient)
+        return [str(u) for u in sorted(uids, reverse=True)[:limit]]
+
+    async def _match_people(self, uids: list[int], sender: str, recipient: str) -> list[int]:
+        """Of `uids`, those whose From (and To/Cc) name or address contains the given text; one FETCH."""
+        if not uids:
+            return []
+        resp = await self._client.uid("fetch", ",".join(map(str, uids)), "(UID BODY.PEEK[HEADER.FIELDS (FROM TO CC)])")
+        if not _ok(resp):
+            raise ProviderError(f"IMAP fetch failed: {resp.result}")
+        matched: list[int] = []
+        current: int | None = None
+        for line in resp.lines:
+            if isinstance(line, bytes) and (m := _FETCH_UID.search(line)):
+                current = int(m.group(1))
+            elif isinstance(line, bytes | bytearray) and current is not None and len(line) > 2:
+                headers = HeaderParser().parsestr(bytes(line).decode("utf-8", errors="replace"))
+                if _mentions(headers.get_all("from", []), sender) and \
+                        _mentions([*headers.get_all("to", []), *headers.get_all("cc", [])], recipient):
+                    matched.append(current)
+                current = None
+        return matched
 
     async def recent(self, limit: int) -> list[str]:
         start = max(self.uidnext - 1 - limit * 3, 1)

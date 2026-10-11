@@ -9,7 +9,7 @@ from sqlalchemy import func, select, update
 
 from app.core.config import get_settings
 from app.core.db import session_factory
-from app.models import Mailbox, Notification, NotificationStatus
+from app.models import Mailbox, Notification, NotificationKind, NotificationStatus
 from app.notify.dispatcher import Dispatcher
 from app.notify.waha import WahaError
 from app.services import ingest
@@ -95,6 +95,9 @@ async def test_imap_sync_matches_and_queues_once(client, sent, infra):
     assert messages[0]["mailbox_address"] == address
 
     notes = (await client.get("/api/v1/notifications", headers=headers)).json()["items"]
+    # "Collect your HALL TICKET today" also finds a date; whether its reminder is already due depends on the
+    # time of day, so count alerts only.
+    notes = [n for n in notes if n["kind"] == "alert"]
     assert len(notes) == 2 and {n["status"] for n in notes} == {"queued"}
     assert notes[0]["chat_id"] == "14155550123@c.us"
 
@@ -112,7 +115,8 @@ async def test_imap_sync_matches_and_queues_once(client, sent, infra):
     again = await ingest.sync_mailbox(UUID(mailbox_id))
     assert again["scanned"] == 4 and again["matched"] == 0
     async with session_factory()() as db:
-        assert await db.scalar(select(func.count()).select_from(Notification)) == 2
+        assert await db.scalar(select(func.count()).select_from(Notification)
+                                   .where(Notification.kind == NotificationKind.alert)) == 2
 
 
 async def test_dispatcher_merges_burst_into_one_whatsapp_message(client, sent, infra):

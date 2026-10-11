@@ -22,6 +22,7 @@ from app.core.logging import log
 from app.core.runtime import google_config
 from app.providers.base import ProviderError, ReauthRequired
 from app.providers.mime import envelope_from_bytes, envelope_from_headers
+from app.providers.search import SearchQuery, gmail_query
 from app.rules.envelope import Envelope
 
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -313,6 +314,10 @@ class GmailSession:
 
     async def recent(self, limit: int) -> list[str]:
         return await self._list("in:inbox", limit)
+
+    async def search(self, query: SearchQuery, limit: int) -> list[str]:
+        """Newest first, across all mail except spam and trash (Gmail's own search)."""
+        return await self._list(gmail_query(query), limit)
 
     async def load_full(self, ref: str) -> tuple[Envelope, bytes] | None:
         resp = await self.request("GET", f"/messages/{ref}", params={"format": "raw"})

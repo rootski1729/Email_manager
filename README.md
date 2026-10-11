@@ -27,6 +27,12 @@ same and more from the browser.
   and show only the new text.
 - Quiet hours, daily digests, rate limits, and merged bursts so your phone isn't flooded.
 
+**Finds any email by describing it**
+- Don't remember the exact email? Describe it: "the email where Abhi and I discussed the API", "my flight
+  booking from last month". The mail assistant searches all your mailboxes live, asks a question when it needs
+  to narrow things down, shows the matches, and opens, explains or replies to the one you mean, on WhatsApp
+  (`/find …`) or on the website's Assistant page. Nothing is copied from your mailbox to search it.
+
 **Lets you act from WhatsApp**
 
 | Command | What it does |
@@ -40,6 +46,7 @@ same and more from the browser.
 | `/write email prof@x.edu asking for leave` · `/edit shorter` | A new email drafted by the AI · change the draft |
 | `YES` / `NO` | Send or cancel the draft waiting for confirmation (nothing is sent without it) |
 | `/remind K7 2h` · `/mute K7` · `/recent` · `/upcoming` | Remind me later · stop this sender · latest alerts · coming dates |
+| `/find the email where Abhi and I discussed the API` | The mail assistant: then keep chatting (`2` opens a match, "reply saying thanks"…), `/done` to finish |
 | `/ask when is my exam?` · `/ask K7 what documents do I need?` | Questions about your mail, or about one email |
 | `/email leave` · `/templates` | Send an email from a saved template |
 
@@ -51,6 +58,8 @@ everything.
   attachments to download.
 - An **Assistant** beside each email: ask about it ("what do I need to do?") with answers that stream in as
   short formatted text, or reply: AI ideas you can steer, "write it for me", or write it yourself, then Send.
+- An **Assistant page** to find any email by describing it, with live search steps, result cards, and
+  open/reply from the conversation.
 - Rules, mailboxes, upcoming dates, sent emails, templates and settings; a light and dark theme.
 - A separate **admin console** for the operator: clients, WhatsApp pairing, Gmail and AI setup, a test lab,
   a database browser and an audit log.

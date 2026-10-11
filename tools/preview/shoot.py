@@ -4,6 +4,7 @@
 
 A PAGE is a path, optionally followed by steps:  /messages/<id>@click:Reply with AI|fill:Steer the ideas=formal|wait:1500
 Steps: click:<visible text>  fill:<placeholder or label>=<value>  press:<key>  hover:<visible text>  mouse:<x>,<y>  wait:<ms>
+       reload  back  (reload the page, or go back in history)
        snap:<label>  (an extra screenshot mid-steps, e.g. while an answer streams; saved as <shot>@<label>.png)
 Env: FULL=1 for full-page shots, PHONE=0 to skip the 390px phone shot, API_LOG=path of the API log (for the OTP).
 """
@@ -55,6 +56,12 @@ async def run_steps(page: Page, steps: list[str], shot: str = "") -> None:
         elif kind == "mouse":
             x, _, y = arg.partition(",")
             await page.mouse.move(float(x), float(y), steps=8)
+        elif kind == "reload":
+            await page.reload(wait_until="load")
+            await page.wait_for_timeout(2500)
+        elif kind == "back":
+            await page.go_back(wait_until="load")
+            await page.wait_for_timeout(1500)
         elif kind == "wait":
             await page.wait_for_timeout(int(arg))
         elif kind == "snap":
@@ -71,6 +78,9 @@ async def shoot(page: Page, spec: str, mode: str) -> None:
         # Theme is set before the page's scripts run (the latest init script wins), so there's no reload:
         # a reload could cut off the sign-in refresh mid-flight and trip refresh-token reuse detection.
         await page.add_init_script(f"try {{ localStorage.setItem('theme', '{mode}') }} catch {{}}")
+        # Each shot starts like a new tab: nothing left in sessionStorage by the previous shot (e.g. a chat).
+        if page.url.startswith(BASE):
+            await page.evaluate("try { sessionStorage.clear() } catch {}")
         await page.goto(BASE + path, wait_until="load", timeout=90_000)
         await page.wait_for_timeout(3000)
         shot = f"{OUT}/{mode}-{tag}{name_of(spec)}"

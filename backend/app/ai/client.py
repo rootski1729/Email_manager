@@ -145,3 +145,43 @@ async def stream_text(messages: list[dict[str, str]], *, max_tokens: int = 400) 
                     yield piece
     except httpx.TransportError as exc:
         raise AIUnavailable("The AI service is busy or unreachable") from exc
+
+
+async def complete_tools(
+    messages: list[dict[str, Any]], tools: list[dict[str, Any]], *, max_tokens: int = 600,
+) -> dict[str, Any]:
+    """One model step with tools available: the assistant message, with `tool_calls` or with `content`."""
+    config = await ai_config()
+    if not config.ready:
+        raise AIUnavailable("AI is not configured")
+    body: dict[str, Any] = {"model": config.model, "messages": messages, "max_completion_tokens": max_tokens}
+    if tools:  # an empty list is rejected by the API
+        body |= {"tools": tools, "tool_choice": "auto"}
+    url = f"{normalize_endpoint(config.endpoint)}/chat/completions"
+    resp: httpx.Response | None = None
+    try:
+        async for attempt in stamina.retry_context(on=(_Retry, httpx.TransportError), attempts=3,
+                                                   wait_initial=1.0, wait_max=8.0):
+            with attempt:
+                resp = await get_http().post(url, json=body, headers=_headers(config),
+                                             timeout=get_settings().ai_timeout_s)
+                if resp.status_code == 429 or resp.status_code >= 500:
+                    raise _Retry()
+    except (_Retry, httpx.TransportError) as exc:
+        raise AIUnavailable("The AI service is busy or unreachable") from exc
+    assert resp is not None
+    if resp.status_code != 200:
+        code = ""
+        try:
+            code = str(resp.json().get("error", {}).get("code") or "")
+        except (ValueError, AttributeError):
+            pass
+        log.warning("ai_tools_failed", status=resp.status_code, code=code)
+        if code == "content_filter":
+            raise AIUnavailable("Azure's safety filter declined this request")
+        raise AIUnavailable(f"AI request failed ({resp.status_code})")
+    try:
+        message = resp.json()["choices"][0]["message"]
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise AIUnavailable("The AI returned no answer") from exc
+    return message if isinstance(message, dict) else {}

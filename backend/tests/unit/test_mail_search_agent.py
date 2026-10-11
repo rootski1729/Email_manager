@@ -1,0 +1,97 @@
+"""Search queries for each provider, and the tool-using loop behind the mail assistant."""
+
+import json
+from datetime import date
+from typing import Any
+
+import pytest
+
+from app.ai import agent as agent_module
+from app.ai.agent import Tool, run_agent
+from app.ai.client import AIUnavailable
+from app.providers.search import SearchQuery, gmail_query, imap_criteria
+
+
+def test_gmail_query_uses_operators_and_quotes_phrases() -> None:
+    q = SearchQuery(sender="abhi", words=("api", "rate limit"), subject="review", after=date(2026, 9, 1),
+                    before=date(2026, 10, 12), has_attachment=True)
+    assert gmail_query(q) == ('from:abhi subject:(review) api "rate limit" after:2026/09/01 before:2026/10/12 '
+                              "has:attachment -in:chats")
+
+
+def test_imap_criteria_are_escaped_and_dated() -> None:
+    criteria, utf8 = imap_criteria(SearchQuery(sender='Abhi "K"', words=("api",), after=date(2026, 9, 1)))
+    assert criteria == 'FROM "Abhi K" TEXT "api" SINCE 01-Sep-2026' and utf8 is False
+    criteria, utf8 = imap_criteria(SearchQuery(words=("परीक्षा",)))
+    assert criteria == 'TEXT "परीक्षा"' and utf8 is True
+    assert imap_criteria(SearchQuery())[0].startswith("SINCE ")  # never an unbounded search
+
+
+def test_terms_are_cleaned_and_capped() -> None:
+    q = SearchQuery(words=(*tuple(f"w{i}" for i in range(10)), "(x) OR y"), sender="a\\b")
+    gq = gmail_query(q)
+    assert "w5" in gq and "w6" not in gq and "\\" not in gq and "(" not in gq.replace("subject:(", "")
+    assert SearchQuery(sender="abhi", words=("api",)).describe() == 'from abhi · about "api"'
+
+
+class Script:
+    """A fake model: each step returns the next scripted assistant message and records what it was shown."""
+
+    def __init__(self, *steps: dict[str, Any]) -> None:
+        self.steps, self.seen = list(steps), []
+
+    async def __call__(self, messages, tools, *, max_tokens=600):
+        self.seen.append((list(messages), [t["function"]["name"] for t in tools]))
+        return self.steps.pop(0)
+
+
+def call(name: str, args: Any, id_: str = "c1") -> dict[str, Any]:
+    raw = args if isinstance(args, str) else json.dumps(args)
+    return {"tool_calls": [{"id": id_, "type": "function", "function": {"name": name, "arguments": raw}}]}
+
+
+async def test_agent_calls_tools_and_returns_text(monkeypatch) -> None:
+    script = Script(call("search", {"q": "api"}), {"content": "Found **1** email."})
+    monkeypatch.setattr(agent_module, "complete_tools", script)
+    seen: list[dict] = []
+
+    async def search(args: dict) -> dict:
+        seen.append(args)
+        return {"results": [{"n": 1, "subject": "API"}]}
+
+    run = await run_agent([{"role": "user", "content": "find api"}],
+                          [Tool("search", "Search", {"type": "object"}, search)])
+    assert run.text == "Found **1** email." and run.steps == 2 and run.tool_calls == ["search"]
+    assert seen == [{"q": "api"}]
+    messages, tools = script.seen[1]
+    assert tools == ["search"] and messages[-1]["role"] == "tool" and json.loads(messages[-1]["content"])["results"]
+
+
+async def test_bad_arguments_and_unknown_tools_go_back_to_the_model(monkeypatch) -> None:
+    script = Script(call("search", "{not json"), call("delete_everything", {}, "c2"), {"content": "Sorry."})
+    monkeypatch.setattr(agent_module, "complete_tools", script)
+
+    async def never(args: dict) -> dict:
+        raise AssertionError("must not run")
+
+    run = await run_agent([{"role": "user", "content": "x"}], [Tool("search", "S", {"type": "object"}, never)])
+    assert run.text == "Sorry."
+    errors = [json.loads(m["content"])["error"] for m in script.seen[2][0] if m["role"] == "tool"]
+    assert errors[0].startswith("bad arguments") and errors[1] == "unknown tool delete_everything"
+
+
+async def test_the_last_step_has_no_tools_and_must_answer(monkeypatch) -> None:
+    script = Script(call("search", {}), call("search", {}, "c2"), {"content": "Here's what I have."})
+    monkeypatch.setattr(agent_module, "complete_tools", script)
+
+    async def search(args: dict) -> dict:
+        return {"results": []}
+
+    run = await run_agent([{"role": "user", "content": "x"}], [Tool("search", "S", {"type": "object"}, search)],
+                          max_steps=3)
+    assert run.text == "Here's what I have." and script.seen[2][1] == []  # no tools offered on the last step
+    assert script.seen[2][0][-1]["content"].startswith("Stop using tools")
+
+    monkeypatch.setattr(agent_module, "complete_tools", Script({"content": "  "}))
+    with pytest.raises(AIUnavailable):
+        await run_agent([{"role": "user", "content": "x"}], [])

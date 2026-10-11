@@ -44,10 +44,15 @@ async def fetch_full(db: AsyncSession, message: Message) -> FullEmail:
     mailbox = await db.get(Mailbox, message.mailbox_id)
     if mailbox is None:
         raise ContentError("That mailbox is no longer connected.")
+    return await fetch_ref(mailbox, message.provider_message_id)
+
+
+async def fetch_ref(mailbox: Mailbox, ref: str) -> FullEmail:
+    """Any email in a mailbox by its provider id (used for search results that aren't stored)."""
     try:
         creds = vault().decrypt_json(mailbox.credentials)
         async with get_provider(mailbox.provider).open(mailbox.id, mailbox.address, creds) as session:
-            loaded = await session.load_full(message.provider_message_id)
+            loaded = await session.load_full(ref)
     except ReauthRequired as exc:
         raise ContentError(f"I can't read {mailbox.address} right now: reconnect it in the app.") from exc
     except ProviderError as exc:

@@ -86,6 +86,20 @@ class Keys:
         return f"compose:{user_id}"
 
     @staticmethod
+    def mail_chat(user_id: object, channel: str) -> str:
+        """The mail assistant's conversation (WhatsApp: channel "wa"; web: one per conversation id)."""
+        return f"ai:chat:{user_id}:{channel}"
+
+    @staticmethod
+    def last_list(user_id: object) -> str:
+        """Which numbered list the user saw last on WhatsApp ("ideas" or "results"), so "2" picks from it."""
+        return f"ai:lastlist:{user_id}"
+
+    @staticmethod
+    def rate_assistant(user_id: object, hour: str) -> str:
+        return f"rl:assistant:{user_id}:{hour}"
+
+    @staticmethod
     def wa_file(token: str) -> str:
         """An email attachment waiting to be sent on WhatsApp (base64, short TTL)."""
         return f"wa:file:{token}"

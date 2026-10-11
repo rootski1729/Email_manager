@@ -15,6 +15,7 @@ from app.api.routes import (
     auth,
     destinations,
     events,
+    mail_assistant,
     mailboxes,
     me,
     messages,
@@ -89,8 +90,8 @@ def create_app() -> FastAPI:
 
     problem = {"model": Problem, "content": {"application/problem+json": {}}}
     api = APIRouter(prefix="/api/v1", responses={code: problem for code in (400, 401, 403, 404, 409, 429, 502)})
-    for module in (auth, me, destinations, mailboxes, rules, messages, events, templates, outbound, assistant, stats,
-                   webhooks):
+    for module in (auth, me, destinations, mailboxes, rules, messages, events, templates, outbound, assistant,
+                   mail_assistant, stats, webhooks):
         api.include_router(module.router)
     api.include_router(mailboxes.oauth_router)
     api.include_router(admin_api.router)

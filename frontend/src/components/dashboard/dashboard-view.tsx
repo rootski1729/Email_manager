@@ -38,7 +38,7 @@ function AskCard() {
             <h2 id="ask-title" className="text-base font-semibold tracking-tight">
               Ask about your mail
             </h2>
-            <p className="text-xs text-muted-foreground">Answers come from your important emails.</p>
+            <p className="text-xs text-muted-foreground">Find any email by describing it.</p>
           </div>
         </div>
         <div className="min-w-0 flex-1">

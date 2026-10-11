@@ -152,6 +152,8 @@
   --chart-4: #db2777;
   --chart-5: #0284c7;
   --radius: 0.75rem;
+  /* Height of the phone's bottom nav (MobileNav), so full-height pages can keep clear of it. */
+  --mobile-nav-h: calc(3.75rem + env(safe-area-inset-bottom));
   /* Light, quiet sidebar: the selected item gets the iris wash. */
   --sidebar: #f7f7f9;
   --sidebar-foreground: #3f3f4a;

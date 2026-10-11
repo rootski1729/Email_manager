@@ -841,6 +841,17 @@ class AskOut(BaseModel):
     refs: list[AskRef]
 
 
+class AssistantChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000, description="What the person says to the assistant")
+    conversation_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$",
+                                        description="Continue a conversation (from its first `conversation` event)")
+
+
+class AssistantOpened(BaseModel):
+    message_id: UUID
+    code: str | None
+
+
 class OutboundCreate(BaseModel):
     """Send an email from the website (you already confirmed it by pressing Send)."""
 

@@ -12,6 +12,45 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
+STOP = {"the", "a", "an", "email", "emails", "mail", "find", "me", "my", "where", "and", "i", "we", "about", "with",
+        "from", "that", "which", "had", "have", "discussed", "discussion", "show", "can", "you", "please", "of", "on"}
+
+
+def tool_step(messages: list[dict]) -> dict:
+    """Tool-using conversation (the mail assistant): search, then answer; open or draft when asked."""
+    last = messages[-1]
+    if last["role"] == "tool":
+        data = json.loads(last["content"])
+        if "results" in data:
+            n = data["found"]
+            if not n:
+                return {"content": "I couldn't find that. Do you remember **who** sent it or **roughly when**?"}
+            return {"content": f"I found **{n}** email{'s' if n != 1 else ''} that match. Is it one of these? "
+                               "Tell me the number, or more about it."}
+        if data.get("draft_ready"):
+            return {"content": "Here's a draft. Check it and press **Send** when you're happy."}
+        if data.get("opened"):
+            return {"content": f"Opened it for you (code **{data.get('code')}**)."}
+        if "text" in data:
+            return {"content": f"It's from **{data['from']}**: {data['text'][:160]}…"}
+        return {"content": data.get("error") or "Done."}
+    text = last["content"].lower()
+    def call(name: str, args: dict) -> dict:
+        return {"tool_calls": [{"id": "t1", "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}]}
+    if "reply" in text:
+        return call("draft_reply", {"n": 1, "instructions": last["content"]})
+    if text.strip().startswith(("open", "show")):
+        return call("open_email", {"n": 1})
+    if "what" in text and "say" in text:
+        return call("read_email", {"n": 1})
+    words = [w for w in re.findall(r"[a-z0-9]+", text) if w not in STOP]
+    sender = ""
+    if m := re.search(r"\b(?:with|from|by) ([a-z]+)", text):
+        sender = m.group(1)
+        words = [w for w in words if w != sender]
+    return call("search_mail", {"sender": sender, "words": words[:2]})
+
+
 def answer(messages: list[dict]) -> dict:
     system, last = messages[0]["content"], messages[-1]["content"]
     email = next((m["content"] for m in messages[1:] if "<email>" in m["content"]), "")
@@ -56,6 +95,16 @@ def answer(messages: list[dict]) -> dict:
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if body.get("tools"):  # the mail assistant: tool calls instead of JSON
+            message = tool_step(body["messages"])
+            time.sleep(0.7)
+            data = json.dumps({"choices": [{"message": {"role": "assistant", **message}}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         result = answer(body["messages"])
         # JSON mode gets the object; plain-text requests (questions) get the Markdown answer itself.
         content = json.dumps(result) if body.get("response_format") else result.get("answer", "")

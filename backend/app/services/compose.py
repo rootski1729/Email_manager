@@ -19,6 +19,7 @@ import stamina
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.client import AIUnavailable
 from app.compose import commands as cmd
 from app.compose.mailer import OutgoingFile, SendError, build_message, send_gmail, send_smtp
 from app.core.config import PLANS, get_settings
@@ -47,7 +48,7 @@ from app.notify.waha import WahaClient, WahaError
 from app.providers.base import ProviderError, ReauthRequired
 from app.providers.gmail import GmailSession
 from app.services import alert_actions as actions
-from app.services import assistant, events, outbox
+from app.services import assistant, events, mail_agent, mail_search, outbox
 from app.services.schedule import tz
 
 INBOUND_DEDUPE_S = 24 * 3600
@@ -606,17 +607,70 @@ async def _ai_ask(db: AsyncSession, user: User, question: str) -> None:
             f"💬 *{wa.plain(wa.clip(rest, 100))}*", f"_About #{one.ref} · {wa.plain(wa.clip(one.subject, 70))}_", "",
             wa.from_markdown(answer), "", f"👉 */reply {one.ref}* · */open {one.ref}* · ask more: */ask {one.ref} …*"]))
         return
-    try:
-        result = await assistant.ask(db, user, question)
-    except assistant.AssistantError as exc:
-        await reply(db, user, f"⚠️ {exc}")
+    await _assistant_turn(db, user, question)
+
+
+def _results_text(listed: list[dict[str, Any]], zone: str | None) -> str:
+    lines = [f"🔎 *{len(listed)} email{'s' if len(listed) != 1 else ''} found*"]
+    for h in listed:
+        when = datetime.fromisoformat(h["date"]).astimezone(tz(zone)).strftime("%a %d %b")
+        who = wa.plain(wa.clip(h["from_name"] or h["from_address"], 40))
+        clip = "📎 " if h.get("has_attachments") else ""
+        subject = wa.plain(wa.clip(h["subject"], 70)) or "(no subject)"
+        lines += ["", f"*{h['n']}.* *{who}* · {when}", f"      {clip}{subject}"]
+        if h.get("snippet"):
+            lines.append(f"      _{wa.plain(wa.clip(h['snippet'], 90))}_")
+    lines += ["", "👉 Reply with a number to open one, or tell me more (who, when, what it said).",
+              "_Finished? /done_"]
+    return "\n".join(lines)
+
+
+async def _assistant_turn(db: AsyncSession, user: User, text: str, *, fresh: bool = False) -> None:
+    """One message to the mail assistant, answered on WhatsApp (with a quick "Searching…" while it works)."""
+    if not await assistant.available(db, user):
+        await reply(db, user, AI_OFF)
         return
-    lines = [f"💬 *{wa.plain(wa.clip(question, 100))}*", "", wa.from_markdown(result.answer)]
-    if result.messages:
-        lines += ["", "📬 *From these emails*",
-                  *[f"- *#{m.ref}* {wa.plain(wa.clip(m.subject, 70))}" for m in result.messages[:3]],
-                  "", f"👉 */open {result.messages[0].ref}* to read one"]
-    await reply(db, user, "\n".join(lines))
+    if fresh:
+        await mail_agent.end(user.id)
+    said_searching = False
+
+    async def emit(event: str, data: dict[str, Any]) -> None:
+        nonlocal said_searching
+        if event == "status" and data.get("text", "").startswith("Searching") and not said_searching:
+            said_searching = True
+            await reply(db, user, f"🔎 {wa.plain(data['text'])}…")
+            await db.commit()  # let the dispatcher send it now, while the search runs
+            await events.wake_dispatcher()
+
+    try:
+        result = await mail_agent.turn(db, user, "wa", text, emit=emit)
+    except mail_agent.AssistantBusy as exc:
+        await reply(db, user, f"⏳ {exc}")
+        return
+    except AIUnavailable:
+        await reply(db, user, "⚠️ The assistant couldn't answer just now. Try again in a minute.")
+        return
+    texts = [wa.from_markdown(result.text)]
+    if result.listed:
+        texts[0] += "\n\n" + _results_text(result.listed, user.timezone)
+    for message in result.opened:
+        texts += await actions.on_open(db, user, message.ref or "")
+    if result.wa_draft is not None:
+        texts.append(assistant.draft_preview(result.wa_draft))
+    await reply(db, user, *texts)
+
+
+async def _open_result(db: AsyncSession, user: User, n: int) -> bool:
+    """A bare number after a results list opens that result."""
+    try:
+        message = await mail_agent.open_number(db, user, "wa", n)
+    except mail_search.SearchError as exc:
+        await reply(db, user, f"⚠️ {exc}")
+        return True
+    if message is None:
+        return False
+    await reply(db, user, *await actions.on_open(db, user, message.ref or ""))
+    return True
 
 
 async def handle_inbound(payload: dict[str, Any]) -> str:
@@ -636,13 +690,38 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
                                                   User.is_active.is_(True)))
         if user is None:
             return "unknown_sender"
-        if command.kind == cmd.Kind.pick and not await assistant.picked(db, user, int(command.arg.split(" ")[0])):
-            command = cmd.Command(cmd.Kind.text, raw=command.raw)  # just a number in chat, no list open
+        chatting = await mail_agent.is_active(user.id)
+        if command.kind == cmd.Kind.pick:
+            number = int(command.arg.split(" ")[0])
+            last = await get_redis().get(Keys.last_list(user.id))
+            if chatting and last == "results" and " " not in command.arg and number in \
+                    await mail_agent.listed_numbers(user.id):
+                await _open_result(db, user, number)  # "2" after search results opens result 2
+                await db.commit()
+                await events.wake_dispatcher()
+                return "pick"
+            if not await assistant.picked(db, user, number):
+                command = cmd.Command(cmd.Kind.text, raw=command.raw)  # just a number in chat, no list open
         if command.kind in ALERT_COMMANDS:
             texts = await _alert_command(db, user, command)
             await reply(db, user, *texts)
         elif command.kind == cmd.Kind.ask:
             await _ai_ask(db, user, command.arg)
+        elif command.kind == cmd.Kind.assistant:
+            if command.arg:
+                await _assistant_turn(db, user, command.arg, fresh=True)
+            else:
+                await mail_agent.end(user.id)
+                await reply(db, user, "🔎 *Your mail assistant*\n\nTell me what you remember about the email: who, "
+                                      "roughly when, what it was about. For example:\n- *the email where Abhi and "
+                                      "I discussed the API*\n- *my flight booking for Diwali*\n- *the invoice from "
+                                      "last month with a PDF*\n\nJust type it here.")
+                await get_redis().set(Keys.mail_chat(user.id, "wa"), json.dumps({}), ex=mail_agent.WA_TTL_S)
+        elif command.kind == cmd.Kind.done:
+            await mail_agent.end(user.id)
+            await reply(db, user, "👍 Done. Start again any time with */find …*")
+        elif command.kind == cmd.Kind.text and not inbound.has_media and chatting:
+            await _assistant_turn(db, user, command.raw)  # the conversation continues
         elif command.kind == cmd.Kind.files:
             await _send_files(db, user, command.arg)
         elif command.kind == cmd.Kind.ideas:

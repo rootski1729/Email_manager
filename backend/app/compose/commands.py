@@ -46,7 +46,9 @@ class Kind(StrEnum):
     upcoming = "upcoming"  # dates found in your important email
     write = "write"  # /write email prof@x.edu asking for leave  (AI drafts a new email)
     edit = "edit"  # /edit make it shorter  (AI revises the draft waiting for YES)
-    ask = "ask"  # /ask when is my exam?  (AI answers from your important mail)
+    ask = "ask"  # /ask K7 what documents?  (about one email) · /ask anything else → the mail assistant
+    assistant = "assistant"  # /find the email where Abhi and I discussed the API  (starts the mail assistant)
+    done = "done"  # /done: end the mail assistant conversation
     ideas = "ideas"  # /ideas K7 [what you want]: AI reply suggestions, optionally steered by your own words
     pick = "pick"  # "2" or "2 mention I'm travelling": choose a suggested reply (and add to it)
     unknown_command = "unknown_command"  # any other /word
@@ -151,8 +153,12 @@ def parse_command(text: str | None, *, quoted: str | None = None) -> Command:
             return Command(Kind.write, arg=raw.partition(" ")[2].strip(), raw=raw)
         case "/edit" | "/change" | "/rewrite":
             return Command(Kind.edit, arg=raw.partition(" ")[2].strip(), raw=raw)
-        case "/ask" | "/find" | "/search":
+        case "/ask":
             return Command(Kind.ask, arg=raw.partition(" ")[2].strip(), raw=raw)
+        case "/find" | "/search" | "/assistant":
+            return Command(Kind.assistant, arg=raw.partition(" ")[2].strip(), raw=raw)
+        case "/done" | "/stop" | "/exit" | "/end":
+            return Command(Kind.done, raw=raw)
     return Command(Kind.unknown_command, arg=word, raw=raw)
 
 
@@ -307,7 +313,11 @@ HELP = (
     "- */remind K7 2h* · also *6pm*, *tomorrow 9am*, *mon 8:30*\n"
     "- */mute K7* · no more alerts from this sender (*/mute K7 domain* for all of them)\n"
     "- */muted* · */unmute someone@x.com*\n\n"
+    "🔎 *Find any email* (your mail assistant)\n"
+    "- */find the email where Abhi and I discussed the API* · searches all your mailboxes\n"
+    "- then just keep chatting: *the one from last week* · *2* to open · *reply saying thanks*\n"
+    "- */done* · finish the conversation\n\n"
     "💬 *Ask*\n"
-    "- */ask when is my exam?* · answers from your important mail\n"
+    "- */ask when is my exam?* · the assistant searches and answers\n"
     "- */ask K7 what documents do I need?* · about one email"
 )

@@ -3,10 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { authFetch } from "./client";
-import { ApiError, errorMessage, type Problem } from "./errors";
+import { ApiError, errorMessage, toApiError, type Problem } from "./errors";
 import type { AskRef } from "./types";
 
-/* Streamed AI answers: POST a question, read server-sent events (`delta` {text} …, then `done` or `error`). */
+/*
+ * Streamed AI answers: POST a question, read server-sent events (`delta` {text} …, then `done` or `error`).
+ * Endpoints may send other events along the way (the mail assistant's `conversation`, `status`, `results`…);
+ * `useStreamingAnswer`'s `onEvent` hands those to the caller.
+ */
 
 export interface SseEvent {
   event: string;
@@ -111,12 +115,25 @@ export async function postStream(
 
 export type StreamStatus = "idle" | "streaming" | "done" | "error";
 
-export type StreamOutcome =
-  | { status: "done"; text: string; refs: AskRef[] }
-  | { status: "stopped"; text: string }
-  | { status: "error"; text: string; error: string };
+/** A parsed event payload (a JSON object; anything else parses as {}). */
+export type StreamPayload = Record<string, unknown>;
 
-function parseJson(raw: string): Record<string, unknown> {
+export type StreamOutcome =
+  /** `data` is the whole `done` payload, for endpoints that send more than `refs`. */
+  | { status: "done"; text: string; refs: AskRef[]; data: StreamPayload }
+  | { status: "stopped"; text: string }
+  /** `code` is the API's error code (e.g. "ai_unavailable"), "stream_error" for an `error` event. */
+  | { status: "error"; text: string; error: string; code: string };
+
+export interface StreamOptions {
+  /**
+   * Every event other than `delta`, `done` and `error`, in order, while the answer is current. Called as the
+   * events arrive (the text may still be typing out).
+   */
+  onEvent?: (event: string, data: StreamPayload) => void;
+}
+
+function parseJson(raw: string): StreamPayload {
   try {
     const value: unknown = JSON.parse(raw);
     return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -125,11 +142,6 @@ function parseJson(raw: string): Record<string, unknown> {
   }
 }
 
-/**
- * One streamed answer at a time from `url`. `text` grows as deltas arrive; `start` resolves with how it ended
- * (done, stopped or error), so callers can record a finished turn. Starting again or unmounting aborts the
- * answer in flight.
- */
 /**
  * How many characters to reveal this frame: a steady typing pace, catching up faster when the model
  * (or Azure's content filter, which releases text in bursts) sends a lot at once.
@@ -142,7 +154,12 @@ function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function useStreamingAnswer<Body>(url: string) {
+/**
+ * One streamed answer at a time from `url`. `text` grows as deltas arrive; `start` resolves with how it ended
+ * (done, stopped or error), so callers can record a finished turn. Starting again or unmounting aborts the
+ * answer in flight.
+ */
+export function useStreamingAnswer<Body>(url: string, { onEvent }: StreamOptions = {}) {
   const [text, setText] = useState("");
   const [status, setStatus] = useState<StreamStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +175,11 @@ export function useStreamingAnswer<Body>(url: string) {
   const drained = useRef<(() => void) | null>(null);
 
   const stopRequested = useRef(false);
+  // The latest callback, without restarting anything when the caller passes a new function each render.
+  const onEventRef = useRef(onEvent);
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
 
   const reveal = useCallback(() => {
     if (frame.current !== null) return;
@@ -247,12 +269,12 @@ export function useStreamingAnswer<Body>(url: string) {
 
       let acc = "";
       let ended: StreamOutcome | null = null;
-      const fail = (message: string): StreamOutcome => {
+      const fail = (message: string, code = "stream_error"): StreamOutcome => {
         if (live()) {
           setError(message);
           setStatus("error");
         }
-        return { status: "error", text: acc, error: message };
+        return { status: "error", text: acc, error: message, code };
       };
 
       try {
@@ -267,10 +289,12 @@ export function useStreamingAnswer<Body>(url: string) {
               reveal();
             } else if (event === "done") {
               const cited = Array.isArray(payload.refs) ? (payload.refs as AskRef[]) : [];
-              ended = { status: "done", text: acc, refs: cited };
+              ended = { status: "done", text: acc, refs: cited, data: payload };
             } else if (event === "error") {
               const message = typeof payload.message === "string" && payload.message ? payload.message : null;
               throw new StreamError(message ?? "The AI couldn't answer just now. Try again.");
+            } else if (event !== "delta") {
+              onEventRef.current?.(event, payload);
             }
           },
         });
@@ -288,7 +312,7 @@ export function useStreamingAnswer<Body>(url: string) {
           return { status: "stopped", text: kept };
         }
         ctl.abort();
-        return fail(errorMessage(err));
+        return fail(errorMessage(err), toApiError(err).code);
       } finally {
         if (controller.current === ctl) controller.current = null;
       }

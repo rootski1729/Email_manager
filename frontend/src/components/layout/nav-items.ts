@@ -7,6 +7,7 @@ import {
   MailCheck,
   Send,
   Settings,
+  Sparkles,
 } from "lucide-react";
 
 export interface NavItem {
@@ -19,10 +20,11 @@ export interface NavItem {
   also?: string[];
 }
 
-/** The whole client app in seven plain places. Admins use the separate console at /admin. */
+/** The whole client app in eight plain places. Admins use the separate console at /admin. */
 export const NAV: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: House },
   { href: "/messages", label: "Important mail", short: "Mail", icon: MailCheck },
+  { href: "/assistant", label: "Assistant", icon: Sparkles },
   { href: "/upcoming", label: "Upcoming", icon: CalendarClock },
   { href: "/rules", label: "What to watch", short: "Watch", icon: Eye },
   { href: "/mailboxes", label: "Mailboxes", icon: Inbox },
@@ -30,8 +32,9 @@ export const NAV: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings, also: ["/destinations", "/deliveries"] },
 ];
 
-/** Bottom bar on phones: the four everyday places, plus "More" for the rest. */
-export const NAV_MOBILE: NavItem[] = NAV.slice(0, 4);
+/** Bottom bar on phones: the four everyday places, plus "More" (the full menu, Assistant included) for the rest. */
+const MOBILE_HREFS = ["/dashboard", "/messages", "/upcoming", "/rules"];
+export const NAV_MOBILE: NavItem[] = NAV.filter((n) => MOBILE_HREFS.includes(n.href));
 
 function matches(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);

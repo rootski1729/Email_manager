@@ -2,6 +2,7 @@ from contextlib import AbstractAsyncContextManager
 from typing import Any, Protocol
 from uuid import UUID
 
+from app.providers.search import SearchQuery
 from app.rules.envelope import Envelope
 
 
@@ -26,6 +27,10 @@ class MailSession(Protocol):
 
     async def load_full(self, ref: str) -> tuple[Envelope, bytes] | None:
         """The full message and its raw RFC 5322 bytes (attachments included)."""
+        ...
+
+    async def search(self, query: SearchQuery, limit: int) -> list[str]:
+        """Message ids matching `query`, newest first (the provider's own search; nothing is indexed)."""
         ...
 
     async def recent(self, limit: int) -> list[str]:

@@ -202,7 +202,7 @@ async def test_whatsapp_alert_summary_reply_pick_edit_and_send(client, setup, in
     assert all("untrusted" in p for p in model.prompts if "email" in p.lower() and "new email" not in p)
 
 
-async def test_whatsapp_write_and_ask(client, setup, infra, model, queued):
+async def test_whatsapp_write_and_ask(client, setup, infra, model, queued, monkeypatch):
     headers, mailbox_id = setup
     await enable_ai(client)
     mail(infra, "student@example.com", "Project viva slot", "Viva on 20 October at 11 AM.")
@@ -216,10 +216,17 @@ async def test_whatsapp_write_and_ask(client, setup, infra, model, queued):
     assert (await client.get("/api/v1/outbound-emails", headers=headers)).json()["items"][0]["status"] == \
         OutboundStatus.awaiting_confirmation.value
 
+    # A general /ask goes to the mail assistant (which can search all mail); here it answers straight away.
+    from app.ai import agent as agent_module
+
+    async def answer(messages, tools, *, max_tokens=600):
+        assert any(t["function"]["name"] == "search_mail" for t in tools)
+        return {"content": "Your viva is on **20 Oct at 11 AM**."}
+
+    monkeypatch.setattr(agent_module, "complete_tools", answer)
     assert await compose.handle_inbound(wa("/ask when is my viva?")) == "ask"
     answer = await last_reply()
-    assert answer.startswith("💬 *when is my viva?*") and "Your viva is on *20 Oct at 11 AM*" in answer
-    assert "📬 *From these emails*" in answer and "Project viva slot" in answer
+    assert answer == "Your viva is on *20 Oct at 11 AM*."
 
 
 async def test_ai_switched_off_falls_back_to_the_manual_form(client, setup, infra, model):

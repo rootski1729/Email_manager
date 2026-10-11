@@ -47,6 +47,8 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
   const pathname = usePathname();
   const dashboard = pathname === "/dashboard";
   const wide = dashboard || pathname === "/messages" || pathname?.startsWith("/messages/");
+  // The Assistant is a full-height chat: its composer sits at the bottom of the window (above the phone's nav).
+  const chat = pathname === "/assistant";
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -72,7 +74,10 @@ export function AppShell({ defaultOpen, children }: { defaultOpen: boolean; chil
           <main
             id="main"
             className={cn(
-              "mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:px-8 md:pt-8 md:pb-16",
+              "mx-auto w-full max-w-5xl flex-1 px-4 md:px-8",
+              chat
+                ? "flex flex-col pt-4 pb-(--mobile-nav-h) md:pt-6 md:pb-0"
+                : "pt-6 pb-28 md:pt-8 md:pb-16",
               // Mail pages put an Assistant beside the content on wide screens, and the dashboard sets cards side by
               // side, so they get more room there.
               wide && "xl:max-w-7xl",

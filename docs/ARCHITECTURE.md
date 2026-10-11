@@ -186,6 +186,59 @@ The browser posts the question to a streaming endpoint; the API reads the email 
 Foundry with the email marked as untrusted data, and relays the answer as server-sent events. The web app
 types it out as it arrives. Details in [§10](#10-the-ai-assistant).
 
+### 3.6 Finding any email by describing it (the mail assistant)
+
+People often know only a little about the email they need: "the one where Abhi and I discussed the API".
+The mail assistant is a conversation, on WhatsApp (`/find …`, then plain messages) and on the website's
+Assistant page, that turns that memory into searches, asks one narrowing question when it isn't sure, and then
+opens, explains or replies to the right email.
+
+```mermaid
+sequenceDiagram
+  participant P as Person
+  participant A as Assistant (API / worker)
+  participant M as Azure AI (tool calling)
+  participant X as Mailboxes (Gmail search, IMAP SEARCH)
+  P->>A: "find the email where Abhi and I discussed the API"
+  A->>M: conversation + tools
+  M-->>A: search_mail(sender="abhi", words=["api"])
+  A->>X: search every mailbox in parallel (live, nothing indexed)
+  X-->>A: matches (newest first)
+  A->>M: numbered results (email text marked untrusted)
+  M-->>A: "I found 2 emails from Abhi about the API. Was it the one about rate limits?"
+  A-->>P: answer + numbered result list
+  P->>A: "2" / "reply saying I'll review it"
+  A->>M: (follow-up with the conversation so far)
+  M-->>A: open_email(2) / draft_reply(2, …)
+  A-->>P: the full email / a draft that waits for YES or Send
+```
+
+- **Live search, no index.** Each mailbox is searched with its own engine: Gmail's search operators
+  (`from:abhi api after:2026/09/01 -in:chats`) or IMAP `SEARCH` (`FROM "abhi" TEXT "api" SINCE …`). Some IMAP
+  servers match `FROM`/`TO` only against a full address, so when such a search finds nothing the assistant
+  searches on the other terms and matches names and address parts itself, reading only the From/To/Cc headers
+  of up to 300 recent candidates in one request. Mailboxes are searched in parallel with a 25-second limit each;
+  a mailbox that fails is reported ("college mail didn't answer") without breaking the others. Mail is never
+  copied: a found email becomes a `messages` row (metadata only, with a `#code`) only when the person opens it
+  or replies, and from then on every alert action (`/open`, `/files`, `/remind`…) works on it.
+- **Tools, not free rein** (`app/ai/agent.py`, `app/services/mail_agent.py`): the model can call
+  `search_mail` (sender, recipient, subject, words, dates, attachments, mailbox), `read_email(n)`,
+  `open_email(n)` and `draft_reply(n, instructions)`. There is no tool that sends anything; drafts wait for YES
+  or Send. Tool arguments are validated, unknown tools and bad arguments are returned to the model as errors,
+  a turn has at most 6 steps and 75 seconds (the last step gets no tools and must answer), and each user has
+  40 turns an hour.
+- **Instructions** tell the model how to turn memories into search terms (a name goes in sender, the topic
+  becomes 1-3 distinctive words, "last month" becomes dates), to try once more with broader terms when nothing
+  is found, to ask one narrowing question when there are many matches, never to invent emails, and that email
+  text in tool results is untrusted data.
+- **Conversation state** lives in Redis: the recent exchange plus the numbered results, so "2" or "the one from
+  last week" works later; 30 minutes on WhatsApp (ended early with `/done`), 6 hours per conversation on the web.
+  Results are numbered by the app, not by the model, and shown by the app, so the list can't be invented.
+- **On WhatsApp** a "🔎 Searching your mail…" message goes out as soon as the first search starts; the answer
+  follows with a numbered list; a bare number opens that result in full. **On the website** the answer streams
+  as server-sent events: `conversation`, `status` ("Searching your mail: from abhi · about "api""), `results`,
+  `delta` (the answer), then `done` (with any opened email or draft).
+
 ## 4. Technology choices and why
 
 | Need | Choice | Why | Alternatives considered |
@@ -315,7 +368,8 @@ WhatsApp numbers that send too much, too fast, get restricted, so all sending go
   | Draft / revise | subject and body; replies always keep the conversation's subject (JSON) | WhatsApp and website |
   | New email | recipients, subject, body; addresses validated (JSON) | `/write`, website |
   | Rule from text | a condition validated against the rule schema, retried once if invalid (JSON) | Rules page |
-  | Questions | a short Markdown answer: direct answer, at most 4 bullets, bold only for key facts, about 70 words (streamed) | Assistant, `/ask` |
+  | Questions | a short Markdown answer: direct answer, at most 4 bullets, bold only for key facts, about 70 words (streamed) | Ask tab, `/ask K7` |
+  | Mail assistant | a tool-using conversation that searches, reads, opens and drafts ([§3.6](#36-finding-any-email-by-describing-it-the-mail-assistant)) | `/find`, `/ask`, Assistant page |
 
 - **Structured output** uses JSON mode and tolerant parsing; every feature raises one error type, so callers
   fall back gracefully (an alert without a summary, the manual reply form).
@@ -373,7 +427,7 @@ WhatsApp numbers that send too much, too fast, get restricted, so all sending go
 
 - WAHA uses WhatsApp Web; it's free but unofficial, so the sending number should be a dedicated one.
 - IMAP mailboxes are polled every minute rather than pushed.
-- The AI only sees the email being discussed (or a short list of recent important emails for `/ask`); it
-  doesn't search the whole mailbox.
+- The mail assistant searches the inbox of IMAP mailboxes (all mail except spam and trash for Gmail), and its
+  recall depends on each provider's search; it reads at most 10 matches per search.
 - Possible next steps: an MCP server so outside AI assistants can use MailSentinel's tools; Microsoft Graph
   for push on Outlook mailboxes; per-rule AI classification ("is this email about my exams?").

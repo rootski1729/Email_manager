@@ -197,11 +197,13 @@ export function AskEmail({ messageId }: { messageId: string }) {
           />
           <InputGroupAddon align="inline-end">
             {streaming ? (
-              <InputGroupButton type="button" size="xs" variant="secondary" onClick={stream.stop} aria-label="Stop answering">
+              // Keyed apart from the submit button: a reused <button> could turn into it mid-click and send again.
+              <InputGroupButton key="stop" type="button" size="xs" variant="secondary" onClick={stream.stop} aria-label="Stop answering">
                 <Square className="size-2.5 fill-current" aria-hidden /> Stop
               </InputGroupButton>
             ) : (
               <InputGroupButton
+                key="ask"
                 type="submit"
                 size="icon-xs"
                 variant="default"

@@ -51,6 +51,14 @@ were mentioned.<img src="https://github.com/notifications/beacon/x.gif" height="
 """
 
 SAMPLES = {
+    "api_discussion": _msg("Abhi Kumar <abhi@acme.io>", "API rate limits for the partner integration", """Hi Asha,
+
+Following up on our call: we should agree the API rate limits before Friday. I suggest 100 requests per minute
+per client, with bursts of 20. Can you check whether the reporting service can live with that?
+
+Thanks,
+Abhi
+"""),
     "github_comment": _msg("Tanmay <notifications@github.com>", "Re: [acme/reporting-service] Add call logging (PR #518)",
                            GITHUB_TEXT, html=GITHUB_HTML, headers={"In-Reply-To": "<pr518@github.com>"}),
     "gmail_reply": _msg("Riya Sharma <riya@infosys.com>", "Re: Interview schedule: Software Engineer", """Hi Asha,
