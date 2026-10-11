@@ -360,7 +360,8 @@ async def turn(
         result.opened.append(message)
         await notify("opened", {"message_id": str(message.id), "code": message.ref})
         return {"opened": True, "code": message.ref,
-                "note": "The full email is now shown to the person. Don't describe it unless you read it."}
+                "note": ("The full email now appears below your message. Say in one short line what it is; don't "
+                         "offer to open or read it, and don't describe details you haven't read.")}
 
     async def set_reminder(args: dict[str, Any]) -> dict[str, Any]:
         when = str(args.get("when") or "").strip()
