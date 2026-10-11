@@ -133,7 +133,8 @@ class ImapSession:
             # Some servers match FROM/TO only against a full address ("abhi" finds nothing for
             # "Abhi Kumar <abhi@acme.io>"), so search on the other terms and match people here instead.
             loose = replace(query, sender="", recipient="", person="")
-            if loose.is_empty:
+            if loose.after is None and not (loose.words or loose.any_words or loose.subject):
+                # Only a person to look for: bound the scan to the last year (newest candidates are checked).
                 loose = replace(loose, after=datetime.now(UTC).date() - timedelta(days=365))
             criteria, utf8 = imap_criteria(loose)
             candidates = sorted(await self._search(criteria, utf8=utf8), reverse=True)[:MAX_PEOPLE_SCAN]

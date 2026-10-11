@@ -25,6 +25,15 @@ def test_person_means_from_or_to_or_cc() -> None:
     assert SearchQuery(person="Abhi").describe() == "with Abhi"
 
 
+def test_any_of_words_and_no_newsletters() -> None:
+    q = SearchQuery(any_words=("selected", "offer letter", "shortlisted"), exclude_newsletters=True)
+    assert gmail_query(q) == ('{selected "offer letter" shortlisted} -category:promotions -category:social '
+                              "-category:forums -in:chats")
+    assert imap_criteria(q)[0] == ('OR TEXT "selected" OR TEXT "offer letter" TEXT "shortlisted" '
+                                   'NOT HEADER "List-Unsubscribe" ""')
+    assert q.describe() == 'mentioning "selected" or "offer letter" or "shortlisted" · no newsletters'
+
+
 def test_imap_criteria_are_escaped_and_dated() -> None:
     criteria, utf8 = imap_criteria(SearchQuery(sender='Abhi "K"', words=("api",), after=date(2026, 9, 1)))
     assert criteria == 'FROM "Abhi K" TEXT "api" SINCE 01-Sep-2026' and utf8 is False

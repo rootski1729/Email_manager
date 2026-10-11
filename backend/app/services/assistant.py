@@ -20,7 +20,7 @@ from app.ai import features as ai
 from app.ai.client import AIUnavailable
 from app.core.config import get_settings
 from app.core.db import uuid7
-from app.core.redis import get_redis
+from app.core.redis import Keys, get_redis
 from app.core.runtime import ai_config
 from app.core.security import phone_to_chat_id
 from app.models import (
@@ -164,6 +164,7 @@ async def suggest(db: AsyncSession, user: User, message: Message, guidance: str 
                                          user_name=user.display_name, guidance=guidance)
     except AIUnavailable as exc:
         raise AssistantError("The AI couldn't suggest replies just now.") from exc
+    await get_redis().set(Keys.last_list(user.id), "ideas", ex=SUGGESTIONS_TTL_S)  # "2" now picks an idea
     await get_redis().set(_suggestions_key(user.id), json.dumps(
         {"message_id": str(message.id), "ideas": [{"label": i.label, "instruction": i.instruction} for i in ideas]}),
         ex=SUGGESTIONS_TTL_S)

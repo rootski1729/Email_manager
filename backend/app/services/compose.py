@@ -431,6 +431,9 @@ async def _on_media(db: AsyncSession, user: User, inbound: Inbound, waha: WahaCl
     return True
 
 
+# Commands whose first word must be an alert code (/open K7). Anything else after them goes to the assistant.
+CODE_COMMANDS = {cmd.Kind.open, cmd.Kind.thread, cmd.Kind.files, cmd.Kind.remind, cmd.Kind.reply, cmd.Kind.ideas}
+
 ALERT_COMMANDS = {cmd.Kind.open, cmd.Kind.thread, cmd.Kind.remind, cmd.Kind.mute, cmd.Kind.unmute,
                   cmd.Kind.muted, cmd.Kind.recent, cmd.Kind.upcoming}
 
@@ -691,6 +694,11 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
         if user is None:
             return "unknown_sender"
         chatting = await mail_agent.is_active(user.id)
+        if command.kind in CODE_COMMANDS and command.arg and not inbound.has_media \
+                and await actions.find_by_ref(db, user.id, command.arg.split()[0]) is None \
+                and await assistant.available(db, user):
+            # "/open this mail", "/reply to the tara one": not an alert code, so it's for the assistant.
+            command = cmd.Command(cmd.Kind.unknown_command, arg=command.raw.split()[0], raw=command.raw)
         if command.kind == cmd.Kind.pick:
             number = int(command.arg.split(" ")[0])
             last = await get_redis().get(Keys.last_list(user.id))

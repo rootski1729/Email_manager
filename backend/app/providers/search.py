@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 MAX_TERMS = 6
+MAX_ANY_TERMS = 8
 MAX_TERM_CHARS = 80
 
 
@@ -19,15 +20,17 @@ class SearchQuery:
     recipient: str = ""
     person: str = ""  # someone the email was from, to or cc'd ("the email where Abhi and I discussed…")
     subject: str = ""  # words that should be in the subject
-    words: tuple[str, ...] = field(default_factory=tuple)  # words or phrases anywhere in the email
+    words: tuple[str, ...] = field(default_factory=tuple)  # words or phrases anywhere in the email (all must match)
+    any_words: tuple[str, ...] = field(default_factory=tuple)  # at least one of these (synonyms: offer, selected…)
+    exclude_newsletters: bool = False  # skip promotions, social updates and mailing lists
     after: date | None = None  # on or after
     before: date | None = None  # before (exclusive)
     has_attachment: bool | None = None
 
     @property
     def is_empty(self) -> bool:
-        return not (self.sender or self.recipient or self.person or self.subject or self.words or self.after
-                    or self.before or self.has_attachment)
+        return not (self.sender or self.recipient or self.person or self.subject or self.words or self.any_words
+                    or self.after or self.before or self.has_attachment)
 
     def describe(self) -> str:
         """Plain words for status lines: 'from abhi · about "api" · after 1 Sep'."""
@@ -42,12 +45,16 @@ class SearchQuery:
             parts.append(f'subject "{self.subject}"')
         if self.words:
             parts.append("about " + ", ".join(f'"{w}"' for w in self.words))
+        if self.any_words:
+            parts.append("mentioning " + " or ".join(f'"{w}"' for w in self.any_words))
         if self.after:
             parts.append(f"after {self.after:%d %b %Y}")
         if self.before:
             parts.append(f"before {self.before:%d %b %Y}")
         if self.has_attachment:
             parts.append("with attachments")
+        if self.exclude_newsletters:
+            parts.append("no newsletters")
         return " · ".join(parts) or "recent mail"
 
 
@@ -59,9 +66,11 @@ def clean_term(value: str) -> str:
 
 def normalise(query: SearchQuery) -> SearchQuery:
     words = tuple(dict.fromkeys(w for w in (clean_term(w) for w in query.words) if w))[:MAX_TERMS]
+    any_words = tuple(dict.fromkeys(w for w in (clean_term(w) for w in query.any_words) if w))[:MAX_ANY_TERMS]
     return SearchQuery(sender=clean_term(query.sender), recipient=clean_term(query.recipient),
                        person=clean_term(query.person), subject=clean_term(query.subject), words=words,
-                       after=query.after, before=query.before, has_attachment=query.has_attachment)
+                       any_words=any_words, after=query.after, before=query.before,
+                       has_attachment=query.has_attachment, exclude_newsletters=query.exclude_newsletters)
 
 
 def _gmail_term(value: str) -> str:
@@ -82,12 +91,16 @@ def gmail_query(query: SearchQuery) -> str:
     if q.subject:
         parts.append(f"subject:({q.subject})")
     parts += [_gmail_term(w) for w in q.words]
+    if q.any_words:
+        parts.append("{" + " ".join(_gmail_term(w) for w in q.any_words) + "}")  # braces: any of these
     if q.after:
         parts.append(f"after:{q.after:%Y/%m/%d}")
     if q.before:
         parts.append(f"before:{q.before:%Y/%m/%d}")
     if q.has_attachment:
         parts.append("has:attachment")
+    if q.exclude_newsletters:
+        parts.append("-category:promotions -category:social -category:forums")
     parts.append("-in:chats")
     return " ".join(parts)
 
@@ -101,6 +114,11 @@ def _imap_date(d: date) -> str:
 
 def _imap_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _imap_any(terms: list[str]) -> str:
+    """IMAP's OR takes two keys: OR a OR b c."""
+    return terms[0] if len(terms) == 1 else f"OR {terms[0]} {_imap_any(terms[1:])}"
 
 
 def imap_criteria(query: SearchQuery) -> tuple[str, bool]:
@@ -117,6 +135,10 @@ def imap_criteria(query: SearchQuery) -> tuple[str, bool]:
     if q.subject:
         parts.append(f"SUBJECT {_imap_string(q.subject)}")
     parts += [f"TEXT {_imap_string(w)}" for w in q.words]
+    if q.any_words:
+        parts.append(_imap_any([f"TEXT {_imap_string(w)}" for w in q.any_words]))
+    if q.exclude_newsletters:
+        parts.append('NOT HEADER "List-Unsubscribe" ""')  # mailing lists and marketing carry this header
     if q.after:
         parts.append(f"SINCE {_imap_date(q.after)}")
     if q.before:

@@ -116,10 +116,15 @@ def _system_prompt(user: User, mailboxes: list[Mailbox], channel: str) -> str:
         "before asking anything. Turning memories into search terms:\n"
         "  - 'with Abhi', 'Abhi and I discussed', 'my emails with Abhi' → person='Abhi' (Abhi may have sent it "
         "OR received it). Use sender only for 'from Abhi' / 'did Abhi send', recipient only for 'I sent to'.\n"
-        "  - the topic → 1-2 short distinctive words (all words must match, so fewer is better).\n"
+        "  - a concrete topic → words: 1-2 short distinctive words (all must match, so fewer is better).\n"
+        "  - an outcome or idea with many phrasings → any_words with synonyms, e.g. 'was I selected for a job' "
+        "→ any_words ['selected', 'offer letter', 'shortlisted', 'congratulations', 'next round'].\n"
+        "  - anything personal (offers, results, replies, conversations) → exclude_newsletters=true, because "
+        "marketing mail is full of words like 'selected' and 'offer'.\n"
         "  - time hints ('last week', 'in May') → after/before dates.\n"
         "- Check the results really fit: read their subjects and snippets. A name that only appears inside a "
-        "company name, or a word used in another sense, is not a match. If nothing fits well, say so honestly "
+        "company name, a word used in another sense, or a mass mailing ('Be selected for…', job alerts, "
+        "newsletters) is not a match. If nothing fits well, say so honestly "
         "and search again differently (only the person, only the topic, a synonym, wider dates) before asking.\n"
         "- If there are several good matches or the request is vague, ask ONE short question that narrows it "
         "down (who, roughly when, a word they remember).\n"
@@ -186,6 +191,8 @@ async def turn(
             sender=str(args.get("sender") or ""), recipient=recipient, person=str(args.get("person") or ""),
             subject=str(args.get("subject") or ""),
             words=tuple(str(w) for w in (args.get("words") or []) if str(w).strip()),
+            any_words=tuple(str(w) for w in (args.get("any_words") or []) if str(w).strip()),
+            exclude_newsletters=args.get("exclude_newsletters") is True,
             after=_date(args.get("after")), before=_date(args.get("before")),
             has_attachment=args.get("has_attachment") if isinstance(args.get("has_attachment"), bool) else None)
         await notify("status", {"text": f"Searching your mail: {query.describe()}"})
@@ -290,7 +297,13 @@ async def turn(
                             "address part). Use this for 'with Abhi', 'my emails with Abhi', 'Abhi and I'."},
                  "subject": {"type": "string", "description": "Words in the subject"},
                  "words": {"type": "array", "items": {"type": "string"},
-                           "description": "1-3 short distinctive words or phrases anywhere in the email"},
+                           "description": "1-2 short distinctive words or phrases that must ALL be in the email"},
+                 "any_words": {"type": "array", "items": {"type": "string"},
+                               "description": "Synonyms, at least ONE must be in the email, e.g. ['selected', "
+                                              "'offer letter', 'shortlisted', 'congratulations']"},
+                 "exclude_newsletters": {"type": "boolean",
+                                         "description": "Skip promotions, social updates and mailing lists. Use "
+                                                        "for personal matters (offers, results, conversations)."},
                  "after": {"type": "string", "description": "On or after this date, YYYY-MM-DD"},
                  "before": {"type": "string", "description": "Before this date, YYYY-MM-DD"},
                  "has_attachment": {"type": "boolean"},
@@ -322,7 +335,8 @@ async def turn(
                         {"role": "assistant", "content": run.text + _result_note(result.listed)}]
     await session.save()
     if channel == "wa":
-        await get_redis().set(Keys.last_list(user.id), "results" if result.listed else "chat", ex=WA_TTL_S)
+        # The numbered results stay pickable ("2") until another numbered list (reply ideas) replaces them.
+        await get_redis().set(Keys.last_list(user.id), "results" if session.listed else "chat", ex=WA_TTL_S)
     log.info("mail_assistant_turn", channel=channel, tools=run.tool_calls, listed=len(result.listed),
              opened=len(result.opened), drafted=bool(result.draft or result.wa_draft))
     return result

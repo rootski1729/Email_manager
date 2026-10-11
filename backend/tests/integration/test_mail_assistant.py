@@ -26,6 +26,16 @@ def seed_mailbox(infra) -> None:
     mail(infra, "student@example.com", "Lunch on Friday?", "Want to grab lunch?", sender="Abhi Kumar <abhi@acme.io>")
     mail(infra, "student@example.com", "API review notes", "My notes on the API review.",
          sender="Riya <riya@acme.io>")
+    # A real offer, and a mass mailing that uses the same words.
+    mail(infra, "student@example.com", "Offer letter: Software Engineer",
+         "Congratulations, you have been selected. Your offer letter is attached.", sender="HR <hr@acme.io>")
+    promo = EmailMessage()
+    promo["From"], promo["To"], promo["Subject"] = "Jobs <alerts@jobs.example>", "student@example.com", \
+        "Multiple job vacancies | Be selected for interviews"
+    promo["List-Unsubscribe"] = "<https://jobs.example/unsubscribe>"
+    promo.set_content("Be selected for interviews at top companies. Apply now.")
+    with smtplib.SMTP(*infra["smtp"]) as smtp:
+        smtp.send_message(promo)
     # One the student sent to Abhi (cc'd to themselves), so "with Abhi" must look at recipients too.
     sent = EmailMessage()
     sent["From"], sent["To"], sent["Cc"] = "Student <student@example.com>", "Abhi Kumar <abhi@acme.io>", \
@@ -48,6 +58,9 @@ async def test_search_all_uses_the_mailboxs_own_search(client, ready, infra):  #
         everything_from_abhi = await mail_search.search_all(db, user, SearchQuery(sender="abhi"))
         assert {h.subject for h in everything_from_abhi.hits} == {"API rate limits for the partner integration",
                                                                   "Lunch on Friday?"}
+        offers = await mail_search.search_all(db, user, SearchQuery(
+            any_words=("selected", "offer letter", "shortlisted"), exclude_newsletters=True))
+        assert [h.subject for h in offers.hits] == ["Offer letter: Software Engineer"]  # not the job-alert mailing
         with_abhi = await mail_search.search_all(db, user, SearchQuery(person="abhi", words=("api",)))
         assert {h.subject for h in with_abhi.hits} == {"API rate limits for the partner integration",
                                                        "Re: API rate limits"}
@@ -68,6 +81,9 @@ class Brain:
                 return {"content": f"I found **{data['found']}** email from Abhi about the API. Is it this one?"}
             return {"content": "Done."}
         text = last["content"].lower()
+        if text.startswith("open"):
+            return {"tool_calls": [{"id": "o1", "type": "function", "function": {
+                "name": "open_email", "arguments": json.dumps({"n": 1})}}]}
         if "reply" in text:
             return {"tool_calls": [{"id": "d1", "type": "function", "function": {
                 "name": "draft_reply", "arguments": json.dumps({"n": 1, "instructions": "say thanks, I'll review"})}}]}
@@ -95,6 +111,10 @@ async def test_whatsapp_find_open_reply_and_send(client, setup, infra, model, qu
     assert "Reply with a number to open one" in answer
     system = brain.prompts[0][0]["content"]
     assert "untrusted data" in system and "can't send email" in system and "student@example.com" in system
+
+    # "/open this mail" isn't an alert code: the assistant opens the result it just showed.
+    assert await compose.handle_inbound(wa("/open this mail")) == "unknown_command"
+    assert (await last_reply()).startswith("📖 *API rate limits for the partner integration*")
 
     # "1" opens the result: it's kept with a code and shown in full.
     assert await compose.handle_inbound(wa("1")) == "pick"
