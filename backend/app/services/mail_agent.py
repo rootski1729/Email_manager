@@ -319,8 +319,9 @@ async def turn(
             [h for n, h in enumerate(session.results, 1) if n not in picked]
         chosen = list(range(1, len(picked) + 1))
         return {"shown": [_public(n, h) for n, h in enumerate(session.results[:len(picked)], 1)],
-                "note": (f"These are now numbered 1..{len(picked)} as listed here; use these numbers." if picked
-                         else "No list is shown.")}
+                "note": (f"These now appear as a numbered list (1..{len(picked)}) below your message. Answer in one "
+                         "or two sentences without listing them again; refer to them by these numbers."
+                         if picked else "No list is shown.")}
 
     async def recent_alerts(args: dict[str, Any]) -> dict[str, Any]:
         limit = max(1, min(int(args.get("limit") or 8), 15))
