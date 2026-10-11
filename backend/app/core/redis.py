@@ -91,6 +91,11 @@ class Keys:
         return f"ai:chat:{user_id}:{channel}"
 
     @staticmethod
+    def wa_log(user_id: object) -> str:
+        """What the person said to the bot recently (the bot's side is in the outbox), for the assistant."""
+        return f"wa:log:{user_id}"
+
+    @staticmethod
     def last_list(user_id: object) -> str:
         """Which numbered list the user saw last on WhatsApp ("ideas" or "results"), so "2" picks from it."""
         return f"ai:lastlist:{user_id}"

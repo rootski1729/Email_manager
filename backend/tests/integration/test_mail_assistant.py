@@ -13,7 +13,7 @@ from app.ai import agent as agent_module
 from app.core.db import session_factory
 from app.models import Message, OutboundEmail, OutboundStatus, User
 from app.providers.search import SearchQuery
-from app.services import compose, mail_search
+from app.services import compose, ingest, mail_search
 from tests.integration.test_ai import enable_ai, model, queued, setup, sse_events  # noqa: F401  (fixtures)
 from tests.integration.test_compose import recipient_inbox
 from tests.integration.test_engagement import last_reply, mail, no_delay, notes, ready, wa  # noqa: F401
@@ -81,12 +81,23 @@ class Brain:
                 return {"content": f"I found **{data['found']}** email from Abhi about the API. Is it this one?"}
             return {"content": "Done."}
         text = last["content"].lower()
+        if text.startswith("hi"):
+            return {"content": "Hi! I can find any email, explain it, reply or remind you."}
         if text.startswith("open"):
             return {"tool_calls": [{"id": "o1", "type": "function", "function": {
-                "name": "open_email", "arguments": json.dumps({"n": 1})}}]}
+                "name": "open_email", "arguments": json.dumps({"email": {"result": 1}})}}]}
+        if "this mail" in text:  # a quoted alert is the email being discussed
+            assert "The email being discussed: alert #" in messages[1]["content"]
+            return {"tool_calls": [{"id": "o1", "type": "function", "function": {
+                "name": "open_email", "arguments": json.dumps({"email": {}})}}]}
+        if text.startswith("tell me more about "):  # an alert code: act on it, don't search for it
+            code = text.rsplit(" ", 1)[1].upper()
+            return {"tool_calls": [{"id": "o1", "type": "function", "function": {
+                "name": "open_email", "arguments": json.dumps({"email": {"code": code}})}}]}
         if "reply" in text:
             return {"tool_calls": [{"id": "d1", "type": "function", "function": {
-                "name": "draft_reply", "arguments": json.dumps({"n": 1, "instructions": "say thanks, I'll review"})}}]}
+                "name": "draft_reply", "arguments": json.dumps({"email": {"result": 1},
+                                                                "instructions": "say thanks, I'll review"})}}]}
         return {"tool_calls": [{"id": "s1", "type": "function", "function": {
             "name": "search_mail", "arguments": json.dumps({"sender": "abhi", "words": ["api"]})}}]}
 
@@ -125,8 +136,9 @@ async def test_whatsapp_find_open_reply_and_send(client, setup, infra, model, qu
         kept = await db.scalar(select(Message).where(Message.subject.like("API rate limits%")))
     assert kept is not None and kept.ref and f"*/reply {kept.ref}*" in opened
 
-    # Plain text continues the conversation; asking to reply prepares a draft that waits for YES.
-    assert await compose.handle_inbound(wa("reply saying thanks, I'll review it")) == "text"
+    # Without "/" the bot stays quiet; with it, asking to reply prepares a draft that waits for YES.
+    assert await compose.handle_inbound(wa("reply saying thanks, I'll review it")) == "ignored"
+    assert await compose.handle_inbound(wa("/please reply saying thanks, I'll review it")) == "unknown_command"
     assert "✍️ *Your reply is ready*" in await last_reply()
     assert await compose.handle_inbound(wa("yes")) == "confirm"
     assert await compose.send_outbound(UUID(queued[0])) == "sent"
@@ -136,16 +148,23 @@ async def test_whatsapp_find_open_reply_and_send(client, setup, infra, model, qu
         email = await db.scalar(select(OutboundEmail))
     assert email.status == OutboundStatus.sent and email.reply_to_message_id == kept.id
 
-    # /done ends it; a plain message later simply starts a new conversation.
+    # /done ends it; a later "/" message simply starts a new conversation. "/hi" is a greeting, not an error.
     await compose.handle_inbound(wa("/done"))
-    assert await compose.handle_inbound(wa("did abhi email me about the api?")) == "text"
+    assert await compose.handle_inbound(wa("/hi")) == "unknown_command"
+    assert (await last_reply()).startswith("Hi! I can find any email")
+    assert await compose.handle_inbound(wa("/did abhi email me about the api?")) == "unknown_command"
     assert "email from Abhi about the API" in await last_reply()
+
+    # The bot is given the conversation so far, both sides.
+    conversation = brain.prompts[-1][1]["content"]
+    assert "you: /did abhi email me about the api?" in conversation and "bot: " in conversation
 
     # Something that looks like a command but isn't one is a question, not the help page.
     assert await compose.handle_inbound(wa("/did I get any email from abhi about the api")) == "unknown_command"
     assert "email from Abhi about the API" in await last_reply()
-    await compose.handle_inbound(wa("/xyz"))
-    assert (await last_reply()).startswith("I don't know */xyz*")
+    # "/tell me more about <code>" acts on that alert, without searching for the words.
+    assert await compose.handle_inbound(wa(f"/tell me more about {kept.ref}")) == "unknown_command"
+    assert (await last_reply()).startswith("📖 *API rate limits for the partner integration*")
     await compose.handle_inbound(wa("/help"))
     short = await last_reply()
     assert short.startswith("🤖 *MailSentinel*") and len(short.splitlines()) < 14 and "/help all" in short
@@ -174,7 +193,7 @@ async def test_website_chat_streams_and_opens_results(client, setup, infra, mode
                              json={"message": "reply to it", "conversation_id": conversation})
     done = sse_events(resp.text)[-1]
     assert done[0] == "done" and done[1]["draft"]["to"] == ["abhi@acme.io"]
-    assert "[Results shown:\n1. Abhi Kumar" in brain.prompts[-1][2]["content"]  # history carries the numbers
+    assert "1. Abhi Kumar" in brain.prompts[-1][1]["content"]  # the numbered results are in its context
 
     opened = await client.post(f"/api/v1/assistant/conversations/{conversation}/results/1/open", headers=headers)
     assert opened.status_code == 200, opened.text
@@ -185,3 +204,21 @@ async def test_website_chat_streams_and_opens_results(client, setup, infra, mode
     assert (await client.delete(f"/api/v1/assistant/conversations/{conversation}", headers=headers)).status_code == 204
     assert (await client.post("/api/v1/assistant/conversations/not-a-hex/results/1/open",
                               headers=headers)).status_code == 422
+
+
+async def test_alerts_are_remembered_and_a_quoted_alert_is_this_email(client, setup, infra, model, brain):  # noqa: F811
+    await enable_ai(client)
+    mail(infra, "student@example.com", "Admit card released", "Download it before 12 October.")
+    _, mailbox_id = setup
+    await ingest.sync_mailbox(mailbox_id)
+    async with session_factory()() as db:
+        alerted = await db.scalar(select(Message).where(Message.subject == "Admit card released"))
+    alert = next(n for n in await notes() if n.kind.value == "alert")
+
+    # Swipe-reply to the alert: "this mail" is that alert, and the bot knows the alert it sent.
+    quoted = f"📬 *Admit card released*  #{alerted.ref}"
+    assert await compose.handle_inbound(wa("/I am asking about this mail", quoted=quoted)) == "unknown_command"
+    assert (await last_reply()).startswith("📖 *Admit card released*")
+    conversation = brain.prompts[-1][1]["content"]
+    assert f"Alert #{alerted.ref} · Exam Cell · Admit card released" in conversation, conversation
+    assert alert.payload["ref"] == alerted.ref

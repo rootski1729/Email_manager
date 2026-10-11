@@ -34,6 +34,7 @@ from app.models import (
     Mailbox,
     MailboxStatus,
     Message,
+    Notification,
     NotificationKind,
     OutboundAttachment,
     OutboundEmail,
@@ -614,8 +615,10 @@ async def _ai_ask(db: AsyncSession, user: User, question: str) -> None:
 
 
 def _results_text(listed: list[dict[str, Any]], zone: str | None) -> str:
-    lines = [f"🔎 *{len(listed)} email{'s' if len(listed) != 1 else ''} found*"]
-    for h in listed:
+    shown = listed[:mail_agent.MAX_RESULTS_SHOWN]
+    lines = [f"🔎 *{len(listed)} email{'s' if len(listed) != 1 else ''} found*"
+             + (f" · the newest {len(shown)}" if len(shown) < len(listed) else "")]
+    for h in shown:
         when = datetime.fromisoformat(h["date"]).astimezone(tz(zone)).strftime("%a %d %b")
         who = wa.plain(wa.clip(h["from_name"] or h["from_address"], 40))
         clip = "📎 " if h.get("has_attachments") else ""
@@ -623,12 +626,80 @@ def _results_text(listed: list[dict[str, Any]], zone: str | None) -> str:
         lines += ["", f"*{h['n']}.* *{who}* · {when}", f"      {clip}{subject}"]
         if h.get("snippet"):
             lines.append(f"      _{wa.plain(wa.clip(h['snippet'], 90))}_")
-    lines += ["", "👉 Reply with a number to open one, or tell me more (who, when, what it said).",
-              "_Finished? /done_"]
+    lines += ["", "👉 Reply with a number to open one, or */tell me more* (who, when, what it said)."]
     return "\n".join(lines)
 
 
-async def _assistant_turn(db: AsyncSession, user: User, text: str, *, fresh: bool = False) -> None:
+WA_LOG_SIZE = 30
+WA_LOG_TTL_S = 3 * 24 * 3600
+
+
+async def _draft_waiting(db: AsyncSession, user: User) -> bool:
+    return bool(await db.scalar(select(func.count()).select_from(OutboundEmail).where(
+        OutboundEmail.user_id == user.id, OutboundEmail.status == OutboundStatus.awaiting_confirmation)))
+
+
+async def _wakes_the_bot(db: AsyncSession, user: User, inbound: Inbound, command: cmd.Command) -> bool:
+    """"/" wakes the bot. Without it, only answers to a question the bot just asked get through: YES/NO for a
+    waiting draft, a number after a list, and files sent while composing an email."""
+    if inbound.text.lstrip().startswith("/"):
+        return True
+    if command.kind in (cmd.Kind.confirm, cmd.Kind.cancel):
+        return await _draft_waiting(db, user)
+    if command.kind == cmd.Kind.pick:
+        return await get_redis().get(Keys.last_list(user.id)) in ("results", "ideas")
+    if inbound.has_media:
+        return bool(await get_redis().exists(Keys.compose_session(user.id)))
+    return False
+
+
+async def _log_inbound(user_id: Any, text: str, at: datetime) -> None:
+    """The person's side of the WhatsApp conversation (the bot's side is in the outbox), for the assistant."""
+    if not text.strip():
+        return
+    redis = get_redis()
+    key = Keys.wa_log(user_id)
+    entry = json.dumps({"at": at.isoformat(), "text": text.strip()[:400]})
+    async with redis.pipeline(transaction=False) as pipe:
+        pipe.rpush(key, entry)
+        pipe.ltrim(key, -WA_LOG_SIZE, -1)
+        pipe.expire(key, WA_LOG_TTL_S)
+        await pipe.execute()
+
+
+async def _wa_conversation(db: AsyncSession, user: User) -> str:
+    """The recent chat, both sides, oldest first: what the person sent and what the bot sent (alerts with codes)."""
+    since = datetime.now(UTC) - timedelta(seconds=WA_LOG_TTL_S)
+    rows = (await db.scalars(select(Notification).where(
+        Notification.user_id == user.id, Notification.created_at >= since,
+        Notification.kind.in_([NotificationKind.alert, NotificationKind.digest, NotificationKind.reminder,
+                               NotificationKind.reply]),
+    ).order_by(Notification.created_at.desc()).limit(20))).all()
+    lines: list[tuple[datetime, str]] = []
+    for n in rows:
+        p = n.payload or {}
+        if n.kind == NotificationKind.reply:
+            if p.get("file"):
+                continue
+            said = " ".join(str(p.get("text") or "").split())[:240]
+        elif n.kind == NotificationKind.digest:
+            items = p.get("items", [])[:5]
+            said = "Digest: " + "; ".join(f"#{i.get('ref')} {str(i.get('subject'))[:60]}" for i in items)
+        else:
+            label = "Reminder" if n.kind == NotificationKind.reminder else "Alert"
+            said = f"{label} #{p.get('ref')} · {p.get('from_name') or p.get('from_address')} · {p.get('subject')}"
+        lines.append((n.created_at, f"bot: {said}"))
+    for raw in await get_redis().lrange(Keys.wa_log(user.id), 0, -1):
+        entry = json.loads(raw)
+        lines.append((datetime.fromisoformat(entry["at"]), f"you: {entry['text']}"))
+    zone = tz(user.timezone)
+    lines.sort(key=lambda x: x[0])
+    return "\n".join(f"[{at.astimezone(zone):%d %b %H:%M}] {text}" for at, text in lines[-30:])
+
+
+async def _assistant_turn(
+    db: AsyncSession, user: User, text: str, *, fresh: bool = False, quoted: str | None = None,
+) -> None:
     """One message to the mail assistant, answered on WhatsApp (with a quick "Searching…" while it works)."""
     if not await assistant.available(db, user):
         await reply(db, user, AI_OFF)
@@ -646,7 +717,8 @@ async def _assistant_turn(db: AsyncSession, user: User, text: str, *, fresh: boo
             await events.wake_dispatcher()
 
     try:
-        result = await mail_agent.turn(db, user, "wa", text, emit=emit)
+        result = await mail_agent.turn(db, user, "wa", text, emit=emit,
+                                       conversation=await _wa_conversation(db, user), quoted=quoted)
     except mail_agent.AssistantBusy as exc:
         await reply(db, user, f"⏳ {exc}")
         return
@@ -656,6 +728,7 @@ async def _assistant_turn(db: AsyncSession, user: User, text: str, *, fresh: boo
     texts = [wa.from_markdown(result.text)]
     if result.listed:
         texts[0] += "\n\n" + _results_text(result.listed, user.timezone)
+    texts += result.notes
     for message in result.opened:
         texts += await actions.on_open(db, user, message.ref or "")
     if result.wa_draft is not None:
@@ -687,18 +760,25 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
     if inbound is None:
         return "ignored"
     command = cmd.parse_command(inbound.text, quoted=inbound.quoted)
+    arrived = datetime.now(UTC)  # before the transaction: database "now" is the transaction's start time
     to_send: list[UUID] = []  # confirmed inside this transaction; sent after commit
     async with session_factory()() as db:
         user = await db.scalar(select(User).where(User.phone_e164 == inbound.sender_phone,
                                                   User.is_active.is_(True)))
         if user is None:
             return "unknown_sender"
+        if not await _wakes_the_bot(db, user, inbound, command):
+            return "ignored"  # only "/" messages talk to the bot (plus answers to a question it just asked)
+        await _log_inbound(user.id, inbound.text, arrived - timedelta(milliseconds=1))
         chatting = await mail_agent.is_active(user.id)
         if command.kind in CODE_COMMANDS and command.arg and not inbound.has_media \
                 and await actions.find_by_ref(db, user.id, command.arg.split()[0]) is None \
                 and await assistant.available(db, user):
             # "/open this mail", "/reply to the tara one": not an alert code, so it's for the assistant.
             command = cmd.Command(cmd.Kind.unknown_command, arg=command.raw.split()[0], raw=command.raw)
+        if command.kind in (*CODE_COMMANDS, cmd.Kind.mute) and command.arg and \
+                (focus := await actions.find_by_ref(db, user.id, command.arg.split()[0])):
+            await mail_agent.set_focus(user.id, focus)  # "/open 48", then "/reply to this" means #48
         if command.kind == cmd.Kind.pick:
             number = int(command.arg.split(" ")[0])
             last = await get_redis().get(Keys.last_list(user.id))
@@ -731,28 +811,18 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
         elif command.kind == cmd.Kind.help:
             await reply(db, user, cmd.HELP if command.arg == "all" else cmd.HELP_SHORT)
         elif command.kind == cmd.Kind.unknown_command and not inbound.has_media:
-            # "/did I get any email from Abhi" isn't a command: it's a question for the assistant.
-            question = command.raw.lstrip("/").strip()
-            if len(question.split()) > 1 and await assistant.available(db, user):
-                await _assistant_turn(db, user, question)
+            # "/hi", "/tell me more about 48", "/did Abhi email me?": not a command, so a chat with the assistant.
+            question = inbound.text.strip().lstrip("/").strip() or command.raw.lstrip("/").strip()
+            if await assistant.available(db, user):
+                await _assistant_turn(db, user, question, quoted=inbound.quoted)
             else:
-                await reply(db, user, f"I don't know *{wa.plain(command.arg)}*. Send */help* to see what I can do, "
-                                      "or just tell me what you're looking for.")
+                await reply(db, user, f"I don't know *{wa.plain(command.arg)}*. Send */help* to see what I can do.")
         elif command.kind == cmd.Kind.files:
             await _send_files(db, user, command.arg)
         elif command.kind == cmd.Kind.ideas:
             await _ai_ideas(db, user, command.arg)
         elif command.kind == cmd.Kind.text and not inbound.has_media:
-            # Plain messages: a draft waiting for YES/NO comes first; otherwise it's a chat with the assistant.
-            waiting = await db.scalar(select(func.count()).select_from(OutboundEmail).where(
-                OutboundEmail.user_id == user.id, OutboundEmail.status == OutboundStatus.awaiting_confirmation))
-            if waiting:
-                await reply(db, user, "An email is waiting for you: reply *YES* to send it, *NO* to cancel, or "
-                                      "*/edit …* to change it.")
-            elif chatting or await assistant.available(db, user):
-                await _assistant_turn(db, user, command.raw)
-            else:
-                return "ignored"
+            return "ignored"  # (the wake gate already let only answers to the bot's questions through)
         else:
             prefs = await db.get(UserSettings, user.id)
             if prefs is not None and not prefs.compose_enabled:

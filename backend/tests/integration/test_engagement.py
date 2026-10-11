@@ -178,7 +178,9 @@ async def test_whatsapp_actions_on_alerts(client, ready, infra, monkeypatch):
     assert "Please pay the semester fee" in await last_reply()
 
     # Quote the alert and type a plain word.
-    assert await compose.handle_inbound(wa("remind 2h", quoted=alert_text)) == "remind"
+    # Quote the alert and type a command without its code; without "/" the bot stays quiet.
+    assert await compose.handle_inbound(wa("remind 2h", quoted=alert_text)) == "ignored"
+    assert await compose.handle_inbound(wa("/remind 2h", quoted=alert_text)) == "remind"
     assert (await last_reply()).startswith("⏰ *Reminder set*\n\n*Fee payment notice*  #32")
     [reminder] = await notes(NotificationKind.reminder)
     assert abs((reminder.next_attempt_at - datetime.now(UTC)) - timedelta(hours=2)) < timedelta(minutes=1)

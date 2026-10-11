@@ -290,8 +290,8 @@ INSTRUCTIONS = (
 
 HELP = (
     "🤖 *MailSentinel · what you can do*\n"
-    "_Every alert has a code like *#K7*. Use it in a command, or swipe right on the alert and type just the word "
-    "(open, reply, remind 2h…)._\n\n"
+    "_Start every message with */*. Every alert has a code like *#K7*: use it in a command, or swipe right on the "
+    "alert and type */open*, */remind 2h* or any question._\n\n"
     "📖 *Read*\n"
     "- */open K7* · the full email\n"
     "- */thread K7* · earlier messages of a reply\n"
@@ -324,11 +324,11 @@ HELP = (
 
 HELP_SHORT = (
     "🤖 *MailSentinel*\n"
-    "Just tell me what you need, e.g. _did Abhi email me about the API?_\n\n"
+    "Start a message with */* and talk normally, e.g. */did Abhi email me about the API?*\n\n"
     "- */find …* · find any email by describing it\n"
     "- */recent* · your latest important emails\n"
-    "- */open K7* · read an email · */files K7* · its attachments\n"
-    "- */reply K7* · AI reply ideas · */write …* · a new email\n"
-    "- */remind K7 2h* · */upcoming* · dates coming up\n\n"
-    "_K7 is the code on each alert. Everything else: /help all_"
+    "- */open 48* · read an email · */files 48* · its attachments\n"
+    "- */reply 48* · AI reply ideas · */write …* · a new email\n"
+    "- */remind 48 2h* · */upcoming* · dates coming up\n\n"
+    "_48 is the code on each alert. Swipe right on an alert and type /… to talk about it. More: /help all_"
 )

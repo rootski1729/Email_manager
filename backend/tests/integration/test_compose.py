@@ -153,7 +153,8 @@ async def test_validation_cancel_and_disabled(client, setup):
     assert (await outbound())[0].from_address == "me@example.com"
     await compose.handle_inbound(wa("NO"))
     assert (await outbound())[0].status == OutboundStatus.cancelled
-    assert await compose.handle_inbound(wa("yes")) == "confirm"
+    assert await compose.handle_inbound(wa("yes")) == "ignored"  # nothing waiting: plain "yes" is just chat
+    assert await compose.handle_inbound(wa("/yes")) == "confirm"
     assert "no email waiting" in (await replies())[-1]
 
     await client.put("/api/v1/me/settings", headers=headers, json={"compose_enabled": False})
