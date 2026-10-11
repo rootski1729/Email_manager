@@ -178,7 +178,7 @@ async def test_whatsapp_alert_summary_reply_pick_edit_and_send(client, setup, in
     assert "✅ *YES* · send it" in draft and "/edit" in draft
     # The list closes once a reply is picked: another number is plain chat, which nudges about the waiting draft.
     assert await compose.handle_inbound(wa("2")) == "text"
-    assert (await last_reply()).startswith("Reply *YES* to send")
+    assert (await last_reply()).startswith("An email is waiting for you: reply *YES* to send it")
 
     assert await compose.handle_inbound(wa("/edit make it shorter")) == "edit"
     assert "Sir, may I have an afternoon viva slot?" in await last_reply()
