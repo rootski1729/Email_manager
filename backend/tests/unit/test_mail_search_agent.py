@@ -119,3 +119,50 @@ def test_a_mailbox_filter_needs_the_person_to_mention_it() -> None:
     assert _asked_mailbox("rahul@fogteams.com", "find it in my fogteams mail") == "rahul@fogteams.com"
     assert _asked_mailbox("rahuljoshi9271@gmail.com", "check my gmail") == "rahuljoshi9271@gmail.com"
     assert _asked_mailbox("", "anything") is None
+
+
+def test_names_drop_the_person_themselves() -> None:
+    from app.services.mail_agent import _name
+
+    assert [_name(v) for v in ("Abhi and I", "me and Abhi", "Abhi with me", "Abhishek Rao", None)] == \
+        ["Abhi", "Abhi", "Abhi", "Abhishek Rao", ""]
+
+
+def test_invisible_preview_padding_is_removed() -> None:
+    from email.message import EmailMessage
+    from uuid import uuid4
+
+    from app.providers.mime import envelope_from_bytes
+
+    msg = EmailMessage()
+    msg["Subject"] = "Hi"
+    msg.set_content("Your order\u200c\u00a0\u034f\u200b is ready\ufeff")
+    text = envelope_from_bytes(bytes(msg), mailbox_id=uuid4(), message_id="1", full=True, snippet_chars=200).body_text
+    assert "\u200c" not in text and "\u034f" not in text and "\ufeff" not in text and "Your order" in text
+
+
+async def test_the_same_email_in_two_mailboxes_is_shown_once(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from app.services import mail_search
+    from app.services.mail_search import Hit
+
+    def hit(box: str, subject: str, date: str) -> Hit:
+        return Hit(mailbox_id=box, mailbox=f"{box}@x.io", ref=f"{box}-{subject}", from_name="A",
+                   from_address="A@acme.io", subject=subject, date=date, snippet="", has_attachments=False)
+
+    boxes = [SimpleNamespace(id="b1", address="b1@x.io"), SimpleNamespace(id="b2", address="b2@x.io")]
+    answers = {"b1": [hit("b1", "Offer", "2026-10-01T10:00:05+00:00"), hit("b1", "Older", "2026-09-01T10:00:00")],
+               "b2": [hit("b2", "offer ", "2026-10-01T10:00:09+00:00")]}
+
+    async def boxes_of(db, user_id):
+        return boxes
+
+    async def search_one(box, query, limit):
+        return answers[box.id]
+
+    monkeypatch.setattr(mail_search, "searchable_mailboxes", boxes_of)
+    monkeypatch.setattr(mail_search, "_search_one", search_one)
+    outcome = await mail_search.search_all(None, SimpleNamespace(id="u"), SearchQuery(words=("offer",)))
+    assert [h.subject.strip().lower() for h in outcome.hits] == ["offer", "older"]
+    assert outcome.searched == ["b1@x.io", "b2@x.io"]

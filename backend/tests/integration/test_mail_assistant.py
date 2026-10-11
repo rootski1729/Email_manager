@@ -36,6 +36,13 @@ def seed_mailbox(infra) -> None:
     promo.set_content("Be selected for interviews at top companies. Apply now.")
     with smtplib.SMTP(*infra["smtp"]) as smtp:
         smtp.send_message(promo)
+    group = EmailMessage()  # a mailing list (List-Id, no unsubscribe link) using the same words
+    group["From"], group["To"], group["Subject"] = "Placements <group@college.example>", "student@example.com", \
+        "Students selected for the next round"
+    group["List-Id"] = "<placements.college.example>"
+    group.set_content("The following students have been selected.")
+    with smtplib.SMTP(*infra["smtp"]) as smtp:
+        smtp.send_message(group)
     # One the student sent to Abhi (cc'd to themselves), so "with Abhi" must look at recipients too.
     sent = EmailMessage()
     sent["From"], sent["To"], sent["Cc"] = "Student <student@example.com>", "Abhi Kumar <abhi@acme.io>", \
@@ -222,3 +229,31 @@ async def test_alerts_are_remembered_and_a_quoted_alert_is_this_email(client, se
     conversation = brain.prompts[-1][1]["content"]
     assert f"Alert #{alerted.ref} · Exam Cell · Admit card released" in conversation, conversation
     assert alert.payload["ref"] == alerted.ref
+
+
+async def test_nothing_found_retries_loosely_and_only_fitting_results_are_shown(
+        client, setup, infra, model, monkeypatch):  # noqa: F811
+    await enable_ai(client)
+    seed_mailbox(infra)
+    seen: list[dict[str, Any]] = []
+
+    async def scripted(messages, tools, *, max_tokens=600):
+        last = messages[-1]
+        if last["role"] == "user":  # every word must match: "partner" and "contract" never appear together
+            return {"tool_calls": [{"id": "s1", "type": "function", "function": {"name": "search_mail",
+                    "arguments": json.dumps({"person": "Abhi and I", "words": ["partner", "contract"],
+                                             "exclude_newsletters": True})}}]}
+        data = json.loads(last["content"])
+        seen.append(data)
+        if "results" in data:  # none of these is what was asked for
+            return {"tool_calls": [{"id": "r1", "type": "function", "function": {
+                "name": "show_results", "arguments": json.dumps({"numbers": []})}}]}
+        return {"content": "Nothing here is about a contract with Abhi. Was it in another mailbox?"}
+
+    monkeypatch.setattr(agent_module, "complete_tools", scripted)
+    assert await compose.handle_inbound(wa("/the contract Abhi and I discussed")) == "unknown_command"
+    found = seen[0]
+    assert found["query"].startswith("with Abhi ·") and "note" in found  # "Abhi and I" → Abhi, retried loosely
+    assert {r["subject"] for r in found["results"]} >= {"API rate limits for the partner integration"}
+    answer = await last_reply()
+    assert answer.startswith("Nothing here is about a contract") and "*1.*" not in answer  # no pointless list

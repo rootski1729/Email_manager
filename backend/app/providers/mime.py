@@ -20,6 +20,8 @@ _LIST_ITEM = re.compile(r"<\s*li\b[^>]*>", re.I)
 _TAGS = re.compile(r"<[^>]+>")
 _SPACES = re.compile(r"[ \t\r\f\v]+")
 _BLANK_LINES = re.compile(r"\n\s*\n+")
+# Zero-width and other invisible characters marketing emails use as preview padding ("﻿ ͏ ﻿ ͏ …").
+_INVISIBLE = re.compile("[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180e\u200b-\u200f\u2060-\u2064\u3164\ufeff]")
 _ENTITY = re.compile(r"&(nbsp|amp|lt|gt|quot|#\d{2,5}|#x[0-9a-f]{2,4});", re.I)
 _SPACE_BEFORE_PUNCT = re.compile(r"(?<=\S) +([.,;:!?])(?=\s|$)")
 MAX_BODY_CHARS = 200_000
@@ -103,10 +105,10 @@ def _body_text(msg: EmailMessage) -> str:
     plain = _part_text(msg.get_body(preferencelist=("plain",)))  # type: ignore[arg-type]
     html = _part_text(msg.get_body(preferencelist=("html",)))  # type: ignore[arg-type]
     if not plain or (len(html) > 2 * len(plain) and (len(plain) < 200 or len(html) > 3 * len(plain))):
-        return (html or plain)[:MAX_BODY_CHARS]
+        return _INVISIBLE.sub("", html or plain)[:MAX_BODY_CHARS]
     if _ENTITY.search(plain):  # some senders put HTML entities in the plain part ("I&nbsp;position", "WHAT&#39;S")
         plain = unescape(plain).replace("\xa0", " ")
-    return plain[:MAX_BODY_CHARS]
+    return _INVISIBLE.sub("", plain)[:MAX_BODY_CHARS]
 
 
 MAX_CALENDAR_BYTES = 256 * 1024

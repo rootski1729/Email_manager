@@ -79,14 +79,19 @@ async def _search_one(mailbox: Mailbox, query: SearchQuery, limit: int) -> list[
     creds = vault().decrypt_json(mailbox.credentials)
     hits: list[Hit] = []
     async with get_provider(mailbox.provider).open(mailbox.id, mailbox.address, creds) as session:
-        for ref in await session.search(query, limit):
+        # Leave room for what's filtered out below (mailing lists when newsletters are excluded).
+        for ref in await session.search(query, limit * 2 if query.exclude_newsletters else limit):
             # Gmail's metadata includes a snippet; IMAP needs the message for one (capped by the provider).
             env = await session.load(ref, full=mailbox.provider.value == "imap")
             if env is None:
                 continue
             if query.has_attachment and mailbox.provider.value == "imap" and not env.attachments:
                 continue  # IMAP SEARCH can't filter on attachments
+            if query.exclude_newsletters and (env.header("list-unsubscribe") or env.header("list-id")):
+                continue  # mailing lists and marketing, even when Gmail files them in the Primary tab
             hits.append(_hit(mailbox, env))
+            if len(hits) >= limit:
+                break
     return hits
 
 
@@ -110,8 +115,13 @@ async def search_all(
             return f"{box.address} didn't answer"
 
     answers = await asyncio.gather(*(guarded(b) for b in boxes))
-    hits = [h for a in answers if isinstance(a, list) for h in a]
-    hits.sort(key=lambda h: h.date, reverse=True)
+    hits: list[Hit] = []
+    seen: set[tuple[str, str, str]] = set()
+    for hit in sorted((h for a in answers if isinstance(a, list) for h in a), key=lambda h: h.date, reverse=True):
+        key = (hit.from_address.lower(), hit.subject.strip().lower(), hit.date[:16])
+        if key not in seen:  # the same email delivered to two of the person's mailboxes
+            seen.add(key)
+            hits.append(hit)
     return SearchOutcome(hits=hits[:limit],
                          searched=[b.address for b, a in zip(boxes, answers, strict=True) if isinstance(a, list)],
                          problems=[a for a in answers if isinstance(a, str)])

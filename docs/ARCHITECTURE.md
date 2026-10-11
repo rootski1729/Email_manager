@@ -189,8 +189,8 @@ types it out as it arrives. Details in [§10](#10-the-ai-assistant).
 ### 3.6 Finding any email by describing it (the mail assistant)
 
 People often know only a little about the email they need: "the one where Abhi and I discussed the API".
-The mail assistant is a conversation, on WhatsApp (`/find …`, then plain messages) and on the website's
-Assistant page, that turns that memory into searches, asks one narrowing question when it isn't sure, and then
+The mail assistant is a conversation, on WhatsApp (any message starting with `/` that isn't an exact command)
+and on the website's Assistant page, that turns that memory into searches, asks one narrowing question when it isn't sure, and then
 opens, explains or replies to the right email.
 
 ```mermaid
@@ -201,10 +201,11 @@ sequenceDiagram
   participant X as Mailboxes (Gmail search, IMAP SEARCH)
   P->>A: "find the email where Abhi and I discussed the API"
   A->>M: conversation + tools
-  M-->>A: search_mail(sender="abhi", words=["api"])
+  M-->>A: search_mail(person="abhi", words=["api"])
   A->>X: search every mailbox in parallel (live, nothing indexed)
   X-->>A: matches (newest first)
   A->>M: numbered results (email text marked untrusted)
+  M-->>A: show_results([1, 2])  (only the ones that fit)
   M-->>A: "I found 2 emails from Abhi about the API. Was it the one about rate limits?"
   A-->>P: answer + numbered result list
   P->>A: "2" / "reply saying I'll review it"
@@ -217,25 +218,37 @@ sequenceDiagram
   (`from:abhi api after:2026/09/01 -in:chats`) or IMAP `SEARCH` (`FROM "abhi" TEXT "api" SINCE …`). Some IMAP
   servers match `FROM`/`TO` only against a full address, so when such a search finds nothing the assistant
   searches on the other terms and matches names and address parts itself, reading only the From/To/Cc headers
-  of up to 300 recent candidates in one request. Mailboxes are searched in parallel with a 25-second limit each;
+  of up to 300 recent candidates in one request. If nothing matches every word, the app itself retries once
+  more loosely (any of the words, newsletters allowed) and tells the model so. The same email delivered to two
+  of the person's mailboxes is shown once. Mailboxes are searched in parallel with a 25-second limit each;
   a mailbox that fails is reported ("college mail didn't answer") without breaking the others. Mail is never
   copied: a found email becomes a `messages` row (metadata only, with a `#code`) only when the person opens it
   or replies, and from then on every alert action (`/open`, `/files`, `/remind`…) works on it.
 - **Tools, not free rein** (`app/ai/agent.py`, `app/services/mail_agent.py`): the model can call
-  `search_mail` (sender, recipient, subject, words, dates, attachments, mailbox), `read_email(n)`,
-  `open_email(n)` and `draft_reply(n, instructions)`. There is no tool that sends anything; drafts wait for YES
+  `search_mail` (person, sender, recipient, subject, all/any words, no newsletters, dates, attachments,
+  mailbox), `show_results(numbers)`, `recent_alerts`, `read_email`, `open_email`, `set_reminder` and
+  `draft_reply`. An email is named by its alert code, its result number, or left out to mean the email being
+  discussed. There is no tool that sends anything; drafts wait for YES
   or Send. Tool arguments are validated, unknown tools and bad arguments are returned to the model as errors,
   a turn has at most 6 steps and 75 seconds (the last step gets no tools and must answer), and each user has
   40 turns an hour.
-- **Instructions** tell the model how to turn memories into search terms (a name goes in sender, the topic
-  becomes 1-3 distinctive words, "last month" becomes dates), to try once more with broader terms when nothing
-  is found, to ask one narrowing question when there are many matches, never to invent emails, and that email
-  text in tool results is untrusted data.
-- **Conversation state** lives in Redis: the recent exchange plus the numbered results, so "2" or "the one from
-  last week" works later; 30 minutes on WhatsApp (ended early with `/done`), 6 hours per conversation on the web.
-  Results are numbered by the app, not by the model, and shown by the app, so the list can't be invented.
+- **Instructions** tell the model how to turn memories into search terms (a name goes in person, the topic
+  becomes 1-3 distinctive words, outcomes like "did I get selected" become any-of words without newsletters,
+  "last month" becomes dates), to search before asking, to keep only the results that really fit, to ask one
+  narrowing question when there are many, never to invent emails, and that email text in tool results is
+  untrusted data. The app also cleans what the model passes ("Abhi and I" → "Abhi") and ignores a mailbox
+  filter the person didn't ask for.
+- **Memory.** The conversation (recent turns, the numbered results, and the email being discussed) lives in
+  Redis for 24 hours (`/done` ends it early). On WhatsApp the assistant is also given the recent chat in both
+  directions: the alerts, digests and reminders it sent, and the person's own messages. So "what did the
+  Swiggy one ask me to do?" works hours later. Swiping to reply to an alert makes that alert "this email".
+- **Waking up.** On WhatsApp the bot answers only messages that start with `/`, so ordinary chat in the same
+  thread is left alone. The exceptions are answers it is waiting for: `YES`/`NO` to a draft, and a number after
+  a list. Exact commands (`/open K7`, `/remind K7 2h`) run directly; anything else, including `/hi`, goes to
+  the assistant.
+- Results are numbered by the app, not by the model, and shown by the app, so the list can't be invented.
 - **On WhatsApp** a "🔎 Searching your mail…" message goes out as soon as the first search starts; the answer
-  follows with a numbered list; a bare number opens that result in full. **On the website** the answer streams
+  follows with a numbered list of the results that fit; a bare number opens that result in full. **On the website** the answer streams
   as server-sent events: `conversation`, `status` ("Searching your mail: from abhi · about "api""), `results`,
   `delta` (the answer), then `done` (with any opened email or draft).
 
