@@ -1,6 +1,8 @@
 """The mail assistant end to end: a real IMAP mailbox, a scripted model choosing tools, WhatsApp and the website."""
 
 import json
+import smtplib
+from email.message import EmailMessage
 from typing import Any
 from uuid import UUID
 
@@ -24,6 +26,14 @@ def seed_mailbox(infra) -> None:
     mail(infra, "student@example.com", "Lunch on Friday?", "Want to grab lunch?", sender="Abhi Kumar <abhi@acme.io>")
     mail(infra, "student@example.com", "API review notes", "My notes on the API review.",
          sender="Riya <riya@acme.io>")
+    # One the student sent to Abhi (cc'd to themselves), so "with Abhi" must look at recipients too.
+    sent = EmailMessage()
+    sent["From"], sent["To"], sent["Cc"] = "Student <student@example.com>", "Abhi Kumar <abhi@acme.io>", \
+        "student@example.com"
+    sent["Subject"] = "Re: API rate limits"
+    sent.set_content("Agreed on 100 per minute.")
+    with smtplib.SMTP(*infra["smtp"]) as smtp:
+        smtp.sendmail("student@example.com", ["student@example.com"], bytes(sent))
 
 
 async def test_search_all_uses_the_mailboxs_own_search(client, ready, infra):  # noqa: F811
@@ -38,6 +48,9 @@ async def test_search_all_uses_the_mailboxs_own_search(client, ready, infra):  #
         everything_from_abhi = await mail_search.search_all(db, user, SearchQuery(sender="abhi"))
         assert {h.subject for h in everything_from_abhi.hits} == {"API rate limits for the partner integration",
                                                                   "Lunch on Friday?"}
+        with_abhi = await mail_search.search_all(db, user, SearchQuery(person="abhi", words=("api",)))
+        assert {h.subject for h in with_abhi.hits} == {"API rate limits for the partner integration",
+                                                       "Re: API rate limits"}
 
 
 class Brain:
@@ -103,9 +116,21 @@ async def test_whatsapp_find_open_reply_and_send(client, setup, infra, model, qu
         email = await db.scalar(select(OutboundEmail))
     assert email.status == OutboundStatus.sent and email.reply_to_message_id == kept.id
 
-    # /done ends it: ordinary chat is ignored again.
+    # /done ends it; a plain message later simply starts a new conversation.
     await compose.handle_inbound(wa("/done"))
-    assert await compose.handle_inbound(wa("just a note to self")) == "ignored"
+    assert await compose.handle_inbound(wa("did abhi email me about the api?")) == "text"
+    assert "email from Abhi about the API" in await last_reply()
+
+    # Something that looks like a command but isn't one is a question, not the help page.
+    assert await compose.handle_inbound(wa("/did I get any email from abhi about the api")) == "unknown_command"
+    assert "email from Abhi about the API" in await last_reply()
+    await compose.handle_inbound(wa("/xyz"))
+    assert (await last_reply()).startswith("I don't know */xyz*")
+    await compose.handle_inbound(wa("/help"))
+    short = await last_reply()
+    assert short.startswith("🤖 *MailSentinel*") and len(short.splitlines()) < 14 and "/help all" in short
+    await compose.handle_inbound(wa("/help all"))
+    assert "/thread K7" in await last_reply()
 
 
 async def test_website_chat_streams_and_opens_results(client, setup, infra, model, brain):  # noqa: F811

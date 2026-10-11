@@ -126,7 +126,7 @@ def parse_command(text: str | None, *, quoted: str | None = None) -> Command:
         case "/templates" | "/template":
             return Command(Kind.templates, raw=raw)
         case "/help" | "/start" | "/commands":
-            return Command(Kind.help, raw=raw)
+            return Command(Kind.help, arg=rest.strip().lower(), raw=raw)
         case "/open" | "/full" | "/read" | "/show":
             return Command(Kind.open, arg=rest.strip(), raw=raw)
         case "/thread" | "/history" | "/earlier":
@@ -320,4 +320,15 @@ HELP = (
     "💬 *Ask*\n"
     "- */ask when is my exam?* · the assistant searches and answers\n"
     "- */ask K7 what documents do I need?* · about one email"
+)
+
+HELP_SHORT = (
+    "🤖 *MailSentinel*\n"
+    "Just tell me what you need, e.g. _did Abhi email me about the API?_\n\n"
+    "- */find …* · find any email by describing it\n"
+    "- */recent* · your latest important emails\n"
+    "- */open K7* · read an email · */files K7* · its attachments\n"
+    "- */reply K7* · AI reply ideas · */write …* · a new email\n"
+    "- */remind K7 2h* · */upcoming* · dates coming up\n\n"
+    "_K7 is the code on each alert. Everything else: /help all_"
 )

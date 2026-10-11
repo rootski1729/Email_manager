@@ -129,19 +129,19 @@ class ImapSession:
         """Newest first, in the inbox (IMAP SEARCH: every term must match)."""
         criteria, utf8 = imap_criteria(query)
         uids = await self._search(criteria, utf8=utf8)
-        if not uids and (query.sender or query.recipient):
+        if not uids and (query.sender or query.recipient or query.person):
             # Some servers match FROM/TO only against a full address ("abhi" finds nothing for
             # "Abhi Kumar <abhi@acme.io>"), so search on the other terms and match people here instead.
-            loose = replace(query, sender="", recipient="")
+            loose = replace(query, sender="", recipient="", person="")
             if loose.is_empty:
                 loose = replace(loose, after=datetime.now(UTC).date() - timedelta(days=365))
             criteria, utf8 = imap_criteria(loose)
             candidates = sorted(await self._search(criteria, utf8=utf8), reverse=True)[:MAX_PEOPLE_SCAN]
-            uids = await self._match_people(candidates, query.sender, query.recipient)
+            uids = await self._match_people(candidates, query.sender, query.recipient, query.person)
         return [str(u) for u in sorted(uids, reverse=True)[:limit]]
 
-    async def _match_people(self, uids: list[int], sender: str, recipient: str) -> list[int]:
-        """Of `uids`, those whose From (and To/Cc) name or address contains the given text; one FETCH."""
+    async def _match_people(self, uids: list[int], sender: str, recipient: str, person: str = "") -> list[int]:
+        """Of `uids`, those whose From / To+Cc / any of them contain the given name or address; one FETCH."""
         if not uids:
             return []
         resp = await self._client.uid("fetch", ",".join(map(str, uids)), "(UID BODY.PEEK[HEADER.FIELDS (FROM TO CC)])")
@@ -154,8 +154,10 @@ class ImapSession:
                 current = int(m.group(1))
             elif isinstance(line, bytes | bytearray) and current is not None and len(line) > 2:
                 headers = HeaderParser().parsestr(bytes(line).decode("utf-8", errors="replace"))
-                if _mentions(headers.get_all("from", []), sender) and \
-                        _mentions([*headers.get_all("to", []), *headers.get_all("cc", [])], recipient):
+                senders = headers.get_all("from", [])
+                recipients = [*headers.get_all("to", []), *headers.get_all("cc", [])]
+                if _mentions(senders, sender) and _mentions(recipients, recipient) and \
+                        _mentions([*senders, *recipients], person):
                     matched.append(current)
                 current = None
         return matched

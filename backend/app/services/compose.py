@@ -720,19 +720,31 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
         elif command.kind == cmd.Kind.done:
             await mail_agent.end(user.id)
             await reply(db, user, "👍 Done. Start again any time with */find …*")
-        elif command.kind == cmd.Kind.text and not inbound.has_media and chatting:
-            await _assistant_turn(db, user, command.raw)  # the conversation continues
+        elif command.kind == cmd.Kind.help:
+            await reply(db, user, cmd.HELP if command.arg == "all" else cmd.HELP_SHORT)
+        elif command.kind == cmd.Kind.unknown_command and not inbound.has_media:
+            # "/did I get any email from Abhi" isn't a command: it's a question for the assistant.
+            question = command.raw.lstrip("/").strip()
+            if len(question.split()) > 1 and await assistant.available(db, user):
+                await _assistant_turn(db, user, question)
+            else:
+                await reply(db, user, f"I don't know *{wa.plain(command.arg)}*. Send */help* to see what I can do, "
+                                      "or just tell me what you're looking for.")
         elif command.kind == cmd.Kind.files:
             await _send_files(db, user, command.arg)
         elif command.kind == cmd.Kind.ideas:
             await _ai_ideas(db, user, command.arg)
         elif command.kind == cmd.Kind.text and not inbound.has_media:
-            # Ordinary chat (or notes to self): only nudge if a draft is waiting.
+            # Plain messages: a draft waiting for YES/NO comes first; otherwise it's a chat with the assistant.
             waiting = await db.scalar(select(func.count()).select_from(OutboundEmail).where(
                 OutboundEmail.user_id == user.id, OutboundEmail.status == OutboundStatus.awaiting_confirmation))
-            if not waiting:
+            if waiting:
+                await reply(db, user, "An email is waiting for you: reply *YES* to send it, *NO* to cancel, or "
+                                      "*/edit …* to change it.")
+            elif chatting or await assistant.available(db, user):
+                await _assistant_turn(db, user, command.raw)
+            else:
                 return "ignored"
-            await reply(db, user, "Reply *YES* to send the email waiting for confirmation, or *NO* to cancel.")
         else:
             prefs = await db.get(UserSettings, user.id)
             if prefs is not None and not prefs.compose_enabled:
@@ -762,8 +774,8 @@ async def handle_inbound(payload: dict[str, Any]) -> str:
                             to_send.append(confirmed)
                     case cmd.Kind.cancel:
                         await _on_cancel(db, user)
-                    case cmd.Kind.help | cmd.Kind.unknown_command:
-                        await reply(db, user, cmd.HELP)
+                    case cmd.Kind.unknown_command:  # with an attachment: the caption wasn't a command
+                        await reply(db, user, cmd.HELP_SHORT)
                     case cmd.Kind.text:
                         pass  # a caption on an attachment
         user_id = user.id

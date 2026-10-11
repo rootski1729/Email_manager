@@ -19,6 +19,12 @@ def test_gmail_query_uses_operators_and_quotes_phrases() -> None:
                               "has:attachment -in:chats")
 
 
+def test_person_means_from_or_to_or_cc() -> None:
+    assert gmail_query(SearchQuery(person="abhi", words=("api",))) == "{from:abhi to:abhi cc:abhi} api -in:chats"
+    assert imap_criteria(SearchQuery(person="abhi"))[0] == 'OR FROM "abhi" OR TO "abhi" CC "abhi"'
+    assert SearchQuery(person="Abhi").describe() == "with Abhi"
+
+
 def test_imap_criteria_are_escaped_and_dated() -> None:
     criteria, utf8 = imap_criteria(SearchQuery(sender='Abhi "K"', words=("api",), after=date(2026, 9, 1)))
     assert criteria == 'FROM "Abhi K" TEXT "api" SINCE 01-Sep-2026' and utf8 is False

@@ -17,6 +17,7 @@ MAX_TERM_CHARS = 80
 class SearchQuery:
     sender: str = ""  # a name or address fragment: "abhi", "abhi@acme.com", "acme.com"
     recipient: str = ""
+    person: str = ""  # someone the email was from, to or cc'd ("the email where Abhi and I discussed…")
     subject: str = ""  # words that should be in the subject
     words: tuple[str, ...] = field(default_factory=tuple)  # words or phrases anywhere in the email
     after: date | None = None  # on or after
@@ -25,8 +26,8 @@ class SearchQuery:
 
     @property
     def is_empty(self) -> bool:
-        return not (self.sender or self.recipient or self.subject or self.words or self.after or self.before
-                    or self.has_attachment)
+        return not (self.sender or self.recipient or self.person or self.subject or self.words or self.after
+                    or self.before or self.has_attachment)
 
     def describe(self) -> str:
         """Plain words for status lines: 'from abhi · about "api" · after 1 Sep'."""
@@ -35,6 +36,8 @@ class SearchQuery:
             parts.append(f"from {self.sender}")
         if self.recipient:
             parts.append(f"to {self.recipient}")
+        if self.person:
+            parts.append(f"with {self.person}")
         if self.subject:
             parts.append(f'subject "{self.subject}"')
         if self.words:
@@ -57,8 +60,8 @@ def clean_term(value: str) -> str:
 def normalise(query: SearchQuery) -> SearchQuery:
     words = tuple(dict.fromkeys(w for w in (clean_term(w) for w in query.words) if w))[:MAX_TERMS]
     return SearchQuery(sender=clean_term(query.sender), recipient=clean_term(query.recipient),
-                       subject=clean_term(query.subject), words=words, after=query.after, before=query.before,
-                       has_attachment=query.has_attachment)
+                       person=clean_term(query.person), subject=clean_term(query.subject), words=words,
+                       after=query.after, before=query.before, has_attachment=query.has_attachment)
 
 
 def _gmail_term(value: str) -> str:
@@ -73,6 +76,9 @@ def gmail_query(query: SearchQuery) -> str:
         parts.append(f"from:{_gmail_term(q.sender)}")
     if q.recipient:
         parts.append(f"to:{_gmail_term(q.recipient)}")
+    if q.person:
+        term = _gmail_term(q.person)
+        parts.append(f"{{from:{term} to:{term} cc:{term}}}")  # braces: any of these
     if q.subject:
         parts.append(f"subject:({q.subject})")
     parts += [_gmail_term(w) for w in q.words]
@@ -105,6 +111,9 @@ def imap_criteria(query: SearchQuery) -> tuple[str, bool]:
         parts.append(f"FROM {_imap_string(q.sender)}")
     if q.recipient:
         parts.append(f"TO {_imap_string(q.recipient)}")
+    if q.person:
+        who = _imap_string(q.person)
+        parts.append(f"OR FROM {who} OR TO {who} CC {who}")
     if q.subject:
         parts.append(f"SUBJECT {_imap_string(q.subject)}")
     parts += [f"TEXT {_imap_string(w)}" for w in q.words]
